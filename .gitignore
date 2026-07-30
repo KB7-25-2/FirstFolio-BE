@@ -31,7 +31,7 @@ bin/
 # VS Code
 .vscode/
 
-# Local environment and secrets
+# Local environment and secrets (.env.local 포함)
 .env
 .env.*
 !.env.example

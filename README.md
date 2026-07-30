@@ -22,7 +22,13 @@
 
 ### 데이터베이스
 
-기본 로컬 설정은 다음과 같습니다.
+공유 가능한 환경 변수 양식을 복사해 로컬 전용 파일을 만듭니다.
+
+```shell
+cp .env.example .env.local
+```
+
+`.env.local`에 현재 개발 환경의 접속 정보를 작성합니다.
 
 ```text
 DB_DRIVER=net.sf.log4jdbc.sql.jdbcapi.DriverSpy
@@ -31,21 +37,35 @@ DB_USERNAME=firstfolio
 DB_PASSWORD=
 ```
 
-환경에 맞게 애플리케이션 실행 전에 값을 설정합니다. 비밀번호는 저장소에 커밋하지 않습니다.
+Railway MySQL에 외부 접속할 때는 `localhost:3306`을 Railway TCP Proxy의 실제 도메인과 포트로 변경합니다.
+
+Spring Legacy와 외부 Tomcat은 `.env.local`을 자동으로 읽지 않으므로 실행 전에 파일 내용을 환경변수로 불러옵니다.
 
 macOS/Linux 예시:
 
 ```shell
-export DB_USERNAME=firstfolio
-export DB_PASSWORD=local-password
+set -a
+source .env.local
+set +a
 ```
 
-Windows PowerShell 예시:
+같은 터미널에서 Tomcat을 실행해야 환경변수가 전달됩니다.
 
-```powershell
-$env:DB_USERNAME = "firstfolio"
-$env:DB_PASSWORD = "local-password"
+IntelliJ에서 실행할 때는 EnvFile 플러그인을 설치한 뒤 `Run/Debug Configurations`의 `EnvFile` 항목에서 `.env.local`을 선택합니다.
+
+실제 운영 환경에서는 `.env.local`을 서버에 배포하지 않습니다. Railway, AWS EC2 또는 Tomcat 실행 환경에 `DB_DRIVER`, `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`를 환경변수로 등록합니다.
+
+`.env.local`과 비밀번호는 저장소에 커밋하지 않고, 변수 이름과 안전한 기본값만 `.env.example`로 공유합니다.
+
+### JDBC 연결 테스트
+
+JDBC 연결 테스트는 `.env.local` 또는 실행 환경변수의 `DB_DRIVER`, `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`를 사용해 실제 애플리케이션의 HikariCP `DataSource`로 MySQL에 연결하고 `SELECT 1`을 실행합니다.
+
+```shell
+./gradlew jdbcTest
 ```
+
+외부 데이터베이스 상태에 따라 일반 단위 테스트가 실패하지 않도록 `./gradlew test`에서는 JDBC 연결 테스트를 제외합니다.
 
 ### 빌드와 테스트
 
