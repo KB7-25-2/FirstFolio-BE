@@ -65,7 +65,23 @@ dependencies {
 }
 
 test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'jdbc'
+    }
+}
+
+tasks.register('jdbcTest', Test) {
+    description = 'Runs the JDBC connection integration test.'
+    group = 'verification'
+
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+
+    useJUnitPlatform {
+        includeTags 'jdbc'
+    }
+
+    shouldRunAfter test
 }
 
 tasks.named('war') {
