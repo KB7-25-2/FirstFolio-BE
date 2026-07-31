@@ -7,6 +7,7 @@
 - Java 17
 - Spring Framework 기반 Legacy 애플리케이션
 - Spring MVC
+- Firebase Authentication, Firebase Admin SDK
 - MyBatis
 - MySQL, HikariCP
 - Gradle WAR
@@ -56,6 +57,30 @@ IntelliJ에서 실행할 때는 EnvFile 플러그인을 설치한 뒤 `Run/Debug
 실제 운영 환경에서는 `.env.local`을 서버에 배포하지 않습니다. Railway, AWS EC2 또는 Tomcat 실행 환경에 `DB_DRIVER`, `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`를 환경변수로 등록합니다.
 
 `.env.local`과 비밀번호는 저장소에 커밋하지 않고, 변수 이름과 안전한 기본값만 `.env.example`로 공유합니다.
+
+### Firebase Authentication
+
+Firebase Console에서 프로젝트와 Web App을 생성하고 Authentication의 로그인 제공자를 활성화합니다. 백엔드는 Firebase Admin SDK로 클라이언트가 전달한 ID Token을 검증합니다.
+
+Firebase Console의 `프로젝트 설정 > 서비스 계정`에서 로컬 개발용 서비스 계정 키를 발급하고 저장소 외부에 보관합니다. 서비스 계정 JSON 파일이나 Private Key는 Git에 커밋하지 않습니다.
+
+`.env.local`에 Firebase 프로젝트 ID와 서비스 계정 JSON의 절대 경로를 작성합니다.
+
+```text
+FIREBASE_PROJECT_ID=firstfolio-local
+GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/firebase-service-account.json
+```
+
+`GOOGLE_APPLICATION_CREDENTIALS`는 Google Application Default Credentials가 직접 읽습니다. `FIREBASE_PROJECT_ID`는 `application.properties`의 `firebase.project-id`로 연결됩니다.
+
+데이터베이스 환경변수와 동일하게 Tomcat을 실행하기 전에 `.env.local`을 현재 터미널에 불러오거나 IntelliJ EnvFile 설정으로 전달합니다. Firebase Bean은 실제 인증 기능에서 처음 사용할 때 초기화되므로 일반 단위 테스트에는 서비스 계정 파일이 필요하지 않습니다.
+
+운영 환경에서는 서비스 계정 JSON을 Docker 이미지에 포함하지 않습니다. GitHub Actions의 production Environment Secret으로 관리하고 배포 단계에서 EC2의 제한된 경로에 파일을 생성한 뒤, 컨테이너의 `/run/secrets/firebase-admin.json`에 읽기 전용으로 마운트합니다.
+
+```text
+FIREBASE_PROJECT_ID=firstfolio-production
+GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/firebase-admin.json
+```
 
 ### JDBC 연결 테스트
 
