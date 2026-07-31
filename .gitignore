@@ -35,6 +35,8 @@ bin/
 .env
 .env.*
 !.env.example
+.config
+.config.*
 application-local.properties
 
 # Runtime files
