@@ -1,5 +1,6 @@
 package org.firstfolio.config;
 
+import org.firstfolio.common.web.RequestIdFilter;
 import org.springframework.web.filter.CharacterEncodingFilter;
 import org.springframework.web.servlet.support.AbstractAnnotationConfigDispatcherServletInitializer;
 
@@ -29,6 +30,6 @@ public class WebConfig extends AbstractAnnotationConfigDispatcherServletInitiali
         characterEncodingFilter.setEncoding("UTF-8");
         characterEncodingFilter.setForceEncoding(true);
 
-        return new Filter[]{characterEncodingFilter};
+        return new Filter[]{characterEncodingFilter, new RequestIdFilter()};
     }
 }
