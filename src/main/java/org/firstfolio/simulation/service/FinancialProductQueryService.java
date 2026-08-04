@@ -4,9 +4,13 @@ import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.simulation.domain.AssetType;
 import org.firstfolio.simulation.domain.FinancialProduct;
+import org.firstfolio.simulation.domain.ProductPrice;
+import org.firstfolio.simulation.domain.SourceProviderLabel;
+import org.firstfolio.simulation.dto.response.ProductDetailResponse;
 import org.firstfolio.simulation.dto.response.ProductPageResponse;
 import org.firstfolio.simulation.dto.response.ProductSummaryResponse;
 import org.firstfolio.simulation.mapper.FinancialProductMapper;
+import org.firstfolio.simulation.mapper.ProductPriceMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,14 +31,62 @@ public class FinancialProductQueryService {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final FinancialProductMapper financialProductMapper;
+    private final ProductPriceMapper productPriceMapper;
     private final TermsJsonCodec termsJsonCodec;
 
     public FinancialProductQueryService(
             FinancialProductMapper financialProductMapper,
+            ProductPriceMapper productPriceMapper,
             TermsJsonCodec termsJsonCodec
     ) {
         this.financialProductMapper = financialProductMapper;
+        this.productPriceMapper = productPriceMapper;
         this.termsJsonCodec = termsJsonCodec;
+    }
+
+    /**
+     * 공개 상품의 상세를 조회한다 (FUNC-032).
+     *
+     * <p>비공개 상품은 존재하더라도 찾을 수 없는 것으로 처리한다. "있지만 볼 수 없다"와
+     * "없다"를 구분해 주면 검수 대기 중인 상품의 존재가 드러난다.</p>
+     */
+    @Transactional(readOnly = true)
+    public ProductDetailResponse findById(Long productId) {
+        FinancialProduct product = financialProductMapper.findActiveById(productId);
+
+        if (product == null) {
+            throw new ApiException(ErrorCode.PRODUCT_NOT_FOUND);
+        }
+
+        ProductDetailResponse response = new ProductDetailResponse();
+
+        response.setProductId(product.getProductId());
+        response.setDisplayName(product.getDisplayName());
+        response.setAssetType(product.getAssetType().name());
+        response.setDescription(product.getDescription());
+        response.setRiskLevel(product.getRiskLevel());
+
+        // 압축 대상만 기간을 병기한다. 주식·ETF는 만기가 없어 생략한다.
+        if (product.getAssetType().isTimeCompressed()) {
+            response.setSimulationTerms(termsJsonCodec.read(product.getSimulationTermsJson()));
+            response.setRealTerms(termsJsonCodec.read(product.getRealTermsJson()));
+        }
+
+        // 저장된 기준 가격이 있을 때만 채운다. 없으면 임의 값을 만들지 않고 생략한다.
+        ProductPrice latestPrice = productPriceMapper.findLatestByProductId(productId);
+
+        if (latestPrice != null) {
+            response.setCurrentPrice(latestPrice.getPrice());
+            response.setPriceReferenceAt(latestPrice.getReferenceAt());
+        }
+
+        // 내부 제공처 식별자 대신 사용자에게 공개 가능한 표시명을 준다.
+        response.setSource(new ProductDetailResponse.Source(
+                SourceProviderLabel.of(product.getSourceProvider()),
+                product.getSourceReferenceAt()
+        ));
+
+        return response;
     }
 
     @Transactional(readOnly = true)

@@ -1,9 +1,11 @@
 package org.firstfolio.simulation.controller;
 
 import org.firstfolio.common.response.ApiResponse;
+import org.firstfolio.simulation.dto.response.ProductDetailResponse;
 import org.firstfolio.simulation.dto.response.ProductPageResponse;
 import org.firstfolio.simulation.service.FinancialProductQueryService;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,5 +33,12 @@ public class FinancialProductController {
             @RequestParam(value = "size", required = false) Integer size
     ) {
         return ApiResponse.of(queryService.findPage(assetType, cursor, size));
+    }
+
+    @GetMapping("/{product_id}")
+    public ApiResponse<ProductDetailResponse> findById(
+            @PathVariable("product_id") Long productId
+    ) {
+        return ApiResponse.of(queryService.findById(productId));
     }
 }

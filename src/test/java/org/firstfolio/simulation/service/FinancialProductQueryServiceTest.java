@@ -34,7 +34,11 @@ class FinancialProductQueryServiceTest {
     @BeforeEach
     void setUp() {
         mapper = mock(FinancialProductMapper.class);
-        service = new FinancialProductQueryService(mapper, new TermsJsonCodec());
+        service = new FinancialProductQueryService(
+                mapper,
+                mock(org.firstfolio.simulation.mapper.ProductPriceMapper.class),
+                new TermsJsonCodec()
+        );
     }
 
     private static FinancialProduct product(long id, AssetType type, String displayName) {
