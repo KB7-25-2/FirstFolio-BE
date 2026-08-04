@@ -7,6 +7,7 @@ import org.firstfolio.common.web.RequestIdFilter;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -45,6 +46,7 @@ public class CommonExceptionAdvice {
             HttpMessageNotReadableException.class,
             MissingServletRequestParameterException.class,
             MethodArgumentTypeMismatchException.class,
+            MethodArgumentNotValidException.class,
             IllegalArgumentException.class
     })
     public ResponseEntity<ErrorResponse> handleInvalidRequest(
