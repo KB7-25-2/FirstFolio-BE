@@ -62,13 +62,18 @@ public class ServletConfig implements WebMvcConfigurer {
     /**
      * 권한 검증은 컨트롤러마다 반복하지 않고 경로 단위로 건다.
      * 새 관리자·내부 엔드포인트가 늘어도 검증을 빠뜨릴 수 없게 하기 위함이다.
+     *
+     * <p>모든 API는 {@code /api} 접두사를 쓴다 (FE의 {@code VITE_API_BASE_URL=/api},
+     * 프록시가 접두사를 떼지 않음). {@code API_DOCS.md}는 이 접두사를 생략해 표기하고 있다.
+     * 접두사 없는 패턴도 함께 걸어 두는데, 권한 검증은 과하게 걸리는 것보다
+     * 빠지는 쪽이 훨씬 위험하기 때문이다.</p>
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new AdminAuthorizationInterceptor())
-                .addPathPatterns("/admin/**");
+                .addPathPatterns("/api/admin/**", "/admin/**");
 
         registry.addInterceptor(new InternalCallInterceptor(internalCallToken))
-                .addPathPatterns("/internal/**");
+                .addPathPatterns("/api/internal/**", "/internal/**");
     }
 }
