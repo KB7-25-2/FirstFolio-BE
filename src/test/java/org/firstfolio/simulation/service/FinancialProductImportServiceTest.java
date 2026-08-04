@@ -1,215 +1,114 @@
 package org.firstfolio.simulation.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.firstfolio.common.json.ApiObjectMapperFactory;
 import org.firstfolio.exception.ApiException;
-import org.firstfolio.simulation.client.finlife.FinlifeClient;
-import org.firstfolio.simulation.client.finlife.FinlifeProduct;
-import org.firstfolio.simulation.client.finlife.FinlifeProductType;
-import org.firstfolio.simulation.domain.AssetType;
+import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.simulation.domain.FinancialProduct;
-import org.junit.jupiter.api.BeforeEach;
+import org.firstfolio.simulation.service.collector.ProductCollector;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * 이 서비스는 수집기를 고르고 저장을 위임하는 역할만 한다.
+ * 자산군별 변환 규칙은 각 {@link ProductCollector} 테스트에서 검증한다.
+ */
 class FinancialProductImportServiceTest {
 
     private static final LocalDateTime REFERENCE_AT = LocalDateTime.of(2026, 8, 4, 0, 0);
 
-    private final ObjectMapper objectMapper = ApiObjectMapperFactory.create();
+    /** 어떤 제공처를 담당하는지, 호출됐는지만 기록하는 수집기. */
+    private static final class RecordingCollector implements ProductCollector {
 
-    private FinlifeClient finlifeClient;
-    private FinancialProductWriter writer;
-    private FinancialProductImportService service;
+        private final String provider;
+        private final List<FinancialProduct> result;
+        private boolean called;
 
-    @BeforeEach
-    void setUp() {
-        finlifeClient = mock(FinlifeClient.class);
-        writer = mock(FinancialProductWriter.class);
-        service = new FinancialProductImportService(
-                finlifeClient,
-                new TimeCompressionPolicy(24),
-                writer
-        );
+        RecordingCollector(String provider, int productCount) {
+            this.provider = provider;
+            this.result = new ArrayList<>();
 
-        when(finlifeClient.fetchAll(FinlifeProductType.SAVING)).thenReturn(List.of());
-    }
+            for (int i = 0; i < productCount; i++) {
+                this.result.add(new FinancialProduct());
+            }
+        }
 
-    private static FinlifeProduct deposit(int months, String rate) {
-        return new FinlifeProduct(
-                FinlifeProductType.DEPOSIT,
-                "0010927",
-                "010300100335",
-                months,
-                "국민은행",
-                "KB Star 정기예금",
-                new BigDecimal(rate),
-                "단리",
-                null,
-                "202607"
-        );
-    }
+        @Override
+        public String sourceProvider() {
+            return provider;
+        }
 
-    private List<FinancialProduct> capturePersisted() {
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<FinancialProduct>> captor = ArgumentCaptor.forClass(List.class);
-
-        verify(writer).registerNew(captor.capture(), eq(REFERENCE_AT), any());
-
-        return captor.getValue();
+        @Override
+        public List<FinancialProduct> collect(LocalDateTime referenceAt, LocalDateTime now) {
+            called = true;
+            return result;
+        }
     }
 
     @Test
-    @DisplayName("수집한 상품을 비공개 상태로 등록한다 — 관리자 검토 전에는 공개하지 않는다")
-    void registersProductsAsInactive() {
-        when(finlifeClient.fetchAll(FinlifeProductType.DEPOSIT))
-                .thenReturn(List.of(deposit(6, "2.35")));
+    @DisplayName("source_provider에 맞는 수집기만 호출한다")
+    void dispatchesToMatchingCollector() {
+        RecordingCollector deposit = new RecordingCollector("FSS_FINLIFE", 2);
+        RecordingCollector bond = new RecordingCollector("DATA_GO_KR_BOND", 5);
+        FinancialProductWriter writer = mock(FinancialProductWriter.class);
 
-        service.importProducts("FSS_FINLIFE", REFERENCE_AT);
+        when(writer.registerNew(anyList(), any(), any()))
+                .thenReturn(new ProductImportResult(0, List.of(1L, 2L, 3L, 4L, 5L), REFERENCE_AT));
 
-        FinancialProduct product = capturePersisted().get(0);
+        new FinancialProductImportService(List.of(deposit, bond), writer)
+                .importProducts("DATA_GO_KR_BOND", REFERENCE_AT);
 
-        assertFalse(product.isActive(), "검토 전 상품은 비공개여야 합니다.");
-        assertEquals(AssetType.DEPOSIT_SAVINGS, product.getAssetType());
-        assertEquals("LOW", product.getRiskLevel());
+        assertTrue(bond.called, "채권 수집기가 호출되어야 합니다.");
+        assertEquals(false, deposit.called, "다른 제공처의 수집기는 호출하지 않습니다.");
     }
 
     @Test
-    @DisplayName("원상품 식별 코드에 회사·상품·만기·이자방식·적립유형을 모두 담는다")
-    void buildsCompositeSourceCode() {
-        when(finlifeClient.fetchAll(FinlifeProductType.DEPOSIT))
-                .thenReturn(List.of(deposit(6, "2.35")));
+    @DisplayName("수집 결과를 그대로 저장에 넘긴다")
+    void passesCollectedProductsToWriter() {
+        FinancialProductWriter writer = mock(FinancialProductWriter.class);
 
-        service.importProducts("FSS_FINLIFE", REFERENCE_AT);
+        when(writer.registerNew(anyList(), any(), any()))
+                .thenReturn(new ProductImportResult(0, List.of(1L, 2L), REFERENCE_AT));
 
-        FinancialProduct product = capturePersisted().get(0);
+        ProductImportResult result =
+                new FinancialProductImportService(
+                        List.of(new RecordingCollector("FSS_FINLIFE", 2)), writer
+                ).importProducts("FSS_FINLIFE", REFERENCE_AT);
 
-        assertEquals("0010927:010300100335:6:단리:", product.getSourceProductCode());
-        assertEquals("국민은행 KB Star 정기예금 6개월 단리", product.getSourceProductName());
+        assertEquals(2, result.getImportedCount());
     }
 
     @Test
-    @DisplayName("같은 상품·만기라도 이자 방식이 다르면 다른 상품으로 등록한다")
-    void distinguishesProductsThatDifferOnlyByRateType() {
-        FinlifeProduct simple = new FinlifeProduct(
-                FinlifeProductType.DEPOSIT, "0013127", "240000", 12,
-                "KB저축은행", "정기예금", new BigDecimal("3.5"), "단리", null, "202607"
-        );
-        FinlifeProduct compound = new FinlifeProduct(
-                FinlifeProductType.DEPOSIT, "0013127", "240000", 12,
-                "KB저축은행", "정기예금", new BigDecimal("3.5"), "복리", null, "202607"
-        );
-
-        when(finlifeClient.fetchAll(FinlifeProductType.DEPOSIT))
-                .thenReturn(List.of(simple, compound));
-
-        service.importProducts("FSS_FINLIFE", REFERENCE_AT);
-
-        List<FinancialProduct> persisted = capturePersisted();
-
-        assertEquals(2, persisted.size(), "이자 방식이 다르면 별개 상품이어야 합니다.");
-        assertNotEquals(
-                persisted.get(0).getSourceProductCode(),
-                persisted.get(1).getSourceProductCode(),
-                "식별 코드가 겹치면 한쪽이 조용히 사라집니다."
-        );
-    }
-
-    @Test
-    @DisplayName("같은 상품·만기라도 적립 유형이 다르면 다른 상품으로 등록한다")
-    void distinguishesProductsThatDifferOnlyByReserveType() {
-        FinlifeProduct fixed = new FinlifeProduct(
-                FinlifeProductType.SAVING, "0010927", "S001", 12,
-                "국민은행", "적금", new BigDecimal("2.55"), "단리", "정액적립식", "202607"
-        );
-        FinlifeProduct flexible = new FinlifeProduct(
-                FinlifeProductType.SAVING, "0010927", "S001", 12,
-                "국민은행", "적금", new BigDecimal("2.35"), "단리", "자유적립식", "202607"
-        );
-
-        when(finlifeClient.fetchAll(FinlifeProductType.DEPOSIT)).thenReturn(List.of());
-        when(finlifeClient.fetchAll(FinlifeProductType.SAVING))
-                .thenReturn(List.of(fixed, flexible));
-
-        service.importProducts("FSS_FINLIFE", REFERENCE_AT);
-
-        List<FinancialProduct> persisted = capturePersisted();
-
-        assertEquals(2, persisted.size());
-        assertNotEquals(
-                persisted.get(0).getSourceProductCode(),
-                persisted.get(1).getSourceProductCode()
-        );
-    }
-
-    @Test
-    @DisplayName("실제 만기에 압축 배율을 적용해 서비스 내 기간을 계산한다")
-    void appliesTimeCompression() throws Exception {
-        when(finlifeClient.fetchAll(FinlifeProductType.DEPOSIT))
-                .thenReturn(List.of(deposit(6, "2.35")));
-
-        service.importProducts("FSS_FINLIFE", REFERENCE_AT);
-
-        JsonNode terms = objectMapper.readTree(
-                capturePersisted().get(0).getSimulationTermsJson()
-        );
-
-        assertEquals(144, terms.get("service_maturity_hours").asInt());
-        assertEquals(24, terms.get("compression_hours_per_month").asInt());
-    }
-
-    @Test
-    @DisplayName("가져온 금리를 그대로 쓰고, 출처가 없는 이자 주기는 가정치로 표시한다")
-    void keepsSourceRateAndFlagsAssumedInterval() throws Exception {
-        when(finlifeClient.fetchAll(FinlifeProductType.DEPOSIT))
-                .thenReturn(List.of(deposit(6, "2.35")));
-
-        service.importProducts("FSS_FINLIFE", REFERENCE_AT);
-
-        JsonNode terms = objectMapper.readTree(
-                capturePersisted().get(0).getRealTermsJson()
-        );
-
-        assertEquals("2.35", terms.get("interest_rate").asText());
-        assertEquals(6, terms.get("maturity_months").asInt());
-        assertEquals("SIMPLE", terms.get("interest_rate_type").asText());
-        assertEquals("MATURITY", terms.get("interest_interval").asText());
-        assertEquals("ASSUMED", terms.get("interest_interval_source").asText());
-    }
-
-    @Test
-    @DisplayName("만기를 알 수 없는 항목은 임의로 만들지 않고 제외한다")
-    void skipsProductsWithoutMaturity() {
-        when(finlifeClient.fetchAll(FinlifeProductType.DEPOSIT))
-                .thenReturn(List.of(deposit(0, "2.35"), deposit(6, "2.35")));
-
-        service.importProducts("FSS_FINLIFE", REFERENCE_AT);
-
-        assertEquals(1, capturePersisted().size());
-    }
-
-    @Test
-    @DisplayName("지원하지 않는 제공처는 거부한다")
+    @DisplayName("지원하지 않는 제공처는 거부하고 저장하지 않는다")
     void rejectsUnknownProvider() {
-        assertThrows(
+        FinancialProductWriter writer = mock(FinancialProductWriter.class);
+
+        FinancialProductImportService service = new FinancialProductImportService(
+                List.of(new RecordingCollector("FSS_FINLIFE", 1)), writer
+        );
+
+        ApiException exception = assertThrows(
                 ApiException.class,
                 () -> service.importProducts("UNKNOWN_SOURCE", REFERENCE_AT)
         );
+
+        assertEquals(ErrorCode.INVALID_SOURCE_PRODUCT, exception.getErrorCode());
+        assertTrue(
+                exception.getMessage().contains("FSS_FINLIFE"),
+                "쓸 수 있는 제공처를 오류 메시지에 알려줘야 합니다."
+        );
+        verify(writer, never()).registerNew(anyList(), any(), any());
     }
 }

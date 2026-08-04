@@ -30,12 +30,28 @@ public class TimeCompressionPolicy {
     }
 
     /**
+     * 이자를 만기에 한 번 주는 상품용. 지급 주기가 만기와 같다 (예·적금).
+     *
      * @param maturityMonths 원상품의 실제 만기(개월)
      * @param compressedAt   압축을 계산한 시각(UTC)
      */
     public SimulationTerms compress(
             AssetType assetType,
             Integer maturityMonths,
+            LocalDateTime compressedAt
+    ) {
+        return compress(assetType, maturityMonths, maturityMonths, compressedAt);
+    }
+
+    /**
+     * 만기와 이자 지급 주기가 다른 상품용 (채권 이표채는 3·6개월마다 이자를 준다).
+     *
+     * @param intervalMonths 실제 이자 지급 주기(개월). null이면 만기와 같다고 본다.
+     */
+    public SimulationTerms compress(
+            AssetType assetType,
+            Integer maturityMonths,
+            Integer intervalMonths,
             LocalDateTime compressedAt
     ) {
         if (!assetType.isTimeCompressed()) {
@@ -54,11 +70,15 @@ public class TimeCompressionPolicy {
 
         int serviceMaturityHours = maturityMonths * hoursPerMonth;
 
+        // 지급 주기가 만기보다 길면 만기에 한 번 주는 것과 같다.
+        int effectiveInterval = intervalMonths == null || intervalMonths <= 0
+                ? maturityMonths
+                : Math.min(intervalMonths, maturityMonths);
+
         SimulationTerms terms = new SimulationTerms();
 
         terms.setServiceMaturityHours(serviceMaturityHours);
-        // 예·적금은 만기일시지급이라 지급 주기가 만기와 같다.
-        terms.setServiceInterestIntervalHours(serviceMaturityHours);
+        terms.setServiceInterestIntervalHours(effectiveInterval * hoursPerMonth);
         terms.setCompressionHoursPerMonth(hoursPerMonth);
         terms.setCompressedAt(compressedAt);
 
