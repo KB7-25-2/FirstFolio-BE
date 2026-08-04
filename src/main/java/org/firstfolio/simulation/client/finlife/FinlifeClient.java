@@ -10,6 +10,7 @@ import org.firstfolio.exception.ErrorCode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -18,8 +19,10 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 금융감독원 finlife 오픈API에서 예·적금 상품을 가져온다.
@@ -49,13 +52,47 @@ public class FinlifeClient {
 
     private final String baseUrl;
     private final String authKey;
+    private final Set<String> allowedCompanyCodes;
 
     public FinlifeClient(
             @Value("${finlife.base-url}") String baseUrl,
-            @Value("${finlife.auth-key}") String authKey
+            @Value("${finlife.auth-key}") String authKey,
+            @Value("${finlife.company-codes:}") String companyCodes
     ) {
         this.baseUrl = baseUrl;
         this.authKey = authKey;
+        this.allowedCompanyCodes = parseCompanyCodes(companyCodes);
+    }
+
+    /**
+     * 가져올 금융회사를 제한한다.
+     *
+     * <p>finlife는 은행 38개사·저축은행 79개사의 상품을 전부 돌려준다. 그대로 등록하면
+     * 수천 건이 검수 대기로 쌓여 관리자가 KB 상품을 찾을 수 없다. 초기 상품 구성은
+     * KB국민은행 + KB저축은행이므로(SIMULATION_POLICY_v3 6절) 그 두 곳만 남긴다.</p>
+     *
+     * <p>비워 두면 제한하지 않는다.</p>
+     */
+    private static Set<String> parseCompanyCodes(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return Set.of();
+        }
+
+        Set<String> codes = new HashSet<>();
+
+        for (String code : raw.split(",")) {
+            String trimmed = code.trim();
+
+            if (!trimmed.isEmpty()) {
+                codes.add(trimmed);
+            }
+        }
+
+        return codes;
+    }
+
+    private boolean isAllowed(String finCoNo) {
+        return allowedCompanyCodes.isEmpty() || allowedCompanyCodes.contains(finCoNo);
     }
 
     /**
@@ -154,10 +191,7 @@ public class FinlifeClient {
         FinlifeResponse parsed;
 
         try {
-            parsed = EXTERNAL_MAPPER.readValue(
-                    new String(response.body(), StandardCharsets.UTF_8),
-                    FinlifeResponse.class
-            );
+            parsed = parse(new String(response.body(), StandardCharsets.UTF_8));
         } catch (Exception exception) {
             throw sourceUnavailable(productType, financeGroup, page, exception);
         }
@@ -192,6 +226,14 @@ public class FinlifeClient {
             FinlifeResponse.Result result
     ) {
         if (result.getBaseList() == null || result.getOptionList() == null) {
+            // 정상 응답(err_cd=000)인데 목록이 없다면 응답 형식이 바뀐 것이다.
+            // 조용히 0건으로 넘어가면 원인을 찾기 어려우므로 남긴다.
+            log.warn(
+                    "finlife 응답에 상품 목록이 없습니다 type={} totalCount={} 응답 형식 변경 여부 확인 필요",
+                    productType,
+                    result.getTotalCount()
+            );
+
             return List.of();
         }
 
@@ -204,6 +246,10 @@ public class FinlifeClient {
         List<FinlifeProduct> products = new ArrayList<>();
 
         for (FinlifeResponse.Option option : result.getOptionList()) {
+            if (!isAllowed(option.getFinCoNo())) {
+                continue;
+            }
+
             FinlifeResponse.Base base =
                     baseByKey.get(key(option.getFinCoNo(), option.getFinPrdtCd()));
 
@@ -233,6 +279,11 @@ public class FinlifeClient {
         }
 
         return products;
+    }
+
+    /** 응답 파싱만 떼어 둔다. 실제 호출 없이 표기 규칙을 검증할 수 있게 하기 위함이다. */
+    static FinlifeResponse parse(String json) throws IOException {
+        return EXTERNAL_MAPPER.readValue(json, FinlifeResponse.class);
     }
 
     private static String key(String finCoNo, String finPrdtCd) {

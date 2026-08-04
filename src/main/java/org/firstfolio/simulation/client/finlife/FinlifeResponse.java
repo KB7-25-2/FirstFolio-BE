@@ -1,6 +1,7 @@
 package org.firstfolio.simulation.client.finlife;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -34,7 +35,17 @@ public class FinlifeResponse {
         private Integer totalCount;
         private Integer maxPageNo;
         private Integer nowPageNo;
+
+        /**
+         * finlife 응답은 표기가 섞여 있다. 대부분은 snake_case({@code err_cd},
+         * {@code total_count})인데 이 두 배열만 camelCase다. snake_case 규칙에 맡기면
+         * {@code base_list}를 찾다가 못 찾고 null이 되는데, {@code err_cd}는 정상 파싱되어
+         * "성공인데 결과가 0건"으로 조용히 넘어간다. 그래서 키를 직접 지정한다.
+         */
+        @JsonProperty("baseList")
         private List<Base> baseList;
+
+        @JsonProperty("optionList")
         private List<Option> optionList;
 
         /** {@code 000}이 정상이다. */

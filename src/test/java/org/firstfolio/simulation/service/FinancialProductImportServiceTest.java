@@ -20,6 +20,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -90,7 +91,7 @@ class FinancialProductImportServiceTest {
     }
 
     @Test
-    @DisplayName("원상품 식별 코드에 회사·상품·만기를 모두 담는다")
+    @DisplayName("원상품 식별 코드에 회사·상품·만기·이자방식·적립유형을 모두 담는다")
     void buildsCompositeSourceCode() {
         when(finlifeClient.fetchAll(FinlifeProductType.DEPOSIT))
                 .thenReturn(List.of(deposit(6, "2.35")));
@@ -99,8 +100,62 @@ class FinancialProductImportServiceTest {
 
         FinancialProduct product = capturePersisted().get(0);
 
-        assertEquals("0010927:010300100335:6", product.getSourceProductCode());
-        assertEquals("국민은행 KB Star 정기예금 6개월", product.getSourceProductName());
+        assertEquals("0010927:010300100335:6:단리:", product.getSourceProductCode());
+        assertEquals("국민은행 KB Star 정기예금 6개월 단리", product.getSourceProductName());
+    }
+
+    @Test
+    @DisplayName("같은 상품·만기라도 이자 방식이 다르면 다른 상품으로 등록한다")
+    void distinguishesProductsThatDifferOnlyByRateType() {
+        FinlifeProduct simple = new FinlifeProduct(
+                FinlifeProductType.DEPOSIT, "0013127", "240000", 12,
+                "KB저축은행", "정기예금", new BigDecimal("3.5"), "단리", null, "202607"
+        );
+        FinlifeProduct compound = new FinlifeProduct(
+                FinlifeProductType.DEPOSIT, "0013127", "240000", 12,
+                "KB저축은행", "정기예금", new BigDecimal("3.5"), "복리", null, "202607"
+        );
+
+        when(finlifeClient.fetchAll(FinlifeProductType.DEPOSIT))
+                .thenReturn(List.of(simple, compound));
+
+        service.importProducts("FSS_FINLIFE", REFERENCE_AT);
+
+        List<FinancialProduct> persisted = capturePersisted();
+
+        assertEquals(2, persisted.size(), "이자 방식이 다르면 별개 상품이어야 합니다.");
+        assertNotEquals(
+                persisted.get(0).getSourceProductCode(),
+                persisted.get(1).getSourceProductCode(),
+                "식별 코드가 겹치면 한쪽이 조용히 사라집니다."
+        );
+    }
+
+    @Test
+    @DisplayName("같은 상품·만기라도 적립 유형이 다르면 다른 상품으로 등록한다")
+    void distinguishesProductsThatDifferOnlyByReserveType() {
+        FinlifeProduct fixed = new FinlifeProduct(
+                FinlifeProductType.SAVING, "0010927", "S001", 12,
+                "국민은행", "적금", new BigDecimal("2.55"), "단리", "정액적립식", "202607"
+        );
+        FinlifeProduct flexible = new FinlifeProduct(
+                FinlifeProductType.SAVING, "0010927", "S001", 12,
+                "국민은행", "적금", new BigDecimal("2.35"), "단리", "자유적립식", "202607"
+        );
+
+        when(finlifeClient.fetchAll(FinlifeProductType.DEPOSIT)).thenReturn(List.of());
+        when(finlifeClient.fetchAll(FinlifeProductType.SAVING))
+                .thenReturn(List.of(fixed, flexible));
+
+        service.importProducts("FSS_FINLIFE", REFERENCE_AT);
+
+        List<FinancialProduct> persisted = capturePersisted();
+
+        assertEquals(2, persisted.size());
+        assertNotEquals(
+                persisted.get(0).getSourceProductCode(),
+                persisted.get(1).getSourceProductCode()
+        );
     }
 
     @Test
