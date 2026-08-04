@@ -8,7 +8,7 @@ import org.firstfolio.simulation.domain.AssetType;
 import org.firstfolio.simulation.domain.FinancialProduct;
 import org.firstfolio.simulation.domain.KrxStock;
 import org.firstfolio.simulation.domain.StockRealTerms;
-import org.firstfolio.simulation.domain.StockSimulationTerms;
+import org.firstfolio.simulation.domain.UncompressedSimulationTerms;
 import org.firstfolio.simulation.service.TermsJsonCodec;
 import org.springframework.stereotype.Component;
 
@@ -95,7 +95,8 @@ public class StockCollector implements ProductCollector {
         realTerms.setMarket(stock.getMarket());
         realTerms.setSector(stock.getSector());
 
-        StockSimulationTerms simulationTerms = new StockSimulationTerms();
+        UncompressedSimulationTerms simulationTerms =
+                new UncompressedSimulationTerms(UncompressedSimulationTerms.REASON_STOCK);
 
         simulationTerms.setRegisteredAt(now);
 
