@@ -12,7 +12,9 @@ import org.junit.jupiter.params.provider.CsvSource;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TimeCompressionPolicyTest {
 
@@ -62,6 +64,24 @@ class TimeCompressionPolicyTest {
                 IllegalArgumentException.class,
                 () -> policy.compress(AssetType.STOCK, 12, NOW)
         );
+    }
+
+    @Test
+    @DisplayName("펀드(ETF)도 만기가 없어 압축 대상이 아니다")
+    void rejectsFund() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> policy.compress(AssetType.FUND, 12, NOW)
+        );
+    }
+
+    @Test
+    @DisplayName("압축 대상은 예·적금과 채권뿐이다")
+    void onlyDepositSavingsAndBondAreCompressed() {
+        assertTrue(AssetType.DEPOSIT_SAVINGS.isTimeCompressed());
+        assertTrue(AssetType.BOND.isTimeCompressed());
+        assertFalse(AssetType.STOCK.isTimeCompressed());
+        assertFalse(AssetType.FUND.isTimeCompressed());
     }
 
     @Test
