@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.simulation.mapper.ProductPriceMapper">
+
+    <resultMap id="productPriceResult" type="org.firstfolio.simulation.domain.ProductPrice">
+        <id property="productPriceId" column="product_price_id"/>
+        <result property="productId" column="product_id"/>
+        <result property="price" column="price"/>
+        <result property="referenceAt" column="reference_at"/>
+        <result property="sourceType" column="source_type"/>
+        <result property="generationKey" column="generation_key"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <!-- idx_product_prices_latest (product_id, reference_at DESC)를 그대로 탄다. -->
+    <select id="findLatestByProductId" resultMap="productPriceResult">
+        SELECT product_price_id,
+               product_id,
+               price,
+               reference_at,
+               source_type,
+               generation_key,
+               created_at
+        FROM product_prices
+        WHERE product_id = #{productId}
+        ORDER BY reference_at DESC
+        LIMIT 1
+    </select>
+
+</mapper>
