@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.portfolio.mapper.PortfolioHoldingMapper">
+
+    <resultMap id="holdingResult" type="org.firstfolio.portfolio.domain.PortfolioHolding">
+        <id property="holdingId" column="holding_id"/>
+        <result property="portfolioId" column="portfolio_id"/>
+        <result property="productId" column="product_id"/>
+        <result property="quantity" column="quantity"/>
+        <result property="principalAmount" column="principal_amount"/>
+        <result property="averageCost" column="average_cost"/>
+        <result property="termsSnapshotJson" column="terms_snapshot_json"/>
+        <result property="status" column="status"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <!-- financial_products에서 함께 읽는 표시용 필드 -->
+        <result property="productDisplayName" column="product_display_name"/>
+        <result property="productAssetType" column="product_asset_type"/>
+    </resultMap>
+
+    <!-- idx_portfolio_holdings_status (portfolio_id, status)를 그대로 탄다. -->
+    <select id="findActiveByPortfolioId" resultMap="holdingResult">
+        SELECT h.holding_id,
+               h.portfolio_id,
+               h.product_id,
+               h.quantity,
+               h.principal_amount,
+               h.average_cost,
+               h.terms_snapshot_json,
+               h.status,
+               h.created_at,
+               h.updated_at,
+               p.display_name AS product_display_name,
+               p.asset_type   AS product_asset_type
+        FROM portfolio_holdings h
+                 JOIN financial_products p ON p.product_id = h.product_id
+        WHERE h.portfolio_id = #{portfolioId}
+          AND h.status = 'ACTIVE'
+        ORDER BY h.holding_id
+    </select>
+
+</mapper>

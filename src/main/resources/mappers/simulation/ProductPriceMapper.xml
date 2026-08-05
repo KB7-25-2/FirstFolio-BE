@@ -30,4 +30,29 @@
         LIMIT 1
     </select>
 
+    <!--
+        상품별 최신 시점을 먼저 구하고 그 행만 다시 읽는다.
+        uq_product_prices_product_time (product_id, reference_at) 덕분에 상품당 한 행만 나온다.
+    -->
+    <select id="findLatestByProductIds" resultMap="productPriceResult">
+        SELECT p.product_price_id,
+               p.product_id,
+               p.price,
+               p.reference_at,
+               p.source_type,
+               p.generation_key,
+               p.created_at
+        FROM product_prices p
+                 JOIN (
+            SELECT product_id, MAX(reference_at) AS reference_at
+            FROM product_prices
+            WHERE product_id IN
+            <foreach item="productId" collection="productIds" open="(" separator="," close=")">
+                #{productId}
+            </foreach>
+            GROUP BY product_id
+        ) latest ON latest.product_id = p.product_id
+            AND latest.reference_at = p.reference_at
+    </select>
+
 </mapper>
