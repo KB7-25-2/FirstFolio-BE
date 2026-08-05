@@ -1,12 +1,14 @@
 package org.firstfolio.auth.web;
 
-import org.firstfolio.api.ApiResponse;
+import org.firstfolio.common.response.ApiResponse;
 import org.firstfolio.auth.annotation.CurrentUser;
 import org.firstfolio.auth.domain.AuthenticatedUser;
 import org.firstfolio.auth.domain.VerifiedFirebaseUser;
 import org.firstfolio.auth.interceptor.FirebaseAuthenticationInterceptor;
 import org.firstfolio.auth.service.BearerTokenExtractor;
 import org.firstfolio.auth.service.FirebaseTokenVerifier;
+import org.firstfolio.common.json.ApiObjectMapperFactory;
+import org.firstfolio.common.web.RequestIdFilter;
 import org.firstfolio.exception.CommonExceptionAdvice;
 import org.firstfolio.user.domain.User;
 import org.firstfolio.user.domain.UserRole;
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -54,6 +57,10 @@ class CurrentUserAuthenticationTest {
                 .addInterceptors(interceptor)
                 .setCustomArgumentResolvers(new CurrentUserArgumentResolver())
                 .setControllerAdvice(new CommonExceptionAdvice())
+                .setMessageConverters(
+                        new MappingJackson2HttpMessageConverter(ApiObjectMapperFactory.create())
+                )
+                .addFilter(new RequestIdFilter())
                 .addFilter(new CharacterEncodingFilter("UTF-8", true))
                 .build();
     }
@@ -72,7 +79,7 @@ class CurrentUserAuthenticationTest {
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(content().string(
-                        "{\"data\":{\"userId\":101,\"roleCode\":\"USER\"}}"
+                        "{\"data\":{\"user_id\":101,\"role_code\":\"USER\"}}"
                 ));
     }
 

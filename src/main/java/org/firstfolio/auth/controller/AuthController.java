@@ -1,6 +1,6 @@
 package org.firstfolio.auth.controller;
 
-import org.firstfolio.api.ApiResponse;
+import org.firstfolio.common.response.ApiResponse;
 import org.firstfolio.auth.dto.request.SignupRequest;
 import org.firstfolio.auth.dto.response.LoginResponse;
 import org.firstfolio.auth.dto.response.SignupResponse;

@@ -7,11 +7,11 @@ import org.firstfolio.auth.service.BearerTokenExtractor;
 import org.firstfolio.auth.service.FirebaseTokenVerifier;
 import org.firstfolio.auth.web.AuthenticationRequestAttributes;
 import org.firstfolio.exception.ApiException;
+import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.user.domain.User;
 import org.firstfolio.user.domain.UserStatus;
 import org.firstfolio.user.mapper.UserMapper;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -55,11 +55,7 @@ public class FirebaseAuthenticationInterceptor implements HandlerInterceptor {
         }
 
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new ApiException(
-                    HttpStatus.FORBIDDEN,
-                    "ACCOUNT_NOT_ACTIVE",
-                    "이용할 수 없는 계정 상태입니다."
-            );
+            throw new ApiException(ErrorCode.ACCOUNT_NOT_ACTIVE);
         }
 
         request.setAttribute(
@@ -85,10 +81,6 @@ public class FirebaseAuthenticationInterceptor implements HandlerInterceptor {
     }
 
     private ApiException unauthorized() {
-        return new ApiException(
-                HttpStatus.UNAUTHORIZED,
-                "UNAUTHORIZED",
-                "인증 토큰이 없거나 유효하지 않습니다."
-        );
+        return new ApiException(ErrorCode.UNAUTHORIZED);
     }
 }

@@ -5,6 +5,7 @@ import org.firstfolio.auth.domain.VerifiedFirebaseUser;
 import org.firstfolio.auth.dto.request.SignupRequest;
 import org.firstfolio.auth.exception.InvalidFirebaseTokenException;
 import org.firstfolio.exception.ApiException;
+import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.user.domain.ConsentType;
 import org.firstfolio.user.domain.User;
 import org.firstfolio.user.domain.UserConsent;
@@ -81,7 +82,7 @@ class AuthServiceTest {
                 )
         );
 
-        assertEquals("INVALID_SIGNUP_INPUT", exception.getCode());
+        assertEquals(ErrorCode.INVALID_SIGNUP_INPUT, exception.getErrorCode());
         assertFalse(userMapper.insertCalled);
     }
 
@@ -97,7 +98,7 @@ class AuthServiceTest {
                 )
         );
 
-        assertEquals("ACCOUNT_CONFLICT", exception.getCode());
+        assertEquals(ErrorCode.ACCOUNT_CONFLICT, exception.getErrorCode());
         assertFalse(userMapper.insertCalled);
     }
 
@@ -127,7 +128,7 @@ class AuthServiceTest {
                 () -> authService.login("Bearer valid-token")
         );
 
-        assertEquals("ACCOUNT_NOT_ACTIVE", exception.getCode());
+        assertEquals(ErrorCode.ACCOUNT_NOT_ACTIVE, exception.getErrorCode());
     }
 
     @Test
@@ -137,7 +138,7 @@ class AuthServiceTest {
                 () -> authService.login("Bearer valid-token")
         );
 
-        assertEquals("SIGNUP_REQUIRED", exception.getCode());
+        assertEquals(ErrorCode.SIGNUP_REQUIRED, exception.getErrorCode());
     }
 
     @Test
@@ -151,7 +152,7 @@ class AuthServiceTest {
                 () -> authService.logout("Bearer invalid-token")
         );
 
-        assertEquals("UNAUTHORIZED", exception.getCode());
+        assertEquals(ErrorCode.UNAUTHORIZED, exception.getErrorCode());
     }
 
     private AuthService createService(FirebaseTokenVerifier verifier) {

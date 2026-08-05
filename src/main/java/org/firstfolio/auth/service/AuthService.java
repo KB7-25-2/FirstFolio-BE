@@ -5,6 +5,7 @@ import org.firstfolio.auth.domain.VerifiedFirebaseUser;
 import org.firstfolio.auth.dto.request.SignupRequest;
 import org.firstfolio.auth.exception.InvalidFirebaseTokenException;
 import org.firstfolio.exception.ApiException;
+import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.user.domain.ConsentType;
 import org.firstfolio.user.domain.User;
 import org.firstfolio.user.domain.UserConsent;
@@ -13,7 +14,6 @@ import org.firstfolio.user.mapper.UserConsentMapper;
 import org.firstfolio.user.mapper.UserMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -62,8 +62,7 @@ public class AuthService implements AuthUseCase {
         String nickname = validateAndNormalizeSignupRequest(request);
         VerifiedFirebaseUser firebaseUser = verifyToken(
                 authorizationHeader,
-                "INVALID_ID_TOKEN",
-                "Firebase ID Token이 없거나 유효하지 않습니다."
+                ErrorCode.INVALID_ID_TOKEN
         );
         validateConsentPolicyVersions();
 
@@ -114,25 +113,16 @@ public class AuthService implements AuthUseCase {
     public LoginResult login(String authorizationHeader) {
         VerifiedFirebaseUser firebaseUser = verifyToken(
                 authorizationHeader,
-                "INVALID_ID_TOKEN",
-                "Firebase ID Token이 없거나 유효하지 않습니다."
+                ErrorCode.INVALID_ID_TOKEN
         );
         User user = userMapper.findByFirebaseUid(firebaseUser.uid());
 
         if (user == null) {
-            throw new ApiException(
-                    HttpStatus.CONFLICT,
-                    "SIGNUP_REQUIRED",
-                    "Firebase 인증은 완료됐지만 FirstFolio 회원 정보가 없습니다."
-            );
+            throw new ApiException(ErrorCode.SIGNUP_REQUIRED);
         }
 
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new ApiException(
-                    HttpStatus.FORBIDDEN,
-                    "ACCOUNT_NOT_ACTIVE",
-                    "이용할 수 없는 계정 상태입니다."
-            );
+            throw new ApiException(ErrorCode.ACCOUNT_NOT_ACTIVE);
         }
 
         LocalDateTime loginAt = LocalDateTime.now(clock);
@@ -153,8 +143,7 @@ public class AuthService implements AuthUseCase {
     public void logout(String authorizationHeader) {
         verifyToken(
                 authorizationHeader,
-                "UNAUTHORIZED",
-                "인증 토큰이 없거나 유효하지 않습니다."
+                ErrorCode.UNAUTHORIZED
         );
     }
 
@@ -187,14 +176,13 @@ public class AuthService implements AuthUseCase {
 
     private VerifiedFirebaseUser verifyToken(
             String authorizationHeader,
-            String errorCode,
-            String errorMessage
+            ErrorCode errorCode
     ) {
         try {
             String idToken = bearerTokenExtractor.extract(authorizationHeader);
             return firebaseTokenVerifier.verify(idToken);
         } catch (InvalidFirebaseTokenException exception) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, errorCode, errorMessage);
+            throw new ApiException(errorCode);
         }
     }
 
@@ -210,18 +198,10 @@ public class AuthService implements AuthUseCase {
     }
 
     private ApiException invalidSignupInput() {
-        return new ApiException(
-                HttpStatus.BAD_REQUEST,
-                "INVALID_SIGNUP_INPUT",
-                "가입 정보 또는 필수 약관 동의가 올바르지 않습니다."
-        );
+        return new ApiException(ErrorCode.INVALID_SIGNUP_INPUT);
     }
 
     private ApiException accountConflict() {
-        return new ApiException(
-                HttpStatus.CONFLICT,
-                "ACCOUNT_CONFLICT",
-                "이미 사용 중인 이메일, 인증 계정 또는 닉네임입니다."
-        );
+        return new ApiException(ErrorCode.ACCOUNT_CONFLICT);
     }
 }

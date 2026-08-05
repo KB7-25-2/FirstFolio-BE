@@ -1,23 +1,27 @@
 package org.firstfolio.exception;
 
-import org.springframework.http.HttpStatus;
-
+/**
+ * API_DOCS.md의 오류 코드로 응답해야 하는 예외.
+ * 서비스 계층에서 {@code throw new ApiException(ErrorCode.TRADE_NOT_ALLOWED)} 형태로 사용한다.
+ */
 public class ApiException extends RuntimeException {
 
-    private final HttpStatus status;
-    private final String code;
+    private final ErrorCode errorCode;
 
-    public ApiException(HttpStatus status, String code, String message) {
-        super(message);
-        this.status = status;
-        this.code = code;
+    public ApiException(ErrorCode errorCode) {
+        this(errorCode, errorCode.getDefaultMessage(), null);
     }
 
-    public HttpStatus getStatus() {
-        return status;
+    public ApiException(ErrorCode errorCode, String message) {
+        this(errorCode, message, null);
     }
 
-    public String getCode() {
-        return code;
+    public ApiException(ErrorCode errorCode, String message, Throwable cause) {
+        super(message, cause);
+        this.errorCode = errorCode;
+    }
+
+    public ErrorCode getErrorCode() {
+        return errorCode;
     }
 }

@@ -5,14 +5,17 @@ import org.firstfolio.auth.dto.request.SignupRequest;
 import org.firstfolio.auth.service.AuthUseCase;
 import org.firstfolio.auth.service.LoginResult;
 import org.firstfolio.auth.service.SignupResult;
+import org.firstfolio.common.json.ApiObjectMapperFactory;
+import org.firstfolio.common.web.RequestIdFilter;
 import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.CommonExceptionAdvice;
+import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.user.domain.UserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.filter.CharacterEncodingFilter;
@@ -34,6 +37,10 @@ class AuthControllerTest {
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new AuthController(authUseCase))
                 .setControllerAdvice(new CommonExceptionAdvice())
+                .setMessageConverters(
+                        new MappingJackson2HttpMessageConverter(ApiObjectMapperFactory.create())
+                )
+                .addFilter(new RequestIdFilter())
                 .addFilter(new CharacterEncodingFilter("UTF-8", true))
                 .build();
     }
@@ -97,11 +104,7 @@ class AuthControllerTest {
 
     @Test
     void apiErrorUsesCommonErrorEnvelope() throws Exception {
-        authUseCase.failure = new ApiException(
-                HttpStatus.UNAUTHORIZED,
-                "INVALID_ID_TOKEN",
-                "Firebase ID Token이 없거나 유효하지 않습니다."
-        );
+        authUseCase.failure = new ApiException(ErrorCode.INVALID_ID_TOKEN);
 
         mockMvc.perform(post("/auth/login"))
                 .andExpect(status().isUnauthorized())

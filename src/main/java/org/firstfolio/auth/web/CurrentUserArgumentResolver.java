@@ -3,8 +3,8 @@ package org.firstfolio.auth.web;
 import org.firstfolio.auth.annotation.CurrentUser;
 import org.firstfolio.auth.domain.AuthenticatedUser;
 import org.firstfolio.exception.ApiException;
+import org.firstfolio.exception.ErrorCode;
 import org.springframework.core.MethodParameter;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
@@ -52,10 +52,6 @@ public class CurrentUserArgumentResolver
     }
 
     private ApiException unauthorized() {
-        return new ApiException(
-                HttpStatus.UNAUTHORIZED,
-                "UNAUTHORIZED",
-                "인증이 필요합니다."
-        );
+        return new ApiException(ErrorCode.UNAUTHORIZED, "인증이 필요합니다.");
     }
 }
