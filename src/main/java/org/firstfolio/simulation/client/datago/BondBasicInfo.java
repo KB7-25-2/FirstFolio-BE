@@ -67,6 +67,20 @@ public class BondBasicInfo {
         return creditRating == null || creditRating.isBlank();
     }
 
+    /**
+     * 복리채인지 여부.
+     *
+     * <p><b>복리채는 중간에 이자를 지급하지 않는다.</b> 이자를 원금에 더해 굴리다가 만기에
+     * 한 번에 준다. 그런데 제공처는 복리채에도 {@code intPayCyclCtt}를 "12개월"처럼 채워서
+     * 준다 — 이자를 계산하는 주기이지 <b>지급하는 주기가 아니다.</b></p>
+     *
+     * <p>이 값을 그대로 지급 주기로 쓰면 복리채가 이표채처럼 중간에 이자를 뱉는다.
+     * 그래서 지급 주기를 따질 때는 이 메서드로 걸러야 한다.</p>
+     */
+    public boolean isCompound() {
+        return interestType != null && interestType.contains("복리");
+    }
+
     public String getIsinCd() {
         return isinCd;
     }

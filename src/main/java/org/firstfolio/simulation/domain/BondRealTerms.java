@@ -25,7 +25,11 @@ public class BondRealTerms {
     /** 잔존 만기(개월, 내림). 발행일 기준 원래 만기가 아니다. */
     private Integer maturityMonths;
 
-    /** 이자 지급 주기(개월). 이표채는 보통 3 또는 6이다. */
+    /**
+     * 이자 지급 주기(개월). 이표채는 보통 3 또는 6이다.
+     * <b>복리채는 중간 지급이 없어 값을 넣지 않는다.</b>
+     */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private Integer interestIntervalMonths;
 
     /** 이표채, 할인채 등. */

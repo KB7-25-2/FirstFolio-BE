@@ -148,6 +148,52 @@ class BondCollectorTest {
         assertEquals("MEDIUM", collect(corporateBond()).get(0).getRiskLevel());
     }
 
+    /** 개인투자용국채(복리) — 만기 2029-04-20, 표면 3.470%. 제공처는 주기를 12개월로 준다. */
+    private static BondBasicInfo compoundBond() {
+        return new BondBasicInfo(
+                "KR104301DG40", "개인투자용국채 03470-2904(복리)", "대한민국",
+                LocalDate.of(2026, 4, 20), LocalDate.of(2029, 4, 20),
+                new BigDecimal("3.470"), 12, "복리채", "국채", null
+        );
+    }
+
+    @Test
+    @DisplayName("복리채는 중간에 이자를 지급하지 않는다 — 지급 주기가 만기와 같다")
+    void compoundBondPaysOnlyAtMaturity() {
+        JsonNode terms = termsJsonCodec.read(
+                collect(compoundBond()).get(0).getSimulationTermsJson()
+        );
+
+        // 2026-08-04 → 2029-04-20 = 32개월(내림) → 32일 = 768시간
+        assertEquals(768, terms.get("service_maturity_hours").asInt());
+        assertEquals(
+                768,
+                terms.get("service_interest_interval_hours").asInt(),
+                "복리채는 만기에 한 번만 지급하므로 주기가 만기와 같아야 합니다."
+        );
+    }
+
+    @Test
+    @DisplayName("복리채는 이자 주기를 응답에 담지 않는다 — 매년 받는 상품으로 오해하면 안 된다")
+    void compoundBondOmitsInterestInterval() {
+        JsonNode terms = termsJsonCodec.read(collect(compoundBond()).get(0).getRealTermsJson());
+
+        assertNull(
+                terms.get("interest_interval_months"),
+                "제공처가 12개월을 주더라도 복리채는 지급 주기가 없습니다."
+        );
+        assertEquals("복리채", terms.get("interest_type").asText());
+    }
+
+    @Test
+    @DisplayName("이표채는 제공처가 준 지급 주기를 그대로 쓴다")
+    void couponBondKeepsProviderInterval() {
+        JsonNode terms = termsJsonCodec.read(collect(corporateBond()).get(0).getRealTermsJson());
+
+        assertEquals(3, terms.get("interest_interval_months").asInt());
+        assertEquals("이표채", terms.get("interest_type").asText());
+    }
+
     @Test
     @DisplayName("만기가 지난 채권은 제외한다")
     void skipsMaturedBond() {

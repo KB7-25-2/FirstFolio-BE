@@ -118,10 +118,15 @@ public class BondCollector implements ProductCollector {
                 now.toLocalDate()
         );
 
+        // 복리채는 중간 지급이 없다. 지급 주기를 만기와 같게 두면 만기에 한 번만 반영된다.
+        Integer payIntervalMonths = bond.isCompound()
+                ? remainingMonths
+                : bond.getInterestIntervalMonths();
+
         SimulationTerms simulationTerms = timeCompressionPolicy.compress(
                 assetType,
                 remainingMonths,
-                bond.getInterestIntervalMonths(),
+                payIntervalMonths,
                 now
         );
 
@@ -150,7 +155,11 @@ public class BondCollector implements ProductCollector {
 
         terms.setCouponRate(bond.getCouponRate());
         terms.setMaturityMonths(remainingMonths);
-        terms.setInterestIntervalMonths(bond.getInterestIntervalMonths());
+        // 복리채는 중간 지급이 없으므로 주기를 내보내지 않는다. 12개월이라고 알려주면
+        // 사용자가 매년 이자를 받는 상품으로 오해한다.
+        terms.setInterestIntervalMonths(
+                bond.isCompound() ? null : bond.getInterestIntervalMonths()
+        );
         terms.setInterestType(bond.getInterestType());
         terms.setBondCategory(bond.getBondCategory());
         terms.setCreditRating(bond.getCreditRating());
