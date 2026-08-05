@@ -38,6 +38,13 @@ public class PortfolioTransaction {
 
     private LocalDateTime createdAt;
 
+    /**
+     * 조회할 때 {@code financial_products}에서 함께 읽는 표시용 가명. 저장 대상이 아니다.
+     *
+     * <p>지급·초기화처럼 상품이 없는 이력에서는 null이다.</p>
+     */
+    private String productDisplayName;
+
     public Long getPortfolioTransactionId() {
         return portfolioTransactionId;
     }
@@ -156,5 +163,13 @@ public class PortfolioTransaction {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getProductDisplayName() {
+        return productDisplayName;
+    }
+
+    public void setProductDisplayName(String productDisplayName) {
+        this.productDisplayName = productDisplayName;
     }
 }
