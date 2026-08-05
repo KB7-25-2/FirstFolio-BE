@@ -110,6 +110,25 @@ Authorization: Bearer {Firebase ID Token}
 
 현재 로그아웃은 현재 기기 로그아웃만 지원하며 Firebase Refresh Token을 폐기하는 전체 기기 로그아웃은 수행하지 않습니다.
 
+### 인증이 필요한 API에서 현재 사용자 조회
+
+`/auth/**`, `/api/health`를 제외한 API 요청은 Firebase 인증 인터셉터가 `Authorization` 헤더의 ID Token을 검증합니다. 검증된 Firebase UID와 연결된 활성 FirstFolio 사용자를 조회한 뒤 Controller의 `@CurrentUser` 파라미터에 내부 사용자 정보를 주입합니다.
+
+```java
+@GetMapping("/portfolio")
+public ApiResponse<PortfolioResponse> getPortfolio(
+        @CurrentUser AuthenticatedUser currentUser
+) {
+    long userId = currentUser.userId();
+
+    return ApiResponse.of(
+            portfolioService.getPortfolio(userId)
+    );
+}
+```
+
+`AuthenticatedUser`에서는 FirstFolio 내부 `userId`, Firebase UID, 닉네임과 `roleCode`를 조회할 수 있습니다. 요청 본문이나 경로에서 받은 사용자 ID를 현재 로그인 사용자로 신뢰하지 않습니다.
+
 ### 빌드와 테스트
 
 macOS/Linux:
