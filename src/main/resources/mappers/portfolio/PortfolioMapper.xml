@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.portfolio.mapper.PortfolioMapper">
+
+    <resultMap id="portfolioResult" type="org.firstfolio.portfolio.domain.Portfolio">
+        <id property="portfolioId" column="portfolio_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="generationNo" column="generation_no"/>
+        <result property="status" column="status"/>
+        <result property="initialAmount" column="initial_amount"/>
+        <result property="cashBalance" column="cash_balance"/>
+        <result property="openedAt" column="opened_at"/>
+        <result property="closedAt" column="closed_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="columns">
+        portfolio_id,
+        user_id,
+        generation_no,
+        status,
+        initial_amount,
+        cash_balance,
+        opened_at,
+        closed_at,
+        created_at,
+        updated_at
+    </sql>
+
+    <!-- idx_portfolios_user_status (user_id, status)를 그대로 탄다. -->
+    <select id="findActiveByUserId" resultMap="portfolioResult">
+        SELECT <include refid="columns"/>
+        FROM portfolios
+        WHERE user_id = #{userId}
+          AND status = 'ACTIVE'
+        LIMIT 1
+    </select>
+
+    <select id="findById" resultMap="portfolioResult">
+        SELECT <include refid="columns"/>
+        FROM portfolios
+        WHERE portfolio_id = #{portfolioId}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="portfolioId">
+        INSERT INTO portfolios (
+            user_id,
+            generation_no,
+            status,
+            initial_amount,
+            cash_balance,
+            opened_at,
+            closed_at,
+            created_at,
+            updated_at
+        ) VALUES (
+            #{userId},
+            #{generationNo},
+            #{status},
+            #{initialAmount},
+            #{cashBalance},
+            #{openedAt},
+            #{closedAt},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+</mapper>

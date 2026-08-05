@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.portfolio.mapper.PortfolioTransactionMapper">
+
+    <resultMap id="transactionResult" type="org.firstfolio.portfolio.domain.PortfolioTransaction">
+        <id property="portfolioTransactionId" column="portfolio_transaction_id"/>
+        <result property="portfolioId" column="portfolio_id"/>
+        <result property="holdingId" column="holding_id"/>
+        <result property="productId" column="product_id"/>
+        <result property="transactionType" column="transaction_type"/>
+        <result property="amount" column="amount"/>
+        <result property="quantity" column="quantity"/>
+        <result property="unitPrice" column="unit_price"/>
+        <result property="status" column="status"/>
+        <result property="scheduledAt" column="scheduled_at"/>
+        <result property="processedAt" column="processed_at"/>
+        <result property="eventKey" column="event_key"/>
+        <result property="idempotencyKey" column="idempotency_key"/>
+        <result property="detailJson" column="detail_json"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <sql id="columns">
+        portfolio_transaction_id,
+        portfolio_id,
+        holding_id,
+        product_id,
+        transaction_type,
+        amount,
+        quantity,
+        unit_price,
+        status,
+        scheduled_at,
+        processed_at,
+        event_key,
+        idempotency_key,
+        detail_json,
+        created_at
+    </sql>
+
+    <select id="findByIdempotencyKey" resultMap="transactionResult">
+        SELECT <include refid="columns"/>
+        FROM portfolio_transactions
+        WHERE idempotency_key = #{idempotencyKey}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="portfolioTransactionId">
+        INSERT INTO portfolio_transactions (
+            portfolio_id,
+            holding_id,
+            product_id,
+            transaction_type,
+            amount,
+            quantity,
+            unit_price,
+            status,
+            scheduled_at,
+            processed_at,
+            event_key,
+            idempotency_key,
+            detail_json,
+            created_at
+        ) VALUES (
+            #{portfolioId},
+            #{holdingId},
+            #{productId},
+            #{transactionType},
+            #{amount},
+            #{quantity},
+            #{unitPrice},
+            #{status},
+            #{scheduledAt},
+            #{processedAt},
+            #{eventKey},
+            #{idempotencyKey},
+            #{detailJson},
+            #{createdAt}
+        )
+    </insert>
+
+</mapper>
