@@ -10,6 +10,14 @@ import org.springframework.http.HttpStatus;
  */
 public enum ErrorCode {
 
+    // 인증·회원
+    INVALID_ID_TOKEN(HttpStatus.UNAUTHORIZED, "Firebase ID Token이 없거나 유효하지 않습니다."),
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증 토큰이 없거나 유효하지 않습니다."),
+    SIGNUP_REQUIRED(HttpStatus.CONFLICT, "Firebase 인증은 완료됐지만 FirstFolio 회원 정보가 없습니다."),
+    ACCOUNT_NOT_ACTIVE(HttpStatus.FORBIDDEN, "이용할 수 없는 계정 상태입니다."),
+    INVALID_SIGNUP_INPUT(HttpStatus.BAD_REQUEST, "가입 정보 또는 필수 약관 동의가 올바르지 않습니다."),
+    ACCOUNT_CONFLICT(HttpStatus.CONFLICT, "이미 사용 중인 이메일, 인증 계정 또는 닉네임입니다."),
+
     // 포트폴리오 (FUNC-033, 034, 036)
     PORTFOLIO_ALREADY_CONFIGURED(HttpStatus.CONFLICT, "이미 최초 포트폴리오를 구성했습니다."),
     INSUFFICIENT_SIMULATION_CASH(HttpStatus.UNPROCESSABLE_ENTITY, "사용 가능한 모의 현금이 부족합니다."),
@@ -38,8 +46,6 @@ public enum ErrorCode {
     EVENT_NOT_RETRYABLE(HttpStatus.CONFLICT, "재처리할 수 없는 상태입니다."),
 
     // 공통 - API_DOCS에 개별 정의가 없는 경우의 기본 코드
-    // TODO: AUTHENTICATION_REQUIRED는 API_DOCS에 명시되지 않은 가정값이다. 팀 확정 후 조정한다.
-    AUTHENTICATION_REQUIRED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청 형식이 올바르지 않습니다."),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "허용되지 않은 HTTP 메서드입니다."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "요청을 처리하지 못했습니다.");
