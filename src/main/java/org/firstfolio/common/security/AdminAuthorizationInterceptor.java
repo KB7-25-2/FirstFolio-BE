@@ -1,7 +1,10 @@
 package org.firstfolio.common.security;
 
+import org.firstfolio.auth.domain.AuthenticatedUser;
+import org.firstfolio.auth.web.AuthenticationRequestAttributes;
 import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
+import org.firstfolio.user.domain.UserRole;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 import javax.servlet.http.HttpServletRequest;
@@ -20,10 +23,15 @@ public class AdminAuthorizationInterceptor implements HandlerInterceptor {
             HttpServletResponse response,
             Object handler
     ) {
-        CurrentUser currentUser = StubUserHeaders.read(request)
-                .orElseThrow(() -> new ApiException(ErrorCode.AUTHENTICATION_REQUIRED));
+        Object currentUser = request.getAttribute(
+                AuthenticationRequestAttributes.CURRENT_USER
+        );
 
-        if (!currentUser.isAdmin()) {
+        if (!(currentUser instanceof AuthenticatedUser authenticatedUser)) {
+            throw new ApiException(ErrorCode.UNAUTHORIZED);
+        }
+
+        if (authenticatedUser.roleCode() != UserRole.ADMIN) {
             throw new ApiException(ErrorCode.ADMIN_REQUIRED);
         }
 

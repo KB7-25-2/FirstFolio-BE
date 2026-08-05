@@ -13,8 +13,9 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 사용자용 모의 상품 API (FUNC-031).
  *
- * <p>{@code /api/admin/**}과 달리 권한 인터셉터가 걸리지 않는다. 공개 상품 목록은
- * 학습 완료 여부와 무관하게 누구나 볼 수 있어야 한다.</p>
+ * <p>인증은 필요하지만 <b>권한 조건은 없다.</b> {@code /api/admin/**}과 달리 역할을 따지지 않고,
+ * 로그인한 사용자라면 학습 진도와 무관하게 모든 공개 상품을 볼 수 있다 (2026-08-05 팀 확정).
+ * 이 서비스가 사용자 커리큘럼을 아예 참조하지 않는 것이 그 규칙을 지키는 방법이다.</p>
  */
 @RestController
 @RequestMapping("/api/financial-products")

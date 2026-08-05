@@ -33,7 +33,7 @@ public class PortfolioController {
 
     @GetMapping("/current")
     public ApiResponse<PortfolioDetailResponse> findCurrent() {
-        Long userId = currentUserProvider.require().getUserId();
+        long userId = currentUserProvider.require().userId();
 
         return ApiResponse.of(queryService.findCurrent(userId));
     }
@@ -44,7 +44,7 @@ public class PortfolioController {
             @RequestParam(value = "cursor", required = false) String cursor,
             @RequestParam(value = "size", required = false) Integer size
     ) {
-        Long userId = currentUserProvider.require().getUserId();
+        long userId = currentUserProvider.require().userId();
 
         return ApiResponse.of(queryService.findCurrentTransactions(userId, type, cursor, size));
     }

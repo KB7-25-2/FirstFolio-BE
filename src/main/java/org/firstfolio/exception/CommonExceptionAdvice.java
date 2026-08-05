@@ -54,6 +54,9 @@ public class CommonExceptionAdvice {
             HttpServletRequest request
     ) {
         String requestId = RequestIdFilter.currentRequestId(request);
+        ErrorCode errorCode = isSignupRequest(request)
+                ? ErrorCode.INVALID_SIGNUP_INPUT
+                : ErrorCode.INVALID_REQUEST;
 
         log.warn(
                 "잘못된 요청 path={} requestId={} message={}",
@@ -63,11 +66,7 @@ public class CommonExceptionAdvice {
         );
 
         // 파싱 실패 메시지에는 내부 타입·패키지 정보가 섞이므로 그대로 노출하지 않는다.
-        return toResponse(
-                ErrorCode.INVALID_REQUEST,
-                ErrorCode.INVALID_REQUEST.getDefaultMessage(),
-                requestId
-        );
+        return toResponse(errorCode, errorCode.getDefaultMessage(), requestId);
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
@@ -106,6 +105,10 @@ public class CommonExceptionAdvice {
         );
     }
 
+    private boolean isSignupRequest(HttpServletRequest request) {
+        return request != null && request.getRequestURI().endsWith("/api/auth/signup");
+    }
+
     private ResponseEntity<ErrorResponse> toResponse(
             ErrorCode errorCode,
             String message,
@@ -117,6 +120,7 @@ public class CommonExceptionAdvice {
 
         return ResponseEntity
                 .status(errorCode.getStatus())
+                .header(RequestIdFilter.REQUEST_ID_HEADER, requestId)
                 .body(ErrorResponse.of(errorCode.name(), body, requestId));
     }
 }

@@ -1,5 +1,7 @@
 package org.firstfolio.config;
 
+import org.firstfolio.auth.interceptor.FirebaseAuthenticationInterceptor;
+import org.firstfolio.auth.web.CurrentUserArgumentResolver;
 import org.firstfolio.common.json.ApiObjectMapperFactory;
 import org.firstfolio.common.security.AdminAuthorizationInterceptor;
 import org.firstfolio.common.security.InternalCallInterceptor;
@@ -14,10 +16,13 @@ import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -36,19 +41,30 @@ import java.util.List;
 )
 public class ServletConfig implements WebMvcConfigurer {
 
+    private static final long CORS_MAX_AGE_SECONDS = 3600L;
+
+    private final FirebaseAuthenticationInterceptor authenticationInterceptor;
+    private final CurrentUserArgumentResolver currentUserArgumentResolver;
+    private final String[] allowedOrigins;
+
     @Value("${internal.call-token:}")
     private String internalCallToken;
+
+    public ServletConfig(
+            FirebaseAuthenticationInterceptor authenticationInterceptor,
+            CurrentUserArgumentResolver currentUserArgumentResolver,
+            @Value("${cors.allowed-origins}") String allowedOrigins
+    ) {
+        this.authenticationInterceptor = authenticationInterceptor;
+        this.currentUserArgumentResolver = currentUserArgumentResolver;
+        this.allowedOrigins = parseAllowedOrigins(allowedOrigins);
+    }
 
     @Bean
     public static PropertySourcesPlaceholderConfigurer servletPropertySourcesPlaceholderConfigurer() {
         return new PropertySourcesPlaceholderConfigurer();
     }
 
-    /**
-     * 기본 컨버터 구성은 그대로 두고 JSON 컨버터의 ObjectMapper만 교체한다.
-     * API_DOCS.md의 표기 규칙(snake_case, 금액 문자열, UTC 시각)은
-     * {@link ApiObjectMapperFactory}에 모여 있다.
-     */
     @Override
     public void extendMessageConverters(List<HttpMessageConverter<?>> converters) {
         for (HttpMessageConverter<?> converter : converters) {
@@ -59,21 +75,63 @@ public class ServletConfig implements WebMvcConfigurer {
         }
     }
 
-    /**
-     * 권한 검증은 컨트롤러마다 반복하지 않고 경로 단위로 건다.
-     * 새 관리자·내부 엔드포인트가 늘어도 검증을 빠뜨릴 수 없게 하기 위함이다.
-     *
-     * <p>모든 API는 {@code /api} 접두사를 쓴다 (FE의 {@code VITE_API_BASE_URL=/api},
-     * 프록시가 접두사를 떼지 않음). {@code API_DOCS.md}는 이 접두사를 생략해 표기하고 있다.
-     * 접두사 없는 패턴도 함께 걸어 두는데, 권한 검증은 과하게 걸리는 것보다
-     * 빠지는 쪽이 훨씬 위험하기 때문이다.</p>
-     */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(authenticationInterceptor)
+                .addPathPatterns("/**")
+                .excludePathPatterns(
+                        "/api/auth/**",
+                        "/api/health",
+                        "/health",
+                        "/api/internal/**",
+                        "/internal/**",
+                        "/favicon.ico"
+                );
+
         registry.addInterceptor(new AdminAuthorizationInterceptor())
                 .addPathPatterns("/api/admin/**", "/admin/**");
 
         registry.addInterceptor(new InternalCallInterceptor(internalCallToken))
                 .addPathPatterns("/api/internal/**", "/internal/**");
+    }
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/api/**")
+                .allowedOrigins(allowedOrigins)
+                .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+                .allowedHeaders(
+                        "Authorization",
+                        "Content-Type",
+                        "Accept",
+                        "X-Request-Id"
+                )
+                .exposedHeaders("X-Request-Id")
+                .allowCredentials(false)
+                .maxAge(CORS_MAX_AGE_SECONDS);
+    }
+
+    @Override
+    public void addArgumentResolvers(
+            List<HandlerMethodArgumentResolver> resolvers
+    ) {
+        resolvers.add(currentUserArgumentResolver);
+    }
+
+    private static String[] parseAllowedOrigins(String configuredOrigins) {
+        String[] origins = Arrays.stream(configuredOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toArray(String[]::new);
+
+        if (origins.length == 0) {
+            throw new IllegalArgumentException("CORS allowed origins must not be empty.");
+        }
+
+        if (Arrays.asList(origins).contains("*")) {
+            throw new IllegalArgumentException("Wildcard CORS origin is not allowed.");
+        }
+
+        return origins;
     }
 }

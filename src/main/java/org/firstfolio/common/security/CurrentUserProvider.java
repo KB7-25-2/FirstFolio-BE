@@ -1,5 +1,6 @@
 package org.firstfolio.common.security;
 
+import org.firstfolio.auth.domain.AuthenticatedUser;
 import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
 
@@ -13,11 +14,11 @@ import java.util.Optional;
  */
 public interface CurrentUserProvider {
 
-    Optional<CurrentUser> find();
+    Optional<AuthenticatedUser> find();
 
-    default CurrentUser require() {
+    default AuthenticatedUser require() {
         return find().orElseThrow(
-                () -> new ApiException(ErrorCode.AUTHENTICATION_REQUIRED)
+                () -> new ApiException(ErrorCode.UNAUTHORIZED)
         );
     }
 }

@@ -1,8 +1,11 @@
 package org.firstfolio.common.security;
 
+import org.firstfolio.auth.domain.AuthenticatedUser;
+import org.firstfolio.auth.web.AuthenticationRequestAttributes;
 import org.firstfolio.common.json.ApiObjectMapperFactory;
 import org.firstfolio.common.web.RequestIdFilter;
 import org.firstfolio.exception.CommonExceptionAdvice;
+import org.firstfolio.user.domain.UserRole;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
@@ -41,15 +44,17 @@ class AuthorizationInterceptorTest {
     void rejectsAdminPathWithoutUser() throws Exception {
         mockMvc.perform(get("/admin/things"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error.code").value("AUTHENTICATION_REQUIRED"));
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
     }
 
     @Test
     @DisplayName("일반 사용자는 관리자 경로에서 ADMIN_REQUIRED로 막힌다")
     void rejectsAdminPathForNormalUser() throws Exception {
         mockMvc.perform(get("/admin/things")
-                        .header(StubUserHeaders.USER_ID_HEADER, "1")
-                        .header(StubUserHeaders.USER_ROLE_HEADER, "USER"))
+                        .requestAttr(
+                                AuthenticationRequestAttributes.CURRENT_USER,
+                                authenticatedUser(UserRole.USER)
+                        ))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("ADMIN_REQUIRED"));
     }
@@ -58,8 +63,10 @@ class AuthorizationInterceptorTest {
     @DisplayName("ADMIN 역할이면 관리자 경로를 통과한다")
     void allowsAdmin() throws Exception {
         mockMvc.perform(get("/admin/things")
-                        .header(StubUserHeaders.USER_ID_HEADER, "1")
-                        .header(StubUserHeaders.USER_ROLE_HEADER, "ADMIN"))
+                        .requestAttr(
+                                AuthenticationRequestAttributes.CURRENT_USER,
+                                authenticatedUser(UserRole.ADMIN)
+                        ))
                 .andExpect(status().isOk());
     }
 
@@ -108,6 +115,10 @@ class AuthorizationInterceptorTest {
                         .header(InternalCallInterceptor.INTERNAL_TOKEN_HEADER, "anything"))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code").value("INTERNAL_CALL_REQUIRED"));
+    }
+
+    private static AuthenticatedUser authenticatedUser(UserRole role) {
+        return new AuthenticatedUser(1L, "firebase-uid-1", "테스트사용자", role);
     }
 
     @RestController

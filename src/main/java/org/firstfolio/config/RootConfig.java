@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 
 import javax.sql.DataSource;
+import java.time.Clock;
 
 @Configuration
 @PropertySource("classpath:/application.properties")
@@ -36,6 +38,7 @@ import javax.sql.DataSource;
         )
 )
 @EnableTransactionManagement
+@Import(FirebaseConfig.class)
 public class RootConfig {
 
     @Bean
@@ -79,5 +82,10 @@ public class RootConfig {
     @Bean
     public DataSourceTransactionManager transactionManager(DataSource dataSource) {
         return new DataSourceTransactionManager(dataSource);
+    }
+
+    @Bean
+    public Clock clock() {
+        return Clock.systemUTC();
     }
 }
