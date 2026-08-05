@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 
 import javax.sql.DataSource;
+import java.time.Clock;
 
 @Configuration
 @PropertySource("classpath:/application.properties")
@@ -81,5 +82,10 @@ public class RootConfig {
     @Bean
     public DataSourceTransactionManager transactionManager(DataSource dataSource) {
         return new DataSourceTransactionManager(dataSource);
+    }
+
+    @Bean
+    public Clock clock() {
+        return Clock.systemUTC();
     }
 }

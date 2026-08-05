@@ -69,9 +69,13 @@ Firebase Console의 `프로젝트 설정 > 서비스 계정`에서 로컬 개발
 ```text
 FIREBASE_PROJECT_ID=firstfolio-local
 GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/firebase-service-account.json
+TERMS_OF_SERVICE_VERSION=2026-08-01
+PRIVACY_POLICY_VERSION=2026-08-01
 ```
 
 `GOOGLE_APPLICATION_CREDENTIALS`는 Google Application Default Credentials가 직접 읽습니다. `FIREBASE_PROJECT_ID`는 `application.properties`의 `firebase.project-id`로 연결됩니다.
+
+`TERMS_OF_SERVICE_VERSION`과 `PRIVACY_POLICY_VERSION`에는 현재 서비스에 적용 중인 실제 문서 버전을 입력합니다. 회원가입 시 서버가 이 버전과 동의 시각을 `user_consents` 이력에 저장하므로 운영 환경에서도 반드시 설정해야 합니다. 위 날짜는 형식 예시이며 실제 정책 버전으로 교체합니다.
 
 데이터베이스 환경변수와 동일하게 Tomcat을 실행하기 전에 `.env.local`을 현재 터미널에 불러오거나 IntelliJ EnvFile 설정으로 전달합니다. Firebase Bean은 실제 인증 기능에서 처음 사용할 때 초기화되므로 일반 단위 테스트에는 서비스 계정 파일이 필요하지 않습니다.
 
@@ -91,6 +95,20 @@ JDBC 연결 테스트는 `.env.local` 또는 실행 환경변수의 `DB_DRIVER`,
 ```
 
 외부 데이터베이스 상태에 따라 일반 단위 테스트가 실패하지 않도록 `./gradlew test`에서는 JDBC 연결 테스트를 제외합니다.
+
+### 인증 API
+
+프론트엔드는 Firebase Client SDK에서 인증한 뒤 발급받은 ID Token을 다음 형식으로 전달합니다.
+
+```text
+Authorization: Bearer {Firebase ID Token}
+```
+
+- `POST /auth/signup`: FirstFolio 사용자와 필수 약관 동의 이력을 생성합니다.
+- `POST /auth/login`: 사용자 상태를 확인하고 마지막 로그인 시각과 다음 진입 단계를 반환합니다.
+- `POST /auth/logout`: 토큰을 확인하고 204를 반환합니다. 성공 후 프론트엔드가 Firebase Client SDK의 `signOut`을 호출해야 합니다.
+
+현재 로그아웃은 현재 기기 로그아웃만 지원하며 Firebase Refresh Token을 폐기하는 전체 기기 로그아웃은 수행하지 않습니다.
 
 ### 빌드와 테스트
 
