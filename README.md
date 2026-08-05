@@ -86,6 +86,24 @@ FIREBASE_PROJECT_ID=firstfolio-production
 GOOGLE_APPLICATION_CREDENTIALS=/run/secrets/firebase-admin.json
 ```
 
+### CORS
+
+백엔드는 `/api/**` 요청에 대해 `CORS_ALLOWED_ORIGINS`에 등록된 프론트엔드 출처만 허용합니다. 여러 주소는 쉼표로 구분하고 경로나 마지막 슬래시는 넣지 않습니다.
+
+로컬 개발 환경:
+
+```text
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+```
+
+Vercel 운영 환경과 같이 프론트엔드와 백엔드 출처가 다르면 EC2 또는 Tomcat 실행 환경에 실제 프론트엔드 운영 주소를 등록합니다.
+
+```text
+CORS_ALLOWED_ORIGINS=https://first-folio-fe.vercel.app
+```
+
+위 Vercel 주소는 형식 예시이므로 Vercel 프로젝트의 실제 Production Domain으로 교체합니다. 전체 출처를 허용하는 `*`는 사용하지 않습니다. Firebase 인증은 `Authorization` 헤더를 사용하며 쿠키 기반 자격 증명은 허용하지 않습니다.
+
 ### JDBC 연결 테스트
 
 JDBC 연결 테스트는 `.env.local` 또는 실행 환경변수의 `DB_DRIVER`, `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`를 사용해 실제 애플리케이션의 HikariCP `DataSource`로 MySQL에 연결하고 `SELECT 1`을 실행합니다.

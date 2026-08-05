@@ -99,7 +99,8 @@ class ServletConfigInterceptorPathTest {
 
         new ServletConfig(
                 mock(FirebaseAuthenticationInterceptor.class),
-                mock(CurrentUserArgumentResolver.class)
+                mock(CurrentUserArgumentResolver.class),
+                "http://localhost:5173"
         ).addInterceptors(registry);
 
         for (Object registered : registry.registered()) {

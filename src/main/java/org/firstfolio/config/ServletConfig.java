@@ -18,9 +18,11 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -39,18 +41,23 @@ import java.util.List;
 )
 public class ServletConfig implements WebMvcConfigurer {
 
+    private static final long CORS_MAX_AGE_SECONDS = 3600L;
+
     private final FirebaseAuthenticationInterceptor authenticationInterceptor;
     private final CurrentUserArgumentResolver currentUserArgumentResolver;
+    private final String[] allowedOrigins;
 
     @Value("${internal.call-token:}")
     private String internalCallToken;
 
     public ServletConfig(
             FirebaseAuthenticationInterceptor authenticationInterceptor,
-            CurrentUserArgumentResolver currentUserArgumentResolver
+            CurrentUserArgumentResolver currentUserArgumentResolver,
+            @Value("${cors.allowed-origins}") String allowedOrigins
     ) {
         this.authenticationInterceptor = authenticationInterceptor;
         this.currentUserArgumentResolver = currentUserArgumentResolver;
+        this.allowedOrigins = parseAllowedOrigins(allowedOrigins);
     }
 
     @Bean
@@ -89,9 +96,42 @@ public class ServletConfig implements WebMvcConfigurer {
     }
 
     @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/api/**")
+                .allowedOrigins(allowedOrigins)
+                .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+                .allowedHeaders(
+                        "Authorization",
+                        "Content-Type",
+                        "Accept",
+                        "X-Request-Id"
+                )
+                .exposedHeaders("X-Request-Id")
+                .allowCredentials(false)
+                .maxAge(CORS_MAX_AGE_SECONDS);
+    }
+
+    @Override
     public void addArgumentResolvers(
             List<HandlerMethodArgumentResolver> resolvers
     ) {
         resolvers.add(currentUserArgumentResolver);
+    }
+
+    private static String[] parseAllowedOrigins(String configuredOrigins) {
+        String[] origins = Arrays.stream(configuredOrigins.split(","))
+                .map(String::trim)
+                .filter(origin -> !origin.isEmpty())
+                .toArray(String[]::new);
+
+        if (origins.length == 0) {
+            throw new IllegalArgumentException("CORS allowed origins must not be empty.");
+        }
+
+        if (Arrays.asList(origins).contains("*")) {
+            throw new IllegalArgumentException("Wildcard CORS origin is not allowed.");
+        }
+
+        return origins;
     }
 }
