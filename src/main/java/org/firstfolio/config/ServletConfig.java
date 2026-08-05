@@ -73,7 +73,6 @@ public class ServletConfig implements WebMvcConfigurer {
         registry.addInterceptor(authenticationInterceptor)
                 .addPathPatterns("/**")
                 .excludePathPatterns(
-                        "/auth/**",
                         "/api/auth/**",
                         "/api/health",
                         "/health",

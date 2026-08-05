@@ -48,7 +48,7 @@ class AuthControllerTest {
     @Test
     void signupReturnsCreatedUser() throws Exception {
         mockMvc.perform(
-                        post("/auth/signup")
+                        post("/api/auth/signup")
                                 .header(
                                         HttpHeaders.AUTHORIZATION,
                                         "Bearer valid-token"
@@ -73,7 +73,7 @@ class AuthControllerTest {
     @Test
     void loginReturnsUserAndNextStep() throws Exception {
         mockMvc.perform(
-                        post("/auth/login")
+                        post("/api/auth/login")
                                 .header(
                                         HttpHeaders.AUTHORIZATION,
                                         "Bearer valid-token"
@@ -92,7 +92,7 @@ class AuthControllerTest {
     @Test
     void logoutReturnsNoContent() throws Exception {
         mockMvc.perform(
-                        post("/auth/logout")
+                        post("/api/auth/logout")
                                 .header(
                                         HttpHeaders.AUTHORIZATION,
                                         "Bearer valid-token"
@@ -106,7 +106,7 @@ class AuthControllerTest {
     void apiErrorUsesCommonErrorEnvelope() throws Exception {
         authUseCase.failure = new ApiException(ErrorCode.INVALID_ID_TOKEN);
 
-        mockMvc.perform(post("/auth/login"))
+        mockMvc.perform(post("/api/auth/login"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(header().exists("X-Request-Id"))
                 .andExpect(content().string(containsString(
@@ -120,7 +120,7 @@ class AuthControllerTest {
     @Test
     void malformedSignupBodyReturnsSignupInputError() throws Exception {
         mockMvc.perform(
-                        post("/auth/signup")
+                        post("/api/auth/signup")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content("{not-json}")
                 )

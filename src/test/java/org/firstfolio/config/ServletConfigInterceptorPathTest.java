@@ -5,6 +5,7 @@ import org.firstfolio.common.security.InternalCallInterceptor;
 import org.firstfolio.auth.interceptor.FirebaseAuthenticationInterceptor;
 import org.firstfolio.auth.web.CurrentUserArgumentResolver;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -28,6 +29,19 @@ import static org.mockito.Mockito.mock;
  * 검증을 통과해버리는 결함을 잡지 못했다. 그래서 설정 객체에서 패턴을 직접 읽어 확인한다.</p>
  */
 class ServletConfigInterceptorPathTest {
+
+    @Test
+    @DisplayName("Firebase 인증 인터셉터는 /api/auth만 공개 경로로 제외한다")
+    void firebaseAuthenticationExcludesOnlyApiAuthPath() {
+        MappedInterceptor interceptor = interceptorFor(
+                FirebaseAuthenticationInterceptor.class
+        );
+
+        assertFalse(interceptor.matches(request("/api/auth/signup")));
+        assertFalse(interceptor.matches(request("/api/auth/login")));
+        assertFalse(interceptor.matches(request("/api/auth/logout")));
+        assertTrue(interceptor.matches(request("/auth/login")));
+    }
 
     @ParameterizedTest(name = "관리자 인터셉터가 {0} 를 가로챈다")
     @DisplayName("관리자 경로는 /api 접두사가 붙어도 가로챈다")

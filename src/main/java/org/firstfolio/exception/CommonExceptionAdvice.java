@@ -106,7 +106,7 @@ public class CommonExceptionAdvice {
     }
 
     private boolean isSignupRequest(HttpServletRequest request) {
-        return request != null && request.getRequestURI().endsWith("/auth/signup");
+        return request != null && request.getRequestURI().endsWith("/api/auth/signup");
     }
 
     private ResponseEntity<ErrorResponse> toResponse(

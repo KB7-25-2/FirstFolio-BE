@@ -104,15 +104,15 @@ JDBC 연결 테스트는 `.env.local` 또는 실행 환경변수의 `DB_DRIVER`,
 Authorization: Bearer {Firebase ID Token}
 ```
 
-- `POST /auth/signup`: FirstFolio 사용자와 필수 약관 동의 이력을 생성합니다.
-- `POST /auth/login`: 사용자 상태를 확인하고 마지막 로그인 시각과 다음 진입 단계를 반환합니다.
-- `POST /auth/logout`: 토큰을 확인하고 204를 반환합니다. 성공 후 프론트엔드가 Firebase Client SDK의 `signOut`을 호출해야 합니다.
+- `POST /api/auth/signup`: FirstFolio 사용자와 필수 약관 동의 이력을 생성합니다.
+- `POST /api/auth/login`: 사용자 상태를 확인하고 마지막 로그인 시각과 다음 진입 단계를 반환합니다.
+- `POST /api/auth/logout`: 토큰을 확인하고 204를 반환합니다. 성공 후 프론트엔드가 Firebase Client SDK의 `signOut`을 호출해야 합니다.
 
 현재 로그아웃은 현재 기기 로그아웃만 지원하며 Firebase Refresh Token을 폐기하는 전체 기기 로그아웃은 수행하지 않습니다.
 
 ### 인증이 필요한 API에서 현재 사용자 조회
 
-`/auth/**`, `/api/health`를 제외한 API 요청은 Firebase 인증 인터셉터가 `Authorization` 헤더의 ID Token을 검증합니다. 검증된 Firebase UID와 연결된 활성 FirstFolio 사용자를 조회한 뒤 Controller의 `@CurrentUser` 파라미터에 내부 사용자 정보를 주입합니다.
+`/api/auth/**`, `/api/health`를 제외한 API 요청은 Firebase 인증 인터셉터가 `Authorization` 헤더의 ID Token을 검증합니다. 검증된 Firebase UID와 연결된 활성 FirstFolio 사용자를 조회한 뒤 Controller의 `@CurrentUser` 파라미터에 내부 사용자 정보를 주입합니다.
 
 ```java
 @GetMapping("/portfolio")
