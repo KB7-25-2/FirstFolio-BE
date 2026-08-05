@@ -18,7 +18,7 @@ public interface CurrentUserProvider {
 
     default AuthenticatedUser require() {
         return find().orElseThrow(
-                () -> new ApiException(ErrorCode.AUTHENTICATION_REQUIRED)
+                () -> new ApiException(ErrorCode.UNAUTHORIZED)
         );
     }
 }

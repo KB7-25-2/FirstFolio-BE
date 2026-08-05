@@ -46,8 +46,6 @@ public enum ErrorCode {
     EVENT_NOT_RETRYABLE(HttpStatus.CONFLICT, "재처리할 수 없는 상태입니다."),
 
     // 공통 - API_DOCS에 개별 정의가 없는 경우의 기본 코드
-    // TODO: AUTHENTICATION_REQUIRED는 API_DOCS에 명시되지 않은 가정값이다. 팀 확정 후 조정한다.
-    AUTHENTICATION_REQUIRED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청 형식이 올바르지 않습니다."),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "허용되지 않은 HTTP 메서드입니다."),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "요청을 처리하지 못했습니다.");

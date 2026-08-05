@@ -28,7 +28,7 @@ public class AdminAuthorizationInterceptor implements HandlerInterceptor {
         );
 
         if (!(currentUser instanceof AuthenticatedUser authenticatedUser)) {
-            throw new ApiException(ErrorCode.AUTHENTICATION_REQUIRED);
+            throw new ApiException(ErrorCode.UNAUTHORIZED);
         }
 
         if (authenticatedUser.roleCode() != UserRole.ADMIN) {

@@ -44,7 +44,7 @@ class AuthorizationInterceptorTest {
     void rejectsAdminPathWithoutUser() throws Exception {
         mockMvc.perform(get("/admin/things"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error.code").value("AUTHENTICATION_REQUIRED"));
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
     }
 
     @Test
