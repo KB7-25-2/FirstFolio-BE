@@ -10,8 +10,9 @@ import org.springframework.http.HttpStatus;
  */
 public enum ErrorCode {
 
-    // 포트폴리오 (FUNC-033, 034, 036)
-    PORTFOLIO_ALREADY_CONFIGURED(HttpStatus.CONFLICT, "이미 최초 포트폴리오를 구성했습니다."),
+    // 포트폴리오 (FUNC-034, 036)
+    // PORTFOLIO_ALREADY_CONFIGURED(409)는 POST /portfolios와 함께 폐기됐다.
+    // "최초 구성" 단계 자체가 없어져 두 번 구성할 일이 없다 (2026-08-05 팀 확정).
     INSUFFICIENT_SIMULATION_CASH(HttpStatus.UNPROCESSABLE_ENTITY, "사용 가능한 모의 현금이 부족합니다."),
     ACTIVE_PORTFOLIO_NOT_FOUND(HttpStatus.NOT_FOUND, "활성 포트폴리오가 없습니다."),
 

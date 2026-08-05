@@ -96,7 +96,7 @@ class InitialGrantServiceTest {
     }
 
     @Test
-    @DisplayName("지급 직후 포트폴리오는 전액 현금이다 — 상품 배분은 #12에서 한다")
+    @DisplayName("지급 직후 포트폴리오는 전액 현금이다 — 상품 매수는 거래 API에서 한다")
     void newPortfolioHoldsOnlyCash() {
         grant();
 

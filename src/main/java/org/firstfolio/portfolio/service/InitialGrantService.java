@@ -31,7 +31,7 @@ import java.time.ZoneOffset;
  *
  * // 응답 조립
  * response.setFoundationGrant(grant);            // granted / amount / portfolioId
- * response.setNextAction(grant.isGranted() ? "PORTFOLIO_SETUP" : null);
+ * response.setNextAction(grant.isGranted() ? "PORTFOLIO" : null);
  * </pre>
  *
  * <p>같은 트랜잭션 안에서 호출하면 퀴즈 채점과 지급이 함께 커밋된다. 별도 트랜잭션으로
@@ -70,8 +70,11 @@ public class InitialGrantService {
     /**
      * 초기 모의투자금 3천만원을 정확히 한 번 지급하고 최초 포트폴리오를 만든다.
      *
-     * <p>이 시점의 포트폴리오는 <b>전액 현금이고 보유 상품이 없다.</b> 상품 배분은
-     * {@code POST /portfolios}에서 한다 (FUNC-033).</p>
+     * <p>이 시점의 포트폴리오는 <b>전액 현금이고 보유 상품이 없다.</b> 상품 매수는
+     * {@code POST /portfolios/current/trades}에서 한다 (FUNC-035).</p>
+     *
+     * <p>"최초 포트폴리오 구성"이라는 별도 단계는 없다. 지급이 끝나면 사용자는 곧바로
+     * 포트폴리오 화면으로 가고, 거기서 원할 때 상품을 산다.</p>
      *
      * @param userId           지급 대상 사용자
      * @param curriculumItemId 포트폴리오 기초 과정 커리큘럼 항목. 멱등 키의 일부다
