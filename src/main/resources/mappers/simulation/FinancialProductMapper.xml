@@ -123,7 +123,14 @@
         <foreach item="assetType" collection="assetTypes" open="(" separator="," close=")">
             #{assetType}
         </foreach>
-        <if test="productIds != null and productIds.size() > 0">
+        <!--
+            조건에서 컬렉션 메서드를 부르지 않는다. MyBatis가 OGNL 리플렉션으로 평가하는데,
+            List.of()가 만드는 ImmutableCollections$List12는 private 중첩 클래스라
+            JDK 17 모듈 캡슐화에 막혀 InaccessibleObjectException이 난다
+            (ArrayList면 통과해서, 호출하는 쪽에 따라 갈리는 함정이 된다).
+            빈 목록은 호출 전에 null로 바꿔서 넘긴다.
+        -->
+        <if test="productIds != null">
             AND product_id IN
             <foreach item="productId" collection="productIds" open="(" separator="," close=")">
                 #{productId}

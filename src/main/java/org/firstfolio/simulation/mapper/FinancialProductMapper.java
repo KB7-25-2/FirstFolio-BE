@@ -49,7 +49,8 @@ public interface FinancialProductMapper {
      * <p>기준 가격으로 평가하는 자산군(주식·펀드)의 공개 상품만 고른다. 비공개 상품은 사용자가
      * 보유할 수 없으므로 가격을 쌓을 이유가 없다.</p>
      *
-     * @param productIds null이거나 비어 있으면 해당 자산군 전체
+     * @param productIds null이면 해당 자산군 전체. <b>빈 목록을 넘기지 않는다</b> —
+     *                   {@code IN ()}이 만들어져 SQL 오류가 난다. 호출하는 쪽에서 null로 바꾼다
      */
     List<FinancialProduct> findPriceTargets(
             @Param("assetTypes") List<AssetType> assetTypes,

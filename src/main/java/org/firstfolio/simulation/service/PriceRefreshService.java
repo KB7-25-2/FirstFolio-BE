@@ -48,6 +48,16 @@ import java.util.Map;
  * 기준 시점이 흩어져 "같은 시점의 포트폴리오 평가"가 성립하지 않는다. 실제 체결 시각은
  * {@code generation_key}에 근거로 남긴다.</p>
  *
+ * <h3>같은 체결값은 다시 쌓지 않는다</h3>
+ *
+ * <p>{@code generation_key}가 <b>체결 시각</b>을 담고 있고 유니크 제약이 걸려 있어,
+ * 새 체결이 없으면 기준 시각을 바꿔 다시 불러도 저장되지 않는다(건너뜀으로 집계된다).
+ * 장 마감 후 하루 종일 폴링해도 같은 가격이 수천 행 쌓이지 않는다는 뜻이다.</p>
+ *
+ * <p>그래서 <b>가격 행은 값이 실제로 바뀔 때만 늘어난다.</b> 평가가 읽는 "가장 최근 가격"의
+ * {@code reference_at}이 조금 오래돼 보일 수 있는데, 그 시점 이후로 체결이 없었다는 뜻이라
+ * 사실에 맞다.</p>
+ *
  * <h3>부분 실패를 허용한다</h3>
  *
  * <p>메서드 전체를 트랜잭션으로 묶지 않는다. 한 종목이 실패해도 나머지는 저장돼야 하기 때문이다.
@@ -107,7 +117,7 @@ public class PriceRefreshService {
         requireValidReferenceAt(referenceAt, now);
 
         List<FinancialProduct> targets =
-                financialProductMapper.findPriceTargets(PRICE_BASED, productIds);
+                financialProductMapper.findPriceTargets(PRICE_BASED, emptyToNull(productIds));
 
         if (targets.isEmpty()) {
             log.info("가격 갱신 대상이 없습니다 referenceAt={}", referenceAt);
@@ -293,6 +303,15 @@ public class PriceRefreshService {
         }
 
         return quotes;
+    }
+
+    /**
+     * 빈 목록은 "전체"와 같은 뜻이므로 null로 바꾼다.
+     *
+     * <p>매퍼에 빈 목록이 그대로 가면 {@code IN ()}이 만들어져 SQL 오류가 난다.</p>
+     */
+    private static List<Long> emptyToNull(List<Long> productIds) {
+        return productIds == null || productIds.isEmpty() ? null : productIds;
     }
 
     /** 미래 시각으로는 가격을 만들지 않는다 (FUNC-040 예외/제한사항). */
