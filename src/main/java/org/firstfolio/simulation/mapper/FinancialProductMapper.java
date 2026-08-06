@@ -42,4 +42,17 @@ public interface FinancialProductMapper {
      * 관리자 부분 수정. null인 필드는 바꾸지 않는다.
      */
     int updateEditableFields(FinancialProduct product);
+
+    /**
+     * 가격 갱신 대상 상품 (FUNC-040).
+     *
+     * <p>기준 가격으로 평가하는 자산군(주식·펀드)의 공개 상품만 고른다. 비공개 상품은 사용자가
+     * 보유할 수 없으므로 가격을 쌓을 이유가 없다.</p>
+     *
+     * @param productIds null이거나 비어 있으면 해당 자산군 전체
+     */
+    List<FinancialProduct> findPriceTargets(
+            @Param("assetTypes") List<AssetType> assetTypes,
+            @Param("productIds") List<Long> productIds
+    );
 }

@@ -114,6 +114,24 @@
         LIMIT #{size}
     </select>
 
+    <!-- idx_financial_products_active_type (is_active, asset_type)를 그대로 탄다. -->
+    <select id="findPriceTargets" resultMap="financialProductResult">
+        SELECT <include refid="columns"/>
+        FROM financial_products
+        WHERE is_active = TRUE
+          AND asset_type IN
+        <foreach item="assetType" collection="assetTypes" open="(" separator="," close=")">
+            #{assetType}
+        </foreach>
+        <if test="productIds != null and productIds.size() > 0">
+            AND product_id IN
+            <foreach item="productId" collection="productIds" open="(" separator="," close=")">
+                #{productId}
+            </foreach>
+        </if>
+        ORDER BY product_id
+    </select>
+
     <update id="updateEditableFields">
         UPDATE financial_products
         <set>

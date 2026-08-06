@@ -55,4 +55,22 @@
             AND latest.reference_at = p.reference_at
     </select>
 
+    <insert id="insert" useGeneratedKeys="true" keyProperty="productPriceId">
+        INSERT INTO product_prices (
+            product_id,
+            price,
+            reference_at,
+            source_type,
+            generation_key,
+            created_at
+        ) VALUES (
+            #{productId},
+            #{price},
+            #{referenceAt},
+            #{sourceType},
+            #{generationKey},
+            #{createdAt}
+        )
+    </insert>
+
 </mapper>
