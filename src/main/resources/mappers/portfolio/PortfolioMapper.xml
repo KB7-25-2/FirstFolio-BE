@@ -70,4 +70,17 @@
         )
     </insert>
 
+    <!--
+        status = 'ACTIVE' 조건을 WHERE에 둔다. 조회와 갱신 사이에 다른 요청이 먼저 닫았다면
+        갱신 행이 0이 되어 호출한 쪽이 알아챌 수 있다 (애플리케이션 락 불필요).
+    -->
+    <update id="closeGeneration">
+        UPDATE portfolios
+        SET status = 'CLOSED',
+            closed_at = #{closedAt},
+            updated_at = #{closedAt}
+        WHERE portfolio_id = #{portfolioId}
+          AND status = 'ACTIVE'
+    </update>
+
 </mapper>
