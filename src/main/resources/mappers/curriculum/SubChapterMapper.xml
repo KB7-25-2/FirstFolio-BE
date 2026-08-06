@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.curriculum.mapper.SubChapterMapper">
+
+    <resultMap id="subChapterResultMap"
+               type="org.firstfolio.curriculum.domain.SubChapter">
+        <id property="subChapterId" column="sub_chapter_id" />
+        <result property="mainChapterId" column="main_chapter_id" />
+        <result property="title" column="title" />
+        <result property="description" column="description" />
+        <result property="displayOrder" column="display_order" />
+        <result property="currentContentVersionId" column="current_content_version_id" />
+        <result property="active" column="is_active" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <sql id="subChapterColumns">
+        sub_chapter_id,
+        main_chapter_id,
+        title,
+        description,
+        display_order,
+        current_content_version_id,
+        is_active,
+        created_at,
+        updated_at
+    </sql>
+
+    <select id="findAllByMainChapterId" resultMap="subChapterResultMap">
+        SELECT <include refid="subChapterColumns" />
+        FROM sub_chapters
+        WHERE main_chapter_id = #{mainChapterId}
+        ORDER BY display_order, sub_chapter_id
+    </select>
+
+    <select id="findById" resultMap="subChapterResultMap">
+        SELECT <include refid="subChapterColumns" />
+        FROM sub_chapters
+        WHERE sub_chapter_id = #{subChapterId}
+    </select>
+
+    <select id="countDisplayOrderConflict" resultType="int">
+        SELECT COUNT(*)
+        FROM sub_chapters
+        WHERE main_chapter_id = #{mainChapterId}
+          AND display_order = #{displayOrder}
+        <if test="excludedSubChapterId != null">
+            AND sub_chapter_id != #{excludedSubChapterId}
+        </if>
+    </select>
+
+    <insert id="insert"
+            parameterType="org.firstfolio.curriculum.domain.SubChapter"
+            useGeneratedKeys="true"
+            keyProperty="subChapterId"
+            keyColumn="sub_chapter_id">
+        INSERT INTO sub_chapters (
+            main_chapter_id,
+            title,
+            description,
+            display_order,
+            current_content_version_id,
+            is_active,
+            created_at,
+            updated_at
+        ) VALUES (
+            #{mainChapterId},
+            #{title},
+            #{description},
+            #{displayOrder},
+            #{currentContentVersionId},
+            #{active},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <update id="updateMetadata">
+        UPDATE sub_chapters
+        SET title = #{title},
+            description = #{description},
+            display_order = #{displayOrder},
+            is_active = #{active},
+            updated_at = #{updatedAt}
+        WHERE sub_chapter_id = #{subChapterId}
+    </update>
+
+</mapper>

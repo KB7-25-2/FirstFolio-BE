@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.curriculum.mapper.MainChapterMapper">
+
+    <resultMap id="mainChapterResultMap"
+               type="org.firstfolio.curriculum.domain.MainChapter">
+        <id property="mainChapterId" column="main_chapter_id" />
+        <result property="chapterType" column="chapter_type" />
+        <result property="assetType" column="asset_type" />
+        <result property="title" column="title" />
+        <result property="description" column="description" />
+        <result property="displayOrder" column="display_order" />
+        <result property="required" column="is_required" />
+        <result property="active" column="is_active" />
+        <result property="createdAt" column="created_at" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <sql id="mainChapterColumns">
+        main_chapter_id,
+        chapter_type,
+        asset_type,
+        title,
+        description,
+        display_order,
+        is_required,
+        is_active,
+        created_at,
+        updated_at
+    </sql>
+
+    <select id="findAll" resultMap="mainChapterResultMap">
+        SELECT <include refid="mainChapterColumns" />
+        FROM main_chapters
+        <where>
+            <if test="chapterType != null">
+                chapter_type = #{chapterType}
+            </if>
+            <if test="active != null">
+                AND is_active = #{active}
+            </if>
+        </where>
+        ORDER BY display_order, main_chapter_id
+    </select>
+
+    <select id="findById" resultMap="mainChapterResultMap">
+        SELECT <include refid="mainChapterColumns" />
+        FROM main_chapters
+        WHERE main_chapter_id = #{mainChapterId}
+    </select>
+
+    <select id="countActiveByChapterType" resultType="int">
+        SELECT COUNT(*)
+        FROM main_chapters
+        WHERE chapter_type = #{chapterType}
+          AND is_active = TRUE
+    </select>
+
+    <insert id="insert"
+            parameterType="org.firstfolio.curriculum.domain.MainChapter"
+            useGeneratedKeys="true"
+            keyProperty="mainChapterId"
+            keyColumn="main_chapter_id">
+        INSERT INTO main_chapters (
+            chapter_type,
+            asset_type,
+            title,
+            description,
+            display_order,
+            is_required,
+            is_active,
+            created_at,
+            updated_at
+        ) VALUES (
+            #{chapterType},
+            #{assetType},
+            #{title},
+            #{description},
+            #{displayOrder},
+            #{required},
+            #{active},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <update id="updateMetadata">
+        UPDATE main_chapters
+        SET title = #{title},
+            description = #{description},
+            display_order = #{displayOrder},
+            is_active = #{active},
+            updated_at = #{updatedAt}
+        WHERE main_chapter_id = #{mainChapterId}
+    </update>
+
+</mapper>

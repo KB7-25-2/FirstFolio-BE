@@ -186,6 +186,18 @@ public ApiResponse<PortfolioResponse> getPortfolio(
 
 닉네임은 2자 이상 10자 이하이며 중복을 허용하지 않습니다. 뉴스레터 동의 상태가 실제로 변경되면 `NEWSLETTER_POLICY_VERSION`과 변경 시각을 동의 이력에 기록합니다.
 
+### 대·소단원 메타데이터 API
+
+관리자 API는 `ADMIN` 권한이 필요하며 삭제 대신 `is_active`로 노출 상태를 관리합니다. 생성·수정과 관리자 감사 로그 저장은 하나의 트랜잭션으로 처리합니다.
+
+- `GET`, `POST /api/admin/main-chapters`: 대단원 목록 조회·생성
+- `GET /api/admin/main-chapters`는 선택적으로 `chapter_type`, `is_active` 필터를 받음
+- `PATCH /api/admin/main-chapters/{mainChapterId}`: 대단원 메타데이터 부분 수정
+- `GET`, `POST /api/admin/main-chapters/{mainChapterId}/sub-chapters`: 소단원 목록 조회·생성
+- `PATCH /api/admin/sub-chapters/{subChapterId}`: 소단원 메타데이터 부분 수정
+
+생성 요청의 대단원 `is_required`는 `FOUNDATION`이면 `true`, `ASSET`이면 `false`여야 합니다. 대·소단원은 생성 시 활성 상태가 되며, 소단원 생성 요청에는 `is_active`를 받지 않습니다. 소단원 표시 순서는 같은 대단원 안에서 중복할 수 없습니다.
+
 ### 빌드와 테스트
 
 macOS/Linux:
