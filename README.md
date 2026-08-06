@@ -71,11 +71,12 @@ FIREBASE_PROJECT_ID=firstfolio-local
 GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/firebase-service-account.json
 TERMS_OF_SERVICE_VERSION=2026-08-01
 PRIVACY_POLICY_VERSION=2026-08-01
+NEWSLETTER_POLICY_VERSION=2026-08-01
 ```
 
 `GOOGLE_APPLICATION_CREDENTIALS`는 Google Application Default Credentials가 직접 읽습니다. `FIREBASE_PROJECT_ID`는 `application.properties`의 `firebase.project-id`로 연결됩니다.
 
-`TERMS_OF_SERVICE_VERSION`과 `PRIVACY_POLICY_VERSION`에는 현재 서비스에 적용 중인 실제 문서 버전을 입력합니다. 회원가입 시 서버가 이 버전과 동의 시각을 `user_consents` 이력에 저장하므로 운영 환경에서도 반드시 설정해야 합니다. 위 날짜는 형식 예시이며 실제 정책 버전으로 교체합니다.
+`TERMS_OF_SERVICE_VERSION`, `PRIVACY_POLICY_VERSION`, `NEWSLETTER_POLICY_VERSION`에는 현재 서비스에 적용 중인 실제 문서 버전을 입력합니다. 회원가입과 뉴스레터 수신 동의 변경 시 서버가 이 버전과 동의·철회 시각을 `user_consents` 이력에 저장하므로 운영 환경에서도 반드시 설정해야 합니다. 위 날짜는 형식 예시이며 실제 정책 버전으로 교체합니다.
 
 데이터베이스 환경변수와 동일하게 Tomcat을 실행하기 전에 `.env.local`을 현재 터미널에 불러오거나 IntelliJ EnvFile 설정으로 전달합니다. Firebase Bean은 실제 인증 기능에서 처음 사용할 때 초기화되므로 일반 단위 테스트에는 서비스 계정 파일이 필요하지 않습니다.
 
@@ -146,6 +147,16 @@ public ApiResponse<PortfolioResponse> getPortfolio(
 ```
 
 `AuthenticatedUser`에서는 FirstFolio 내부 `userId`, Firebase UID, 닉네임과 `roleCode`를 조회할 수 있습니다. 요청 본문이나 경로에서 받은 사용자 ID를 현재 로그인 사용자로 신뢰하지 않습니다.
+
+### 사용자 프로필 API
+
+인증된 사용자는 자신의 공개 프로필과 뉴스레터 수신 동의 상태를 조회·수정할 수 있습니다.
+
+- `GET /api/users/me`: 현재 사용자 프로필 조회
+- `PATCH /api/users/me`: 닉네임과 뉴스레터 수신 동의 상태 중 전달된 필드만 수정
+- `GET /api/points/balance`: 포인트 원장과 대조한 현재 포인트 잔액 조회
+
+닉네임은 2자 이상 10자 이하이며 중복을 허용하지 않습니다. 뉴스레터 동의 상태가 실제로 변경되면 `NEWSLETTER_POLICY_VERSION`과 변경 시각을 동의 이력에 기록합니다.
 
 ### 빌드와 테스트
 

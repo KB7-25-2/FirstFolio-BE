@@ -1,6 +1,7 @@
 package org.firstfolio.user.domain;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 public class User {
 
@@ -10,6 +11,9 @@ public class User {
     private String nickname;
     private UserRole roleCode;
     private UserStatus status;
+    private int pointBalance;
+    private LocalDate lastAttendanceDate;
+    private boolean newsletterOptIn;
     private LocalDateTime lastLoginAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -84,6 +88,30 @@ public class User {
 
     public LocalDateTime getLastLoginAt() {
         return lastLoginAt;
+    }
+
+    public int getPointBalance() {
+        return pointBalance;
+    }
+
+    public void setPointBalance(int pointBalance) {
+        this.pointBalance = pointBalance;
+    }
+
+    public LocalDate getLastAttendanceDate() {
+        return lastAttendanceDate;
+    }
+
+    public void setLastAttendanceDate(LocalDate lastAttendanceDate) {
+        this.lastAttendanceDate = lastAttendanceDate;
+    }
+
+    public boolean isNewsletterOptIn() {
+        return newsletterOptIn;
+    }
+
+    public void setNewsletterOptIn(boolean newsletterOptIn) {
+        this.newsletterOptIn = newsletterOptIn;
     }
 
     public void setLastLoginAt(LocalDateTime lastLoginAt) {

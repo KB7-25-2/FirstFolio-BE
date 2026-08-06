@@ -19,6 +19,20 @@ public interface UserMapper {
 
     User findByFirebaseUid(@Param("firebaseUid") String firebaseUid);
 
+    User findById(@Param("userId") long userId);
+
+    int countNicknameConflict(
+            @Param("userId") long userId,
+            @Param("nickname") String nickname
+    );
+
+    int updateProfile(
+            @Param("userId") long userId,
+            @Param("nickname") String nickname,
+            @Param("newsletterOptIn") Boolean newsletterOptIn,
+            @Param("updatedAt") LocalDateTime updatedAt
+    );
+
     int updateLastLoginAt(
             @Param("userId") long userId,
             @Param("lastLoginAt") LocalDateTime lastLoginAt
