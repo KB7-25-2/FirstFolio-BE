@@ -209,6 +209,10 @@ class AuthServiceTest {
             return foundUser;
         }
 
+        @Override public User findById(long userId) { return null; }
+        @Override public int countNicknameConflict(long userId, String nickname) { return 0; }
+        @Override public int updateProfile(long userId, String nickname, Boolean newsletterOptIn, LocalDateTime updatedAt) { return 0; }
+
         @Override
         public int updateLastLoginAt(long userId, LocalDateTime lastLoginAt) {
             updatedLastLoginAt = lastLoginAt;

@@ -17,6 +17,8 @@ public enum ErrorCode {
     ACCOUNT_NOT_ACTIVE(HttpStatus.FORBIDDEN, "이용할 수 없는 계정 상태입니다."),
     INVALID_SIGNUP_INPUT(HttpStatus.BAD_REQUEST, "가입 정보 또는 필수 약관 동의가 올바르지 않습니다."),
     ACCOUNT_CONFLICT(HttpStatus.CONFLICT, "이미 사용 중인 이메일, 인증 계정 또는 닉네임입니다."),
+    NO_PATCH_FIELDS(HttpStatus.BAD_REQUEST, "변경할 프로필 필드가 없습니다."),
+    NICKNAME_CONFLICT(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다."),
 
     // 포트폴리오 (FUNC-033, 034, 036)
     PORTFOLIO_ALREADY_CONFIGURED(HttpStatus.CONFLICT, "이미 최초 포트폴리오를 구성했습니다."),
