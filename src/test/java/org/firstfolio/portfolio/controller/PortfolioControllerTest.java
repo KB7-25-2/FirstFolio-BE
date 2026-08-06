@@ -50,14 +50,16 @@ class PortfolioControllerTest {
     private static final long USER_ID = 101L;
 
     private PortfolioQueryService queryService;
+    private org.firstfolio.portfolio.service.PortfolioResetService resetService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         queryService = mock(PortfolioQueryService.class);
+        resetService = mock(org.firstfolio.portfolio.service.PortfolioResetService.class);
 
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new PortfolioController(queryService))
+                .standaloneSetup(new PortfolioController(queryService, resetService))
                 .setCustomArgumentResolvers(new CurrentUserArgumentResolver())
                 .setControllerAdvice(new CommonExceptionAdvice())
                 .setMessageConverters(
@@ -163,5 +165,56 @@ class PortfolioControllerTest {
     void rejectsUnauthenticatedTransactionRequest() throws Exception {
         mockMvc.perform(get("/api/portfolios/current/transactions"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("초기화는 201로 닫힌 세대와 새 세대를 함께 돌려준다")
+    void resetsPortfolio() throws Exception {
+        when(resetService.reset(eq(USER_ID), any(), any())).thenReturn(
+                new org.firstfolio.portfolio.service.PortfolioResetResult(
+                        8001L, 8002L, 2, new BigDecimal("30000000.00"), 8299L
+                )
+        );
+
+        mockMvc.perform(authenticated(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .post("/api/portfolios/current/reset"))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"confirmation\":\"RESET_PORTFOLIO\",\"idempotency_key\":\"reset-101-2\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.closed_portfolio_id").value(8001))
+                .andExpect(jsonPath("$.data.new_portfolio_id").value(8002))
+                .andExpect(jsonPath("$.data.generation_no").value(2))
+                .andExpect(jsonPath("$.data.cash_balance").value("30000000.00"))
+                .andExpect(jsonPath("$.data.reset_transaction_id").value(8299));
+
+        verify(resetService).reset(USER_ID, "RESET_PORTFOLIO", "reset-101-2");
+    }
+
+    @Test
+    @DisplayName("확인 문구가 틀리면 400으로 나간다")
+    void translatesWrongConfirmationToError() throws Exception {
+        when(resetService.reset(eq(USER_ID), any(), any()))
+                .thenThrow(new ApiException(ErrorCode.RESET_CONFIRMATION_REQUIRED));
+
+        mockMvc.perform(authenticated(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .post("/api/portfolios/current/reset"))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"confirmation\":\"틀린문구\",\"idempotency_key\":\"reset-101-2\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("RESET_CONFIRMATION_REQUIRED"));
+    }
+
+    @Test
+    @DisplayName("초기화도 인증이 필요하다 — 남의 포트폴리오를 초기화할 수 없다")
+    void rejectsUnauthenticatedReset() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/portfolios/current/reset")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"confirmation\":\"RESET_PORTFOLIO\",\"idempotency_key\":\"k\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verify(resetService, org.mockito.Mockito.never()).reset(any(), any(), any());
     }
 }
