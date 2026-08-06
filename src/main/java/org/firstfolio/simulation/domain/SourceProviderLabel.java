@@ -28,8 +28,11 @@ public final class SourceProviderLabel {
                 return "공개 예·적금 상품 정보";
             case "DATA_GO_KR_BOND":
                 return "공개 채권 정보";
+            // 시세가 아니라 "정보"다. 상장지수상품의 기준 가격은 2026-08-06부터 토스증권에서 받고,
+            // 공공데이터포털에서는 종목명·기초지수 같은 상품 정보만 가져온다
+            // (DECISION_ETF_PRICE_SOURCE_20260806.md).
             case "DATA_GO_KR_ETF":
-                return "공개 상장지수상품 시세";
+                return "공개 상장지수상품 정보";
             case "TOSSINVEST":
                 return "공개 주식 시세";
             default:

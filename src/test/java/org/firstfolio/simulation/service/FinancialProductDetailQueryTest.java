@@ -94,7 +94,7 @@ class FinancialProductDetailQueryTest {
     @CsvSource({
             "FSS_FINLIFE,     공개 예·적금 상품 정보",
             "DATA_GO_KR_BOND, 공개 채권 정보",
-            "DATA_GO_KR_ETF,  공개 상장지수상품 시세",
+            "DATA_GO_KR_ETF,  공개 상장지수상품 정보",
             "TOSSINVEST,      공개 주식 시세"
     })
     void masksInternalSourceProvider(String provider, String expectedLabel) {
