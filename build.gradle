@@ -17,6 +17,7 @@ repositories {
 }
 
 ext {
+    awsSdkVersion = '2.48.1'
     firebaseAdminVersion = '9.10.0'
     jacksonVersion = '2.18.3'
     junitVersion = '5.10.2'
@@ -55,6 +56,10 @@ dependencies {
         exclude group: 'com.fasterxml.jackson.dataformat',
                 module: 'jackson-dataformat-xml'
     }
+
+    // AWS S3 정적 콘텐츠 저장소
+    implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
+    implementation 'software.amazon.awssdk:s3'
 
     // Test
     testImplementation "org.springframework:spring-test:${springVersion}"

@@ -166,31 +166,16 @@ public final class LocalContentStorage implements StaticContentStorage {
     }
 
     private Path resolveObjectDirectory(String objectKey) {
-        if (objectKey.startsWith("/") || objectKey.indexOf('\\') >= 0) {
-            throw invalidObjectKey(objectKey);
-        }
-
-        String[] segments = objectKey.split("/", -1);
-        if (segments.length == 0) {
-            throw invalidObjectKey(objectKey);
-        }
-        for (String segment : segments) {
-            if (segment.isBlank()
-                    || ".".equals(segment)
-                    || "..".equals(segment)
-                    || VERSIONS_DIRECTORY.equals(segment)) {
-                throw invalidObjectKey(objectKey);
-            }
-        }
+        ContentObjectKeyValidator.validate(objectKey);
 
         Path resolved;
         try {
             resolved = rootDirectory.resolve(objectKey).normalize();
         } catch (InvalidPathException exception) {
-            throw invalidObjectKey(objectKey);
+            throw invalidObjectKey();
         }
         if (!resolved.startsWith(rootDirectory) || resolved.equals(rootDirectory)) {
-            throw invalidObjectKey(objectKey);
+            throw invalidObjectKey();
         }
         return resolved;
     }
@@ -228,17 +213,17 @@ public final class LocalContentStorage implements StaticContentStorage {
     private void ensureNoSymbolicLinks(Path path) {
         Path normalized = path.toAbsolutePath().normalize();
         if (!normalized.startsWith(rootDirectory)) {
-            throw invalidObjectKey(path.toString());
+            throw invalidObjectKey();
         }
 
         Path current = rootDirectory;
         if (Files.isSymbolicLink(current)) {
-            throw invalidObjectKey(path.toString());
+            throw invalidObjectKey();
         }
         for (Path segment : rootDirectory.relativize(normalized)) {
             current = current.resolve(segment);
             if (Files.isSymbolicLink(current)) {
-                throw invalidObjectKey(path.toString());
+                throw invalidObjectKey();
             }
         }
     }
@@ -271,10 +256,10 @@ public final class LocalContentStorage implements StaticContentStorage {
         }
     }
 
-    private ContentStorageException invalidObjectKey(String objectKey) {
+    private ContentStorageException invalidObjectKey() {
         return new ContentStorageException(
                 ContentStorageError.INVALID_OBJECT_KEY,
-                "Invalid local content object key: " + objectKey
+                "Invalid local content object key"
         );
     }
 

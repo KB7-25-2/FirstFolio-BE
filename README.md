@@ -58,7 +58,7 @@ IntelliJ에서 실행할 때는 EnvFile 플러그인을 설치한 뒤 `Run/Debug
 
 `.env.local`과 비밀번호는 저장소에 커밋하지 않고, 변수 이름과 안전한 기본값만 `.env.example`로 공유합니다.
 
-### 정적 콘텐츠 로컬 저장소
+### 정적 콘텐츠 저장소
 
 로컬 개발 환경에서는 버전형 학습 콘텐츠를 로컬 파일 저장소에 보관합니다. 별도 설정이 없으면 `./.local/content`를 사용하며 `.local` 디렉터리는 Git에서 제외됩니다.
 
@@ -70,7 +70,21 @@ CONTENT_STORAGE_MAX_BYTES=5242880
 
 - `CONTENT_LOCAL_ROOT`의 상대 경로는 Tomcat 또는 애플리케이션 프로세스의 현재 작업 디렉터리를 기준으로 해석됩니다. 실행 위치가 달라질 수 있으면 절대 경로를 사용합니다.
 - `CONTENT_STORAGE_MAX_BYTES`는 객체 한 개의 최대 바이트 수이며 기본값은 5 MiB입니다.
-- 현재는 `local` 구현만 연결되어 있습니다. S3 구현이 추가되기 전에 `CONTENT_STORAGE_TYPE=s3`를 지정하면 애플리케이션 시작 단계에서 설정 오류가 발생합니다.
+
+운영 환경에서는 다음과 같이 S3 저장소를 선택합니다.
+
+```text
+CONTENT_STORAGE_TYPE=s3
+CONTENT_STORAGE_MAX_BYTES=5242880
+CONTENT_S3_BUCKET=firstfolio-content
+CONTENT_S3_PREFIX=firstfolio
+AWS_REGION=ap-northeast-2
+```
+
+- S3 버킷은 Versioning을 활성화해야 합니다. 업로드 결과에 버전 ID가 없으면 설정 오류로 처리합니다.
+- `CONTENT_S3_PREFIX`는 버킷 내부 경로 구분용이며 DB에는 prefix를 제외한 공통 논리 객체 키를 저장합니다.
+- EC2에서는 액세스 키를 파일에 저장하지 않고 인스턴스 프로파일에 연결한 IAM Role을 사용합니다. 최소한 콘텐츠 경로에 대한 `s3:PutObject`, `s3:GetObjectVersion` 권한이 필요합니다.
+- 로컬 실행에서 S3를 사용하면 AWS SDK의 기본 자격 증명 체인(환경변수, AWS profile 등)을 사용합니다.
 
 ### Firebase Authentication
 
