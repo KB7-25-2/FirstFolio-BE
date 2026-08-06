@@ -44,5 +44,13 @@ class ContentWriteRequestTest {
                 IllegalArgumentException.class,
                 () -> new ContentWriteRequest("content.json", new byte[]{1}, " ")
         );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ContentWriteRequest(
+                        "content.json",
+                        new byte[]{1},
+                        "application/json\ninvalid"
+                )
+        );
     }
 }

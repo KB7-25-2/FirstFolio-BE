@@ -6,6 +6,7 @@ package org.firstfolio.content.exception;
 public enum ContentStorageError {
     OBJECT_NOT_FOUND,
     INVALID_OBJECT_KEY,
+    CONTENT_TOO_LARGE,
     STORAGE_UNAVAILABLE,
     STORAGE_CONFIGURATION_ERROR
 }

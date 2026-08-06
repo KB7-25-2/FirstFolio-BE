@@ -14,6 +14,7 @@ public record ContentWriteRequest(
     public ContentWriteRequest {
         objectKey = requireText(objectKey, "objectKey");
         contentType = requireText(contentType, "contentType");
+        requireSingleLine(contentType, "contentType");
         Objects.requireNonNull(content, "content must not be null");
 
         if (content.length == 0) {
@@ -33,5 +34,11 @@ public record ContentWriteRequest(
             throw new IllegalArgumentException(fieldName + " must not be blank");
         }
         return value;
+    }
+
+    private static void requireSingleLine(String value, String fieldName) {
+        if (value.indexOf('\r') >= 0 || value.indexOf('\n') >= 0) {
+            throw new IllegalArgumentException(fieldName + " must be a single line");
+        }
     }
 }

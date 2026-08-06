@@ -31,5 +31,9 @@ class StoredContentTest {
                 IllegalArgumentException.class,
                 () -> new StoredContent(new byte[]{1}, " ")
         );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new StoredContent(new byte[]{1}, "application/json\r\ninvalid")
+        );
     }
 }

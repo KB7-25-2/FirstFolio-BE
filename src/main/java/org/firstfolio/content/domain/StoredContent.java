@@ -16,6 +16,9 @@ public record StoredContent(
         if (contentType == null || contentType.isBlank()) {
             throw new IllegalArgumentException("contentType must not be blank");
         }
+        if (contentType.indexOf('\r') >= 0 || contentType.indexOf('\n') >= 0) {
+            throw new IllegalArgumentException("contentType must be a single line");
+        }
 
         content = content.clone();
     }

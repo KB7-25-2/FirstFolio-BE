@@ -38,7 +38,7 @@ import java.time.Clock;
         )
 )
 @EnableTransactionManagement
-@Import(FirebaseConfig.class)
+@Import({FirebaseConfig.class, ContentStorageConfig.class})
 public class RootConfig {
 
     @Bean

@@ -48,6 +48,7 @@ service-account*.json
 logs/
 *.log
 uploads/
+/.local/
 
 # OS and JVM
 .DS_Store
