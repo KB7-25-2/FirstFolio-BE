@@ -79,7 +79,15 @@ dependencies {
     implementation 'org.mybatis:mybatis-spring:1.3.2'
 }
 
+// The JDBC driver converts LocalDateTime between the JVM default zone and the connection zone
+// (serverTimezone=UTC). If the test JVM runs in KST while the app server runs in UTC, both write
+// DATETIME values on different bases and they end up mixed in the same table.
+// Pin every test JVM to UTC so results do not depend on the developer's locale.
+def testJvmTimeZone = '-Duser.timezone=UTC'
+
 test {
+    jvmArgs testJvmTimeZone
+
     useJUnitPlatform {
         excludeTags 'jdbc'
     }
@@ -88,6 +96,8 @@ test {
 tasks.register('jdbcTest', Test) {
     description = 'Runs the JDBC connection integration test.'
     group = 'verification'
+
+    jvmArgs testJvmTimeZone
 
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
