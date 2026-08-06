@@ -126,8 +126,8 @@ CREATE TABLE content_versions (
     sub_chapter_id BIGINT NOT NULL COMMENT '대상 소단원',
     version_no INT NOT NULL COMMENT '소단원별 버전 번호',
     schema_version VARCHAR(20) NOT NULL COMMENT '학습 JSON 스키마 버전',
-    s3_object_key VARCHAR(500) NOT NULL COMMENT 'S3 객체 키',
-    s3_version_id VARCHAR(1024) NOT NULL COMMENT 'S3 Versioning 객체 버전 식별자',
+    storage_object_key VARCHAR(500) NOT NULL COMMENT '정적 콘텐츠 저장소 객체 키',
+    storage_version_id VARCHAR(1024) NOT NULL COMMENT '정적 콘텐츠 저장소 객체 버전 식별자',
     status VARCHAR(20) NOT NULL COMMENT 'DRAFT, REVIEW, PUBLISHED, RETIRED',
     published_at DATETIME NULL COMMENT '게시 일시',
     created_by BIGINT NOT NULL COMMENT '업로드 관리자',
@@ -145,7 +145,7 @@ CREATE TABLE content_versions (
       status IN ('DRAFT', 'REVIEW', 'PUBLISHED', 'RETIRED')
       ),
     INDEX idx_content_versions_status (sub_chapter_id, status, published_at)
-) ENGINE = InnoDB COMMENT = 'S3 소단원 JSON의 불변 버전 메타데이터';
+) ENGINE = InnoDB COMMENT = '정적 콘텐츠 저장소의 소단원 JSON 불변 버전 메타데이터';
 
 ALTER TABLE sub_chapters
     ADD CONSTRAINT fk_sub_chapters_current_content

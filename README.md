@@ -33,7 +33,7 @@ cp .env.example .env.local
 
 ```text
 DB_DRIVER=net.sf.log4jdbc.sql.jdbcapi.DriverSpy
-DB_URL=jdbc:log4jdbc:mysql://localhost:3306/firstfolio_db?serverTimezone=UTC&characterEncoding=UTF-8
+DB_URL='jdbc:log4jdbc:mysql://localhost:3306/firstfolio_db?serverTimezone=UTC&characterEncoding=UTF-8'
 DB_USERNAME=firstfolio
 DB_PASSWORD=
 ```
