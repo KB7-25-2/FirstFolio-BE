@@ -154,6 +154,7 @@ public ApiResponse<PortfolioResponse> getPortfolio(
 
 - `GET /api/users/me`: 현재 사용자 프로필 조회
 - `PATCH /api/users/me`: 닉네임과 뉴스레터 수신 동의 상태 중 전달된 필드만 수정
+- `GET /api/points/balance`: 포인트 원장과 대조한 현재 포인트 잔액 조회
 
 닉네임은 2자 이상 10자 이하이며 중복을 허용하지 않습니다. 뉴스레터 동의 상태가 실제로 변경되면 `NEWSLETTER_POLICY_VERSION`과 변경 시각을 동의 이력에 기록합니다.
 
