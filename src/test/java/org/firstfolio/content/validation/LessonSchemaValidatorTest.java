@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -164,6 +165,17 @@ class LessonSchemaValidatorTest {
         ObjectNode lesson = validLesson();
         ArrayNode questionIds = lesson.withObject("/subChapterQuiz").putArray("questionIds");
         questionIds.add(1021).add(0).add(1021);
+
+        LessonValidationResult result = validator.validate(objectMapper.writeValueAsBytes(lesson));
+
+        assertSchemaViolation(result);
+    }
+
+    @Test
+    void rejectsQuestionIdOutsideDatabaseBigintRange() throws IOException {
+        ObjectNode lesson = validLesson();
+        ArrayNode questionIds = lesson.withObject("/subChapterQuiz").putArray("questionIds");
+        questionIds.add(BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE));
 
         LessonValidationResult result = validator.validate(objectMapper.writeValueAsBytes(lesson));
 
