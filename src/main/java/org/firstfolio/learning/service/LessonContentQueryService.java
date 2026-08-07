@@ -13,6 +13,7 @@ import org.firstfolio.curriculum.mapper.SubChapterMapper;
 import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.learning.domain.LessonContent;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -27,6 +28,7 @@ public class LessonContentQueryService {
     private final StaticContentStorage contentStorage;
     private final ObjectMapper objectMapper;
 
+    @Autowired
     public LessonContentQueryService(
             ContentVersionMapper contentVersionMapper,
             SubChapterMapper subChapterMapper,

@@ -216,6 +216,22 @@ Windows:
 
 WAR 결과물은 `build/libs/firstfolio.war`입니다.
 
+### API 문서 (Swagger)
+
+Tomcat에 배포한 뒤 다음 주소에서 Swagger UI와 OpenAPI 3 명세를 확인할 수 있습니다.
+
+```text
+Swagger UI:  GET /<context-path>/swagger-ui.html
+OpenAPI JSON: GET /<context-path>/v3/api-docs
+```
+
+Swagger UI의 `Authorize` 버튼에서 일반 API는 Firebase ID Token을, `/api/internal/**` API는 내부 호출 토큰을 입력할 수 있습니다.
+
+- `firebaseBearer`: 토큰 값만 입력하면 요청의 `Authorization: Bearer ...` 헤더로 전송됩니다.
+- `internalCallToken`: `INTERNAL_CALL_TOKEN` 값을 입력하면 `X-Internal-Token` 헤더로 전송됩니다.
+
+문서와 UI 경로만 인증 검사에서 제외됩니다. Swagger에서 실행하는 실제 API 요청에는 기존 인증·인가 규칙이 동일하게 적용됩니다.
+
 ### 상태 확인
 
 Tomcat 배포 후 아래 API로 애플리케이션 상태를 확인합니다.

@@ -1,5 +1,7 @@
 package org.firstfolio.portfolio.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.math.BigDecimal;
 
 /**
@@ -16,12 +18,18 @@ import java.math.BigDecimal;
  *
  * <p>예·적금·채권 매도는 <b>전량 해지</b>라 아무 값도 보내지 않는다.</p>
  */
+@Schema(description = "모의 상품 거래 요청. 매수는 amount, 주식·펀드 매도는 quantity를 사용")
 public class TradeRequest {
 
+    @Schema(description = "중복 거래 방지 키", example = "trade-101-20260729-001")
     private String idempotencyKey;
+    @Schema(description = "거래 유형", example = "BUY", allowableValues = {"BUY", "SELL"})
     private String transactionType;
+    @Schema(description = "모의 상품 ID", example = "87")
     private Long productId;
+    @Schema(description = "매수 금액(원). 매수일 때만 사용", type = "string", example = "5000000.00")
     private BigDecimal amount;
+    @Schema(description = "주식·펀드 매도 수량. 가입형 상품 매도는 전량 해지이므로 생략", type = "string", example = "8.000000")
     private BigDecimal quantity;
 
     public String getIdempotencyKey() {

@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.http.converter.HttpMessageConverter;
@@ -27,6 +28,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebMvc
+@Import(OpenApiConfig.class)
 @PropertySource("classpath:/application.properties")
 @ComponentScan(
         basePackages = "org.firstfolio",
@@ -85,6 +87,10 @@ public class ServletConfig implements WebMvcConfigurer {
                         "/health",
                         "/api/internal/**",
                         "/internal/**",
+                        "/v3/api-docs",
+                        "/v3/api-docs/**",
+                        "/swagger-ui.html",
+                        "/swagger-ui/**",
                         "/favicon.ico"
                 );
 
