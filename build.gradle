@@ -20,6 +20,7 @@ ext {
     awsSdkVersion = '2.48.1'
     firebaseAdminVersion = '9.10.0'
     jacksonVersion = '2.18.3'
+    jsonSchemaValidatorVersion = '2.0.4'
     junitVersion = '5.10.2'
     log4jVersion = '2.26.1'
     springVersion = '5.3.37'
@@ -50,6 +51,9 @@ dependencies {
     // Jackson - JSON 처리
     implementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
     implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}"
+    implementation("com.networknt:json-schema-validator:${jsonSchemaValidatorVersion}") {
+        exclude group: 'com.fasterxml.jackson.dataformat', module: 'jackson-dataformat-yaml'
+    }
 
     // Firebase Authentication
     implementation ("com.google.firebase:firebase-admin:${firebaseAdminVersion}") {

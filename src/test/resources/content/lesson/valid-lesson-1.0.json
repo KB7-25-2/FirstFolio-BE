@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0",
+  "pages": [
+    {
+      "id": "real-interest-rate",
+      "title": "실질 금리란?",
+      "blocks": [
+        {
+          "type": "text",
+          "content": "명목 금리와 물가 상승률을 함께 살펴보겠습니다."
+        },
+        {
+          "type": "conclusion",
+          "formula": "실질 금리 = 명목 금리 − 물가 상승률",
+          "note": "5% − 3% = 2%"
+        },
+        {
+          "type": "definition",
+          "term": "명목 금리",
+          "body": "은행이 표시하는 겉보기 이자율입니다."
+        },
+        {
+          "type": "learn_more",
+          "chipLabel": "더 알아보기",
+          "chipSubtitle": "실질 금리 계산",
+          "modal": {
+            "title": "물가를 함께 고려해야 하는 이유",
+            "example": "예금 금리 5%, 물가 상승률 3%",
+            "body": "물가까지 고려하면 실질적인 구매력 증가는 약 2%입니다.",
+            "footer": "명목 금리와 실질 금리 비교"
+          }
+        }
+      ]
+    },
+    {
+      "id": "interest-rate-summary",
+      "title": "금리를 비교하는 방법",
+      "blocks": [
+        {
+          "type": "text",
+          "content": "금리를 비교할 때는 물가 상승률도 함께 확인해야 합니다."
+        }
+      ]
+    }
+  ],
+  "subChapterQuiz": {
+    "questionIds": [1021, 1022, 1023]
+  }
+}
