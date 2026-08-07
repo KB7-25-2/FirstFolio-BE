@@ -35,5 +35,20 @@ class ContentVersionMapperXmlTest {
         assertTrue(configuration.hasStatement(
                 ContentVersionMapper.class.getName() + ".insert"
         ));
+        assertTrue(configuration.hasStatement(
+                ContentVersionMapper.class.getName() + ".findAllBySubChapterId"
+        ));
+        assertTrue(configuration.hasStatement(
+                ContentVersionMapper.class.getName() + ".findById"
+        ));
+        assertTrue(configuration.hasStatement(
+                ContentVersionMapper.class.getName() + ".findByIdForUpdate"
+        ));
+        assertTrue(configuration.hasStatement(
+                ContentVersionMapper.class.getName() + ".publishDraft"
+        ));
+        assertTrue(configuration.hasStatement(
+                ContentVersionMapper.class.getName() + ".retirePublished"
+        ));
     }
 }

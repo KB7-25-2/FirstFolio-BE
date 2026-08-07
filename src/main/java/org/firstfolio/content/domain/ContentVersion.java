@@ -38,6 +38,15 @@ public class ContentVersion {
         return version;
     }
 
+    public void publish(LocalDateTime publishedAt) {
+        this.status = ContentVersionStatus.PUBLISHED;
+        this.publishedAt = publishedAt;
+    }
+
+    public void retire() {
+        this.status = ContentVersionStatus.RETIRED;
+    }
+
     public Long getContentVersionId() {
         return contentVersionId;
     }

@@ -3,6 +3,7 @@ package org.firstfolio.content.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.firstfolio.content.domain.ContentVersion;
+import org.firstfolio.content.domain.ContentVersionHistory;
 import org.firstfolio.content.domain.ContentVersionStatus;
 import org.firstfolio.content.domain.ContentWriteRequest;
 import org.firstfolio.content.domain.StoredObjectRef;
@@ -13,6 +14,8 @@ import org.firstfolio.content.validation.LessonValidationError;
 import org.firstfolio.content.validation.LessonValidationErrorCode;
 import org.firstfolio.content.validation.LessonValidationResult;
 import org.firstfolio.curriculum.mapper.AdminAuditLogMapper;
+import org.firstfolio.curriculum.domain.SubChapter;
+import org.firstfolio.curriculum.mapper.SubChapterMapper;
 import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +30,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -58,6 +62,7 @@ class ContentVersionServiceTest {
     private LessonContentValidationService validationService;
     private StaticContentStorage contentStorage;
     private ContentVersionMapper contentVersionMapper;
+    private SubChapterMapper subChapterMapper;
     private AdminAuditLogMapper auditLogMapper;
     private ContentVersionService service;
 
@@ -66,11 +71,13 @@ class ContentVersionServiceTest {
         validationService = mock(LessonContentValidationService.class);
         contentStorage = mock(StaticContentStorage.class);
         contentVersionMapper = mock(ContentVersionMapper.class);
+        subChapterMapper = mock(SubChapterMapper.class);
         auditLogMapper = mock(AdminAuditLogMapper.class);
         service = new ContentVersionService(
                 validationService,
                 contentStorage,
                 contentVersionMapper,
+                subChapterMapper,
                 auditLogMapper,
                 Clock.fixed(Instant.parse("2026-08-07T01:00:00Z"), ZoneOffset.UTC)
         );
@@ -251,6 +258,174 @@ class ContentVersionServiceTest {
         verify(validationService, never()).validate(anyLong(), any());
     }
 
+    @Test
+    void returnsContentVersionHistoryWithCurrentVersion() {
+        SubChapter subChapter = subChapter(301L);
+        ContentVersion current = contentVersion(
+                301L,
+                1,
+                ContentVersionStatus.PUBLISHED,
+                NOW.minusDays(1)
+        );
+        ContentVersion draft = contentVersion(
+                302L,
+                2,
+                ContentVersionStatus.DRAFT,
+                null
+        );
+        when(subChapterMapper.findById(SUB_CHAPTER_ID)).thenReturn(subChapter);
+        when(contentVersionMapper.findAllBySubChapterId(SUB_CHAPTER_ID))
+                .thenReturn(List.of(draft, current));
+
+        ContentVersionHistory history = service.getContentVersions(SUB_CHAPTER_ID);
+
+        assertEquals(2, history.versions().size());
+        assertEquals(301L, history.currentContentVersionId());
+        assertEquals(302L, history.versions().get(0).getContentVersionId());
+    }
+
+    @Test
+    void rejectsContentVersionHistoryForMissingSubChapter() {
+        when(subChapterMapper.findById(SUB_CHAPTER_ID)).thenReturn(null);
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> service.getContentVersions(SUB_CHAPTER_ID)
+        );
+
+        assertEquals(ErrorCode.SUB_CHAPTER_NOT_FOUND, exception.getErrorCode());
+        verify(contentVersionMapper, never()).findAllBySubChapterId(anyLong());
+    }
+
+    @Test
+    void publishesDraftAndUpdatesCurrentVersion() {
+        ContentVersion target = contentVersion(
+                302L,
+                2,
+                ContentVersionStatus.DRAFT,
+                null
+        );
+        SubChapter subChapter = subChapter(null);
+        when(contentVersionMapper.findById(302L)).thenReturn(target);
+        when(subChapterMapper.findByIdForUpdate(SUB_CHAPTER_ID)).thenReturn(subChapter);
+        when(contentVersionMapper.findByIdForUpdate(302L)).thenReturn(target);
+        when(contentVersionMapper.publishDraft(302L, NOW)).thenReturn(1);
+        when(subChapterMapper.updateCurrentContentVersion(
+                SUB_CHAPTER_ID,
+                302L,
+                NOW
+        )).thenReturn(1);
+
+        ContentVersion published = service.publishContentVersion(
+                302L,
+                ACTOR_ID,
+                REQUEST_ID
+        );
+
+        assertEquals(ContentVersionStatus.PUBLISHED, published.getStatus());
+        assertEquals(NOW, published.getPublishedAt());
+        verify(contentVersionMapper, never()).retirePublished(anyLong());
+        verify(auditLogMapper).insert(
+                eq(ACTOR_ID),
+                eq("PUBLISH"),
+                eq("CONTENT_VERSION"),
+                eq(302L),
+                anyString(),
+                anyString(),
+                eq(REQUEST_ID),
+                eq(NOW)
+        );
+    }
+
+    @Test
+    void retiresPreviousVersionWhenPublishingNewDraft() {
+        ContentVersion previous = contentVersion(
+                301L,
+                1,
+                ContentVersionStatus.PUBLISHED,
+                NOW.minusDays(1)
+        );
+        ContentVersion target = contentVersion(
+                302L,
+                2,
+                ContentVersionStatus.DRAFT,
+                null
+        );
+        SubChapter subChapter = subChapter(301L);
+        when(contentVersionMapper.findById(302L)).thenReturn(target);
+        when(subChapterMapper.findByIdForUpdate(SUB_CHAPTER_ID)).thenReturn(subChapter);
+        when(contentVersionMapper.findByIdForUpdate(302L)).thenReturn(target);
+        when(contentVersionMapper.findByIdForUpdate(301L)).thenReturn(previous);
+        when(contentVersionMapper.retirePublished(301L)).thenReturn(1);
+        when(contentVersionMapper.publishDraft(302L, NOW)).thenReturn(1);
+        when(subChapterMapper.updateCurrentContentVersion(
+                SUB_CHAPTER_ID,
+                302L,
+                NOW
+        )).thenReturn(1);
+
+        ContentVersion published = service.publishContentVersion(
+                302L,
+                ACTOR_ID,
+                REQUEST_ID
+        );
+
+        assertEquals(ContentVersionStatus.RETIRED, previous.getStatus());
+        assertEquals(ContentVersionStatus.PUBLISHED, published.getStatus());
+        verify(auditLogMapper).insert(
+                eq(ACTOR_ID),
+                eq("RETIRE"),
+                eq("CONTENT_VERSION"),
+                eq(301L),
+                anyString(),
+                anyString(),
+                eq(REQUEST_ID),
+                eq(NOW)
+        );
+        verify(auditLogMapper).insert(
+                eq(ACTOR_ID),
+                eq("PUBLISH"),
+                eq("CONTENT_VERSION"),
+                eq(302L),
+                anyString(),
+                anyString(),
+                eq(REQUEST_ID),
+                eq(NOW)
+        );
+    }
+
+    @Test
+    void rejectsMissingOrNonDraftContentVersionForPublishing() {
+        when(contentVersionMapper.findById(999L)).thenReturn(null);
+
+        ApiException missing = assertThrows(
+                ApiException.class,
+                () -> service.publishContentVersion(999L, ACTOR_ID, REQUEST_ID)
+        );
+        assertEquals(ErrorCode.CONTENT_VERSION_NOT_FOUND, missing.getErrorCode());
+
+        ContentVersion published = contentVersion(
+                302L,
+                2,
+                ContentVersionStatus.PUBLISHED,
+                NOW.minusDays(1)
+        );
+        when(contentVersionMapper.findById(302L)).thenReturn(published);
+        when(subChapterMapper.findByIdForUpdate(SUB_CHAPTER_ID))
+                .thenReturn(subChapter(302L));
+        when(contentVersionMapper.findByIdForUpdate(302L)).thenReturn(published);
+
+        ApiException notPublishable = assertThrows(
+                ApiException.class,
+                () -> service.publishContentVersion(302L, ACTOR_ID, REQUEST_ID)
+        );
+        assertEquals(ErrorCode.CONTENT_NOT_PUBLISHABLE, notPublishable.getErrorCode());
+        verify(contentVersionMapper, never()).publishDraft(anyLong(), any());
+        verify(subChapterMapper, never()).updateCurrentContentVersion(
+                anyLong(), anyLong(), any()
+        );
+    }
+
     private LessonContentUploadRequest uploadRequest() throws IOException {
         try (InputStream inputStream = getClass().getClassLoader()
                 .getResourceAsStream(VALID_LESSON_RESOURCE)) {
@@ -260,5 +435,39 @@ class ContentVersionServiceTest {
             JsonNode lesson = new ObjectMapper().readTree(inputStream);
             return new LessonContentUploadRequest(2, lesson);
         }
+    }
+
+    private SubChapter subChapter(Long currentContentVersionId) {
+        SubChapter subChapter = new SubChapter();
+        subChapter.setSubChapterId(SUB_CHAPTER_ID);
+        subChapter.setCurrentContentVersionId(currentContentVersionId);
+        return subChapter;
+    }
+
+    private ContentVersion contentVersion(
+            long contentVersionId,
+            int versionNo,
+            ContentVersionStatus status,
+            LocalDateTime publishedAt
+    ) {
+        ContentVersion version = ContentVersion.draft(
+                SUB_CHAPTER_ID,
+                versionNo,
+                "1.0",
+                new StoredObjectRef(OBJECT_KEY, "storage-version-" + versionNo),
+                ACTOR_ID,
+                NOW.minusDays(2)
+        );
+        version.setContentVersionId(contentVersionId);
+        if (status == ContentVersionStatus.PUBLISHED) {
+            version.publish(publishedAt);
+        } else if (status == ContentVersionStatus.RETIRED) {
+            version.publish(publishedAt);
+            version.retire();
+        } else {
+            version.setStatus(status);
+            version.setPublishedAt(publishedAt);
+        }
+        return version;
     }
 }

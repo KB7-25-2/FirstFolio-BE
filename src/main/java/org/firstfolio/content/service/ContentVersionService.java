@@ -6,6 +6,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.firstfolio.common.json.ApiObjectMapperFactory;
 import org.firstfolio.content.domain.ContentVersion;
+import org.firstfolio.content.domain.ContentVersionHistory;
+import org.firstfolio.content.domain.ContentVersionStatus;
 import org.firstfolio.content.domain.ContentWriteRequest;
 import org.firstfolio.content.domain.StoredObjectRef;
 import org.firstfolio.content.dto.request.LessonContentUploadRequest;
@@ -15,6 +17,8 @@ import org.firstfolio.content.validation.LessonValidationError;
 import org.firstfolio.content.validation.LessonValidationErrorCode;
 import org.firstfolio.content.validation.LessonValidationResult;
 import org.firstfolio.curriculum.mapper.AdminAuditLogMapper;
+import org.firstfolio.curriculum.domain.SubChapter;
+import org.firstfolio.curriculum.mapper.SubChapterMapper;
 import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
 import org.springframework.dao.DuplicateKeyException;
@@ -37,6 +41,7 @@ public class ContentVersionService {
     private final LessonContentValidationService validationService;
     private final StaticContentStorage contentStorage;
     private final ContentVersionMapper contentVersionMapper;
+    private final SubChapterMapper subChapterMapper;
     private final AdminAuditLogMapper auditLogMapper;
     private final Clock clock;
     private final ObjectMapper auditObjectMapper;
@@ -45,12 +50,14 @@ public class ContentVersionService {
             LessonContentValidationService validationService,
             StaticContentStorage contentStorage,
             ContentVersionMapper contentVersionMapper,
+            SubChapterMapper subChapterMapper,
             AdminAuditLogMapper auditLogMapper,
             Clock clock
     ) {
         this.validationService = validationService;
         this.contentStorage = contentStorage;
         this.contentVersionMapper = contentVersionMapper;
+        this.subChapterMapper = subChapterMapper;
         this.auditLogMapper = auditLogMapper;
         this.clock = clock;
         this.auditObjectMapper = ApiObjectMapperFactory.create();
@@ -136,6 +143,117 @@ public class ContentVersionService {
         return contentVersion;
     }
 
+    @Transactional(readOnly = true)
+    public ContentVersionHistory getContentVersions(long subChapterId) {
+        SubChapter subChapter = subChapterMapper.findById(subChapterId);
+        if (subChapter == null) {
+            throw new ApiException(ErrorCode.SUB_CHAPTER_NOT_FOUND);
+        }
+        return new ContentVersionHistory(
+                contentVersionMapper.findAllBySubChapterId(subChapterId),
+                subChapter.getCurrentContentVersionId()
+        );
+    }
+
+    @Transactional
+    public ContentVersion publishContentVersion(
+            long contentVersionId,
+            long actorUserId,
+            String requestId
+    ) {
+        ContentVersion reference = contentVersionMapper.findById(contentVersionId);
+        if (reference == null) {
+            throw new ApiException(ErrorCode.CONTENT_VERSION_NOT_FOUND);
+        }
+
+        SubChapter subChapter = subChapterMapper.findByIdForUpdate(
+                reference.getSubChapterId()
+        );
+        if (subChapter == null) {
+            throw new ApiException(ErrorCode.SUB_CHAPTER_NOT_FOUND);
+        }
+
+        ContentVersion target = contentVersionMapper.findByIdForUpdate(contentVersionId);
+        if (target == null) {
+            throw new ApiException(ErrorCode.CONTENT_VERSION_NOT_FOUND);
+        }
+        if (target.getStatus() != ContentVersionStatus.DRAFT) {
+            throw new ApiException(ErrorCode.CONTENT_NOT_PUBLISHABLE);
+        }
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        retireCurrentVersion(
+                subChapter,
+                target,
+                actorUserId,
+                requestId,
+                now
+        );
+
+        String beforePublish = snapshot(target);
+        if (contentVersionMapper.publishDraft(contentVersionId, now) != 1) {
+            throw new ApiException(ErrorCode.CONTENT_NOT_PUBLISHABLE);
+        }
+        target.publish(now);
+
+        if (subChapterMapper.updateCurrentContentVersion(
+                subChapter.getSubChapterId(),
+                contentVersionId,
+                now
+        ) != 1) {
+            throw new IllegalStateException("소단원의 현재 콘텐츠 버전을 변경하지 못했습니다.");
+        }
+
+        auditLogMapper.insert(
+                actorUserId,
+                "PUBLISH",
+                AUDIT_ENTITY_TYPE,
+                contentVersionId,
+                beforePublish,
+                snapshot(target),
+                requestId,
+                now
+        );
+        return target;
+    }
+
+    private void retireCurrentVersion(
+            SubChapter subChapter,
+            ContentVersion target,
+            long actorUserId,
+            String requestId,
+            LocalDateTime now
+    ) {
+        Long currentVersionId = subChapter.getCurrentContentVersionId();
+        if (currentVersionId == null
+                || currentVersionId.equals(target.getContentVersionId())) {
+            return;
+        }
+
+        ContentVersion current = contentVersionMapper.findByIdForUpdate(currentVersionId);
+        if (current == null
+                || current.getSubChapterId() != subChapter.getSubChapterId()
+                || current.getStatus() != ContentVersionStatus.PUBLISHED) {
+            throw new IllegalStateException("현재 공개 콘텐츠 버전 연결이 올바르지 않습니다.");
+        }
+
+        String beforeRetire = snapshot(current);
+        if (contentVersionMapper.retirePublished(currentVersionId) != 1) {
+            throw new IllegalStateException("기존 공개 콘텐츠 버전을 보관하지 못했습니다.");
+        }
+        current.retire();
+        auditLogMapper.insert(
+                actorUserId,
+                "RETIRE",
+                AUDIT_ENTITY_TYPE,
+                currentVersionId,
+                beforeRetire,
+                snapshot(current),
+                requestId,
+                now
+        );
+    }
+
     private void requireRequest(LessonContentUploadRequest request) {
         if (request == null || request.versionNo() == null || request.versionNo() <= 0) {
             throw new ApiException(
@@ -184,6 +302,7 @@ public class ContentVersionService {
         snapshot.put("storage_object_key", version.getStorageObjectKey());
         snapshot.put("storage_version_id", version.getStorageVersionId());
         snapshot.put("status", version.getStatus());
+        snapshot.put("published_at", version.getPublishedAt());
         snapshot.put("created_by", version.getCreatedBy());
         snapshot.put("created_at", version.getCreatedAt());
 
