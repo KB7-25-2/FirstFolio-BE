@@ -1,8 +1,12 @@
 package org.firstfolio.portfolio.controller;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.firstfolio.auth.annotation.CurrentUser;
 import org.firstfolio.auth.domain.AuthenticatedUser;
 import org.firstfolio.common.response.ApiResponse;
+import org.firstfolio.config.OpenApiResponseSchemas;
 import org.firstfolio.portfolio.dto.request.PortfolioResetRequest;
 import org.firstfolio.portfolio.dto.request.TradeRequest;
 import org.firstfolio.portfolio.dto.response.PortfolioDetailResponse;
@@ -37,6 +41,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/portfolios")
+@Tag(name = "포트폴리오", description = "현재 사용자의 모의 포트폴리오 조회·거래·초기화 API")
 public class PortfolioController {
 
     private final PortfolioQueryService queryService;
@@ -54,6 +59,24 @@ public class PortfolioController {
     }
 
     @GetMapping("/current")
+    @Operation(
+            summary = "현재 포트폴리오 조회",
+            description = "현재 활성 포트폴리오의 현금·보유 상품·평가액·손익·자산군 비중을 조회합니다. "
+                    + "금액과 평가 기준은 서버가 확정하며, PRICE_UNAVAILABLE은 기준 가격을 구하지 못해 매입 원금으로 대체한 상태입니다.",
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "200", description = "포트폴리오 상세 조회 성공",
+                            content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/json",
+                                    schema = @io.swagger.v3.oas.annotations.media.Schema(
+                                            implementation = OpenApiResponseSchemas.PortfolioDetail.class
+                                    )
+                            )
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "404", description = "ACTIVE_PORTFOLIO_NOT_FOUND - 활성 포트폴리오가 없음"
+                    )
+            }
+    )
     public ApiResponse<PortfolioDetailResponse> findCurrent(
             @CurrentUser AuthenticatedUser currentUser
     ) {
@@ -61,10 +84,31 @@ public class PortfolioController {
     }
 
     @GetMapping("/current/transactions")
+    @Operation(
+            summary = "포트폴리오 거래 이력 조회",
+            description = "현재 포트폴리오 세대의 거래와 예정·처리된 자산 이벤트 이력을 커서 방식으로 조회합니다. "
+                    + "SCHEDULED 이벤트는 scheduled_at만 있고 processed_at은 null입니다.",
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "200", description = "거래 이력 조회 성공",
+                            content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/json",
+                                    schema = @io.swagger.v3.oas.annotations.media.Schema(
+                                            implementation = OpenApiResponseSchemas.PortfolioTransactions.class
+                                    )
+                            )
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "404", description = "ACTIVE_PORTFOLIO_NOT_FOUND - 활성 포트폴리오가 없음"
+                    )
+            }
+    )
     public ApiResponse<PortfolioTransactionPageResponse> findCurrentTransactions(
             @CurrentUser AuthenticatedUser currentUser,
+            @Parameter(description = "거래 유형 필터", example = "INTEREST")
             @RequestParam(value = "type", required = false) String type,
+            @Parameter(description = "다음 페이지 조회용 불투명 커서")
             @RequestParam(value = "cursor", required = false) String cursor,
+            @Parameter(description = "페이지 크기", example = "20")
             @RequestParam(value = "size", required = false) Integer size
     ) {
         return ApiResponse.of(
@@ -79,8 +123,36 @@ public class PortfolioController {
      * 잘못된 조합은 서비스가 {@code 422}로 거부한다 — 화면 검증과 별개로 서버도 확인한다.</p>
      */
     @PostMapping("/current/trades")
+    @Operation(
+            summary = "모의 상품 매수·매도",
+            description = "매수는 금액, 주식·펀드 매도는 수량으로 요청합니다. 예·적금·채권 매도는 금액·수량 없이 전량 해지합니다. "
+                    + "거래 단가와 최종 가능 여부는 서버가 결정하며 멱등 키로 중복 체결을 방지합니다.",
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "201", description = "포트폴리오 거래 성공",
+                            content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/json",
+                                    schema = @io.swagger.v3.oas.annotations.media.Schema(
+                                            implementation = OpenApiResponseSchemas.Trade.class
+                                    )
+                            )
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "404", description = "PRODUCT_NOT_FOUND 또는 ACTIVE_PORTFOLIO_NOT_FOUND"
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "409", description = "IDEMPOTENCY_CONFLICT - 다른 요청 내용으로 사용한 중복 키"
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "422", description = "INSUFFICIENT_SIMULATION_CASH 또는 TRADE_NOT_ALLOWED - 잔액·수량·가격·거래시간·상품 조건 불충족"
+                    )
+            }
+    )
     public ResponseEntity<ApiResponse<TradeResponse>> trade(
             @CurrentUser AuthenticatedUser currentUser,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true,
+                    description = "거래 멱등 키, BUY/SELL 구분, 상품 ID와 조건별 금액 또는 수량"
+            )
             @RequestBody TradeRequest request
     ) {
         TradeCommand command = new TradeCommand(
@@ -127,8 +199,32 @@ public class PortfolioController {
      * ({@code DECISION_TIMELINE.md} D12).</p>
      */
     @PostMapping("/current/reset")
+    @Operation(
+            summary = "포트폴리오 초기화",
+            description = "고정 확인 문구를 검증한 뒤 현재 세대를 종료하고 모의투자금 30,000,000원의 새 포트폴리오 세대를 생성합니다. "
+                    + "포인트·학습 진도·퀴즈 기록은 유지하고 초기화 이력을 남깁니다.",
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "201", description = "포트폴리오 초기화 성공",
+                            content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/json",
+                                    schema = @io.swagger.v3.oas.annotations.media.Schema(
+                                            implementation = OpenApiResponseSchemas.PortfolioReset.class
+                                    )
+                            )
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "400", description = "RESET_CONFIRMATION_REQUIRED - 확인 문구 불일치"
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "429", description = "RESET_POLICY_LIMIT - 초기화 횟수 또는 대기 시간 정책 불충족"
+                    )
+            }
+    )
     public ResponseEntity<ApiResponse<PortfolioResetResponse>> reset(
             @CurrentUser AuthenticatedUser currentUser,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true, description = "고정 확인 문구와 중복 초기화 방지 키"
+            )
             @RequestBody PortfolioResetRequest request
     ) {
         PortfolioResetResponse response = new PortfolioResetResponse(

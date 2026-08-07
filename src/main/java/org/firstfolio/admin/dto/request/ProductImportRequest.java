@@ -1,5 +1,7 @@
 package org.firstfolio.admin.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
 import java.time.LocalDateTime;
 
 /**
@@ -13,9 +15,12 @@ import java.time.LocalDateTime;
  * <p>가명({@code display_name})은 등록 후 {@code PATCH}로 입력한다. 등록 시점에는 비공개
  * 상태이므로 사용자에게 노출되지 않는다.</p>
  */
+@Schema(description = "외부 원천에서 모의 상품을 수집하는 요청. 상품 목록은 서버가 조회하므로 items를 받지 않음")
 public class ProductImportRequest {
 
+    @Schema(description = "수집할 외부 제공기관", example = "FINLIFE")
     private String sourceProvider;
+    @Schema(description = "원천 데이터 기준 시각", example = "2026-08-07T09:00:00")
     private LocalDateTime referenceAt;
 
     public String getSourceProvider() {

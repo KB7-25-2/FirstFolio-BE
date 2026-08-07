@@ -1,12 +1,18 @@
 package org.firstfolio.curriculum.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonSetter;
+import io.swagger.v3.oas.annotations.media.Schema;
 
+@Schema(description = "소단원 부분 수정. 전달한 필드만 변경")
 public final class SubChapterPatchRequest {
 
+    @Schema(description = "변경할 제목", example = "예금과 적금 비교")
     private String title;
+    @Schema(description = "변경할 소개", example = "두 상품의 특징을 비교합니다.")
     private String description;
+    @Schema(description = "변경할 노출 순서", example = "2")
     private Integer displayOrder;
+    @Schema(description = "활성 여부", example = "true")
     private Boolean active;
     private boolean titleProvided;
     private boolean descriptionProvided;

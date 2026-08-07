@@ -1,6 +1,7 @@
 package org.firstfolio.admin.dto.response;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
 
@@ -13,19 +14,32 @@ import java.time.LocalDateTime;
  * 관리자가 가명을 지으려면 실제 상품명과 금리·만기를 봐야 하는데 예시 응답에는 빠져 있었다.
  * 관리자 전용 응답이라 사용자 API 계약에는 영향이 없다.</p>
  */
+@Schema(description = "관리자용 상품 상세. 원상품 식별정보를 포함하므로 사용자 API에 재사용 금지")
 public class AdminProductResponse {
 
+    @Schema(description = "모의 상품 ID", example = "25")
     private Long productId;
+    @Schema(description = "사용자에게 노출할 가명 상품명", example = "푸른나무 정기예금")
     private String displayName;
+    @Schema(description = "자산군", example = "DEPOSIT_SAVINGS")
     private String assetType;
+    @Schema(description = "사용자용 상품 설명")
     private String description;
+    @Schema(description = "위험 등급", example = "LOW")
     private String riskLevel;
+    @Schema(description = "원천 제공기관", example = "FINLIFE")
     private String sourceProvider;
+    @Schema(description = "원상품 코드. 관리자 전용", example = "FIN-001")
     private String sourceProductCode;
+    @Schema(description = "원상품명. 관리자 전용", example = "OO은행 정기예금")
     private String sourceProductName;
+    @Schema(description = "원천 데이터 기준 시각", example = "2026-08-07T09:00:00")
     private LocalDateTime sourceReferenceAt;
+    @Schema(description = "실제 상품 조건")
     private JsonNode realTerms;
+    @Schema(description = "시간 압축한 모의 운용 조건")
     private JsonNode simulationTerms;
+    @Schema(description = "공개 상태", example = "ACTIVE", allowableValues = {"ACTIVE", "INACTIVE"})
     private String status;
 
     public Long getProductId() {
