@@ -69,6 +69,7 @@ public class TradeService {
     private final CurrentPriceReader priceReader;
     private final TradeCalculator calculator;
     private final TradingHours tradingHours;
+    private final AssetEventScheduler eventScheduler;
 
     public TradeService(
             PortfolioMapper portfolioMapper,
@@ -77,7 +78,8 @@ public class TradeService {
             FinancialProductMapper productMapper,
             CurrentPriceReader priceReader,
             TradeCalculator calculator,
-            TradingHours tradingHours
+            TradingHours tradingHours,
+            AssetEventScheduler eventScheduler
     ) {
         this.portfolioMapper = portfolioMapper;
         this.holdingMapper = holdingMapper;
@@ -86,6 +88,7 @@ public class TradeService {
         this.priceReader = priceReader;
         this.calculator = calculator;
         this.tradingHours = tradingHours;
+        this.eventScheduler = eventScheduler;
     }
 
     @Transactional
@@ -116,7 +119,17 @@ public class TradeService {
 
         // 갱신된 잔액을 다시 읽는다 — 차감을 DB가 했으므로 자바에 정확한 값이 없다.
         Portfolio updated = portfolioMapper.findById(portfolio.getPortfolioId());
-        PortfolioTransaction record = record(portfolio, product, command, amounts, now);
+        PortfolioHolding stored = holdingMapper.findByPortfolioAndProduct(
+                portfolio.getPortfolioId(),
+                product.getProductId()
+        );
+        PortfolioTransaction record = record(portfolio, product, stored, command, amounts, now);
+
+        if (command.isBuy()) {
+            // 만기까지의 이자·만기 일정을 여기서 전부 만든다. 매수 이력이 있어야 event_key를
+            // 유일하게 만들 수 있어 이력 기록 뒤에 부른다 (FUNC-041).
+            eventScheduler.schedule(product, stored, record, amounts.getExecutedAmount(), now);
+        }
 
         log.info(
                 "거래 체결 userId={} type={} productId={} 요청={} 체결={} 잔액={}",
@@ -247,7 +260,28 @@ public class TradeService {
         increaseCash(portfolio, amounts.getExecutedAmount(), now);
         reduceHolding(owned, amounts, priceBased, now);
 
+        if (owned.getStatus() == HoldingStatus.SOLD) {
+            cancelScheduledEvents(owned);
+        }
+
         return amounts;
+    }
+
+    /**
+     * 보유가 닫히면 남은 예정 이벤트를 끊는다 (FUNC-041).
+     *
+     * <p><b>없으면 이미 판 상품의 이자가 나중에 현금으로 들어온다.</b> 일정을 가입 시점에
+     * 미리 만들어 두는 구조라 해지가 정리해 주지 않으면 그대로 살아남는다.
+     * 이미 지급된 이력({@code COMPLETED})은 건드리지 않는다 — 실제로 받은 돈이다.</p>
+     *
+     * <p>주식·펀드는 애초에 예정 이벤트가 없어 언제나 0건이다.</p>
+     */
+    private void cancelScheduledEvents(PortfolioHolding closed) {
+        int cancelled = transactionMapper.cancelScheduledByHolding(closed.getHoldingId());
+
+        if (cancelled > 0) {
+            log.info("해지로 예정 이벤트 취소 holdingId={} 건수={}", closed.getHoldingId(), cancelled);
+        }
     }
 
     private TradeAmounts sellPriceBased(
@@ -321,15 +355,11 @@ public class TradeService {
     private PortfolioTransaction record(
             Portfolio portfolio,
             FinancialProduct product,
+            PortfolioHolding stored,
             TradeCommand command,
             TradeAmounts amounts,
             LocalDateTime now
     ) {
-        PortfolioHolding stored = holdingMapper.findByPortfolioAndProduct(
-                portfolio.getPortfolioId(),
-                product.getProductId()
-        );
-
         PortfolioTransaction transaction = new PortfolioTransaction();
 
         transaction.setPortfolioId(portfolio.getPortfolioId());

@@ -152,6 +152,14 @@ class PortfolioResetServiceTest {
     }
 
     @Test
+    @DisplayName("닫는 세대의 예정 이벤트를 취소한다 — 지난 세대의 이자가 새 세대 현금이 되면 안 된다")
+    void cancelsScheduledEventsOfClosedGeneration() {
+        reset();
+
+        verify(transactionMapper).cancelScheduledByPortfolio(OLD_PORTFOLIO_ID);
+    }
+
+    @Test
     @DisplayName("초기화 이력을 새 세대에 RESET으로 남긴다")
     void recordsResetOnNewGeneration() {
         reset();

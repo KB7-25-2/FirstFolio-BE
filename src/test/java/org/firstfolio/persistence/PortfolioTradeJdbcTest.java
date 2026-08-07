@@ -8,6 +8,7 @@ import org.firstfolio.portfolio.dto.response.PortfolioDetailResponse;
 import org.firstfolio.portfolio.mapper.PortfolioHoldingMapper;
 import org.firstfolio.portfolio.mapper.PortfolioMapper;
 import org.firstfolio.portfolio.mapper.PortfolioTransactionMapper;
+import org.firstfolio.portfolio.service.AssetEventScheduler;
 import org.firstfolio.portfolio.service.PortfolioQueryService;
 import org.firstfolio.portfolio.service.TradeCalculator;
 import org.firstfolio.portfolio.service.TradeCommand;
@@ -38,6 +39,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -194,6 +196,78 @@ class PortfolioTradeJdbcTest {
         });
     }
 
+    @Test
+    @DisplayName("가입형을 사면 이자·만기 예정 이벤트가 함께 만들어진다")
+    void createsScheduledEventsOnSubscription() throws Exception {
+        withRollback((context, connection) -> {
+            Fixture fixture = givenPortfolio(context, connection, "30000000.00");
+            long depositId = PortfolioFixtures.activeProductId(connection, "DEPOSIT_SAVINGS");
+
+            fixture.trade.trade(fixture.userId, buy(depositId, "10000000.00"));
+
+            long holdingId = holdingIdOf(connection, fixture.portfolioId, depositId);
+
+            // 예·적금은 만기일시지급이라 이자 1회 + 만기 1회다.
+            assertEquals(2, scheduledCount(connection, holdingId));
+
+            // 만기에는 원금이 그대로 돌아온다.
+            assertEquals("10000000.00", scheduledAmount(connection, holdingId, "MATURITY"));
+
+            // 이자는 0원일 수 없다 — 0원이면 조건을 못 읽고 넘어간 것이다.
+            assertTrue(
+                    new BigDecimal(scheduledAmount(connection, holdingId, "INTEREST")).signum() > 0,
+                    "이자 금액이 0이면 상품 조건을 읽지 못한 것입니다."
+            );
+
+            // 아직 오지 않은 이벤트라 처리 시각이 없어야 한다.
+            assertNull(value(connection,
+                    "SELECT processed_at FROM portfolio_transactions"
+                            + " WHERE holding_id = ? AND status = 'SCHEDULED' LIMIT 1", holdingId));
+
+            // 이력 조회에 그대로 실린다 — FUNC-034의 "예정 이벤트를 제공한다"가 이 구조를 전제한다.
+            assertEquals(3, transactionCount(connection, fixture.portfolioId), "매수 1 + 예정 2");
+        });
+    }
+
+    @Test
+    @DisplayName("해지하면 남은 예정 이벤트가 취소되고, 다시 가입하면 새 일정이 생긴다")
+    void cancelsScheduledEventsOnRedeemAndReschedulesOnResubscribe() throws Exception {
+        withRollback((context, connection) -> {
+            Fixture fixture = givenPortfolio(context, connection, "30000000.00");
+            long depositId = PortfolioFixtures.activeProductId(connection, "DEPOSIT_SAVINGS");
+
+            fixture.trade.trade(fixture.userId, buy(depositId, "10000000.00"));
+            long holdingId = holdingIdOf(connection, fixture.portfolioId, depositId);
+
+            fixture.trade.trade(fixture.userId, sell(depositId, null));
+
+            assertEquals(0, scheduledCount(connection, holdingId),
+                    "판 상품의 이자가 나중에 현금으로 들어오면 안 됩니다.");
+            assertEquals(2, statusCount(connection, holdingId, "CANCELLED"));
+
+            // 되살린 보유는 같은 행이라, 예정 시각이 겹쳐도 event_key가 부딪히면 안 된다.
+            fixture.trade.trade(fixture.userId, buy(depositId, "10000000.00"));
+
+            assertEquals(holdingId, holdingIdOf(connection, fixture.portfolioId, depositId));
+            assertEquals(2, scheduledCount(connection, holdingId), "새 일정이 다시 생겨야 합니다.");
+        });
+    }
+
+    @Test
+    @DisplayName("주식·펀드는 만기가 없어 예정 이벤트를 만들지 않는다")
+    void createsNoScheduledEventsForPriceBasedProducts() throws Exception {
+        withRollback((context, connection) -> {
+            Fixture fixture = givenPortfolio(context, connection, "30000000.00");
+            long stockId = givenPricedStock(connection);
+
+            fixture.trade.trade(fixture.userId, buy(stockId, "5000000.00"));
+
+            assertEquals(0, scheduledCount(
+                    connection, holdingIdOf(connection, fixture.portfolioId, stockId)));
+            assertEquals(1, transactionCount(connection, fixture.portfolioId), "매수 이력 하나뿐");
+        });
+    }
+
     // ------------------------------------------------------------------ 준비
 
     private static TradeCommand buy(long productId, String amount) {
@@ -226,7 +300,8 @@ class PortfolioTradeJdbcTest {
                 context.getBean(FinancialProductMapper.class),
                 context.getBean(CurrentPriceReader.class),
                 new TradeCalculator(),
-                ALWAYS_OPEN
+                ALWAYS_OPEN,
+                context.getBean(AssetEventScheduler.class)
         );
 
         return new Fixture(userId, portfolioId, trade, context.getBean(PortfolioQueryService.class));
@@ -300,6 +375,44 @@ class PortfolioTradeJdbcTest {
         return Long.parseLong(value(connection,
                 "SELECT holding_id FROM portfolio_transactions WHERE portfolio_transaction_id = ?",
                 transactionId));
+    }
+
+    private static int scheduledCount(Connection connection, long holdingId) throws Exception {
+        return statusCount(connection, holdingId, "SCHEDULED");
+    }
+
+    private static int statusCount(Connection connection, long holdingId, String status)
+            throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT COUNT(*) FROM portfolio_transactions"
+                        + " WHERE holding_id = ? AND status = ?"
+        )) {
+            statement.setLong(1, holdingId);
+            statement.setString(2, status);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+
+                return resultSet.getInt(1);
+            }
+        }
+    }
+
+    private static String scheduledAmount(Connection connection, long holdingId, String type)
+            throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT amount FROM portfolio_transactions"
+                        + " WHERE holding_id = ? AND transaction_type = ? AND status = 'SCHEDULED'"
+        )) {
+            statement.setLong(1, holdingId);
+            statement.setString(2, type);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                assertTrue(resultSet.next(), type + " 예정 이벤트가 있어야 합니다.");
+
+                return resultSet.getString(1);
+            }
+        }
     }
 
     private static String value(Connection connection, String sql, long parameter) throws Exception {

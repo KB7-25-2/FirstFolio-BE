@@ -108,15 +108,20 @@ public class PortfolioResetService {
             );
         }
 
+        // 닫는 세대에 남아 있던 이자·만기 일정을 끊는다. 없으면 지난 세대의 이자가
+        // 나중에 현금으로 들어온다 — 그 현금은 새 세대의 것이 된다 (FUNC-041).
+        int cancelled = transactionMapper.cancelScheduledByPortfolio(current.getPortfolioId());
+
         Portfolio created = openNextGeneration(current, now);
         PortfolioTransaction record = record(created, idempotencyKey, detailJson, now);
 
         log.info(
-                "포트폴리오 초기화 userId={} 닫은세대={} 새세대={} generation={}",
+                "포트폴리오 초기화 userId={} 닫은세대={} 새세대={} generation={} 취소한예정이벤트={}",
                 userId,
                 current.getPortfolioId(),
                 created.getPortfolioId(),
-                created.getGenerationNo()
+                created.getGenerationNo(),
+                cancelled
         );
 
         return new PortfolioResetResult(

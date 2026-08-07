@@ -51,6 +51,7 @@ class TradeServiceTest {
     private PortfolioTransactionMapper transactionMapper;
     private FinancialProductMapper productMapper;
     private CurrentPriceReader priceReader;
+    private AssetEventScheduler eventScheduler;
     private TradeService service;
 
     private final Map<String, PortfolioTransaction> stored = new HashMap<>();
@@ -72,10 +73,11 @@ class TradeServiceTest {
         transactionMapper = mock(PortfolioTransactionMapper.class);
         productMapper = mock(FinancialProductMapper.class);
         priceReader = mock(CurrentPriceReader.class);
+        eventScheduler = mock(AssetEventScheduler.class);
 
         service = new TradeService(
                 portfolioMapper, holdingMapper, transactionMapper, productMapper,
-                priceReader, new TradeCalculator(), alwaysOpen
+                priceReader, new TradeCalculator(), alwaysOpen, eventScheduler
         );
 
         stored.clear();
@@ -407,6 +409,49 @@ class TradeServiceTest {
         assertEquals(ErrorCode.TRADE_NOT_ALLOWED, exception.getErrorCode());
     }
 
+    // ------------------------------------------------------------- 자산 이벤트 (FUNC-041)
+
+    @Test
+    @DisplayName("사면 만기까지의 이자·만기 일정을 함께 만든다 — 원금과 가입 시각을 넘긴다")
+    void schedulesAssetEventsOnBuy() {
+        buy(DEPOSIT_ID, "10000000.00");
+
+        ArgumentCaptor<BigDecimal> principal = ArgumentCaptor.forClass(BigDecimal.class);
+
+        verify(eventScheduler).schedule(any(), any(), any(), principal.capture(), any());
+
+        assertEquals(new BigDecimal("10000000.00"), principal.getValue(),
+                "가입형은 요청 금액이 그대로 원금입니다.");
+    }
+
+    @Test
+    @DisplayName("팔 때는 일정을 만들지 않는다")
+    void doesNotScheduleOnSell() {
+        buy(DEPOSIT_ID, "10000000.00");
+        sell(DEPOSIT_ID, null);
+
+        // 매수에서 한 번만 불렸어야 한다.
+        verify(eventScheduler).schedule(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("전량 해지하면 남은 예정 이벤트를 취소한다 — 판 상품의 이자가 들어오면 안 된다")
+    void cancelsScheduledEventsWhenHoldingCloses() {
+        buy(DEPOSIT_ID, "10000000.00");
+        sell(DEPOSIT_ID, null);
+
+        verify(transactionMapper).cancelScheduledByHolding(9101L);
+    }
+
+    @Test
+    @DisplayName("부분 매도로 보유가 남으면 예정 이벤트를 건드리지 않는다")
+    void keepsScheduledEventsOnPartialSell() {
+        buy(STOCK_ID, "5000000.00");
+        sell(STOCK_ID, "10.000000");
+
+        verify(transactionMapper, never()).cancelScheduledByHolding(anyLong());
+    }
+
     // ------------------------------------------------------------- 공통
 
     @Test
@@ -420,7 +465,8 @@ class TradeServiceTest {
                     public boolean isOpen(AssetType assetType, java.time.LocalDateTime nowUtc) {
                         return false;
                     }
-                }
+                },
+                eventScheduler
         );
 
         ApiException exception = assertThrows(ApiException.class, () -> closed.trade(
