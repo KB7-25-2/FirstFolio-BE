@@ -79,6 +79,7 @@ class ContentVersionLocalStorageIntegrationTest {
                 validationService,
                 storage,
                 contentVersionMapper,
+                subChapterMapper,
                 auditLogMapper,
                 Clock.systemUTC()
         );

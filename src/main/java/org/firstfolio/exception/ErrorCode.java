@@ -28,7 +28,9 @@ public enum ErrorCode {
     FOUNDATION_CONFLICT(HttpStatus.CONFLICT, "활성 포트폴리오 기초 과정이 이미 존재합니다."),
 
     // 강좌 콘텐츠 버전
+    CONTENT_VERSION_NOT_FOUND(HttpStatus.NOT_FOUND, "강좌 콘텐츠 버전을 찾을 수 없습니다."),
     CONTENT_VERSION_CONFLICT(HttpStatus.CONFLICT, "같은 소단원 콘텐츠 버전이 이미 존재합니다."),
+    CONTENT_NOT_PUBLISHABLE(HttpStatus.CONFLICT, "공개할 수 없는 강좌 콘텐츠 버전입니다."),
     CONTENT_VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "강좌 콘텐츠 검증에 실패했습니다."),
 
     // 포트폴리오 (FUNC-033, 034, 036)

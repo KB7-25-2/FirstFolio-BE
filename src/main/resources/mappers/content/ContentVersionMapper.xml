@@ -19,6 +19,39 @@
         <result property="createdAt" column="created_at" />
     </resultMap>
 
+    <sql id="contentVersionColumns">
+        content_version_id,
+        sub_chapter_id,
+        version_no,
+        schema_version,
+        storage_object_key,
+        storage_version_id,
+        status,
+        published_at,
+        created_by,
+        created_at
+    </sql>
+
+    <select id="findAllBySubChapterId" resultMap="contentVersionResultMap">
+        SELECT <include refid="contentVersionColumns" />
+        FROM content_versions
+        WHERE sub_chapter_id = #{subChapterId}
+        ORDER BY version_no DESC, content_version_id DESC
+    </select>
+
+    <select id="findById" resultMap="contentVersionResultMap">
+        SELECT <include refid="contentVersionColumns" />
+        FROM content_versions
+        WHERE content_version_id = #{contentVersionId}
+    </select>
+
+    <select id="findByIdForUpdate" resultMap="contentVersionResultMap">
+        SELECT <include refid="contentVersionColumns" />
+        FROM content_versions
+        WHERE content_version_id = #{contentVersionId}
+        FOR UPDATE
+    </select>
+
     <select id="countBySubChapterIdAndVersionNo" resultType="int">
         SELECT COUNT(*)
         FROM content_versions
@@ -53,5 +86,20 @@
             #{createdAt}
         )
     </insert>
+
+    <update id="publishDraft">
+        UPDATE content_versions
+        SET status = 'PUBLISHED',
+            published_at = #{publishedAt}
+        WHERE content_version_id = #{contentVersionId}
+          AND status = 'DRAFT'
+    </update>
+
+    <update id="retirePublished">
+        UPDATE content_versions
+        SET status = 'RETIRED'
+        WHERE content_version_id = #{contentVersionId}
+          AND status = 'PUBLISHED'
+    </update>
 
 </mapper>

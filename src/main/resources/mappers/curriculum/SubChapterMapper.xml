@@ -43,6 +43,13 @@
         WHERE sub_chapter_id = #{subChapterId}
     </select>
 
+    <select id="findByIdForUpdate" resultMap="subChapterResultMap">
+        SELECT <include refid="subChapterColumns" />
+        FROM sub_chapters
+        WHERE sub_chapter_id = #{subChapterId}
+        FOR UPDATE
+    </select>
+
     <select id="countDisplayOrderConflict" resultType="int">
         SELECT COUNT(*)
         FROM sub_chapters
@@ -85,6 +92,13 @@
             description = #{description},
             display_order = #{displayOrder},
             is_active = #{active},
+            updated_at = #{updatedAt}
+        WHERE sub_chapter_id = #{subChapterId}
+    </update>
+
+    <update id="updateCurrentContentVersion">
+        UPDATE sub_chapters
+        SET current_content_version_id = #{contentVersionId},
             updated_at = #{updatedAt}
         WHERE sub_chapter_id = #{subChapterId}
     </update>

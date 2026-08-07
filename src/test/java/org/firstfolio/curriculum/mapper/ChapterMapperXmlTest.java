@@ -30,6 +30,12 @@ class ChapterMapperXmlTest {
                 SubChapterMapper.class.getName() + ".updateMetadata"
         ));
         assertTrue(configuration.hasStatement(
+                SubChapterMapper.class.getName() + ".findByIdForUpdate"
+        ));
+        assertTrue(configuration.hasStatement(
+                SubChapterMapper.class.getName() + ".updateCurrentContentVersion"
+        ));
+        assertTrue(configuration.hasStatement(
                 AdminAuditLogMapper.class.getName() + ".insert"
         ));
     }

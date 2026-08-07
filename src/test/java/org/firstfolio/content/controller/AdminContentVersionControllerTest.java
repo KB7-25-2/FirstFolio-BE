@@ -7,6 +7,7 @@ import org.firstfolio.auth.web.CurrentUserArgumentResolver;
 import org.firstfolio.common.json.ApiObjectMapperFactory;
 import org.firstfolio.common.web.RequestIdFilter;
 import org.firstfolio.content.domain.ContentVersion;
+import org.firstfolio.content.domain.ContentVersionHistory;
 import org.firstfolio.content.domain.StoredObjectRef;
 import org.firstfolio.content.dto.request.LessonContentUploadRequest;
 import org.firstfolio.content.service.ContentVersionService;
@@ -23,6 +24,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -33,6 +35,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -120,6 +123,59 @@ class AdminContentVersionControllerTest {
                         .value("CONTENT_VALIDATION_FAILED"));
     }
 
+    @Test
+    void returnsContentVersionsAndMarksCurrentVersion() throws Exception {
+        ContentVersion current = publishedContentVersion();
+        ContentVersion draft = contentVersion();
+        when(service.getContentVersions(103L)).thenReturn(new ContentVersionHistory(
+                List.of(draft, current),
+                301L
+        ));
+
+        mockMvc.perform(get("/api/admin/sub-chapters/103/content-versions")
+                        .requestAttr(AuthenticationRequestAttributes.CURRENT_USER, ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].content_version_id").value(302))
+                .andExpect(jsonPath("$.data.items[0].status").value("DRAFT"))
+                .andExpect(jsonPath("$.data.items[0].current").value(false))
+                .andExpect(jsonPath("$.data.items[1].content_version_id").value(301))
+                .andExpect(jsonPath("$.data.items[1].status").value("PUBLISHED"))
+                .andExpect(jsonPath("$.data.items[1].current").value(true));
+
+        verify(service).getContentVersions(103L);
+    }
+
+    @Test
+    void publishesDraftContentVersion() throws Exception {
+        ContentVersion published = contentVersion();
+        published.publish(LocalDateTime.of(2026, 8, 7, 2, 0));
+        when(service.publishContentVersion(eq(302L), eq(900L), anyString()))
+                .thenReturn(published);
+
+        mockMvc.perform(post("/api/admin/content-versions/302/publish")
+                        .requestAttr(AuthenticationRequestAttributes.CURRENT_USER, ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content_version_id").value(302))
+                .andExpect(jsonPath("$.data.sub_chapter_id").value(103))
+                .andExpect(jsonPath("$.data.status").value("PUBLISHED"))
+                .andExpect(jsonPath("$.data.published_at").value("2026-08-07T02:00:00Z"))
+                .andExpect(jsonPath("$.data.current").value(true));
+
+        verify(service).publishContentVersion(eq(302L), eq(900L), anyString());
+    }
+
+    @Test
+    void returnsConflictForNonPublishableContentVersion() throws Exception {
+        when(service.publishContentVersion(eq(302L), eq(900L), anyString()))
+                .thenThrow(new ApiException(ErrorCode.CONTENT_NOT_PUBLISHABLE));
+
+        mockMvc.perform(post("/api/admin/content-versions/302/publish")
+                        .requestAttr(AuthenticationRequestAttributes.CURRENT_USER, ADMIN))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code")
+                        .value("CONTENT_NOT_PUBLISHABLE"));
+    }
+
     private ContentVersion contentVersion() {
         ContentVersion version = ContentVersion.draft(
                 103L,
@@ -133,6 +189,23 @@ class AdminContentVersionControllerTest {
                 LocalDateTime.of(2026, 8, 7, 1, 0)
         );
         version.setContentVersionId(302L);
+        return version;
+    }
+
+    private ContentVersion publishedContentVersion() {
+        ContentVersion version = ContentVersion.draft(
+                103L,
+                1,
+                "1.0",
+                new StoredObjectRef(
+                        "learning/sub-chapters/103/lesson.json",
+                        "storage-version-0"
+                ),
+                900L,
+                LocalDateTime.of(2026, 8, 6, 1, 0)
+        );
+        version.setContentVersionId(301L);
+        version.publish(LocalDateTime.of(2026, 8, 6, 2, 0));
         return version;
     }
 
