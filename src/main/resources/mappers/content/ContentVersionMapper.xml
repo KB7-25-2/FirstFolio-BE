@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.content.mapper.ContentVersionMapper">
+
+    <resultMap id="contentVersionResultMap"
+               type="org.firstfolio.content.domain.ContentVersion">
+        <id property="contentVersionId" column="content_version_id" />
+        <result property="subChapterId" column="sub_chapter_id" />
+        <result property="versionNo" column="version_no" />
+        <result property="schemaVersion" column="schema_version" />
+        <result property="storageObjectKey" column="storage_object_key" />
+        <result property="storageVersionId" column="storage_version_id" />
+        <result property="status" column="status" />
+        <result property="publishedAt" column="published_at" />
+        <result property="createdBy" column="created_by" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <select id="countBySubChapterIdAndVersionNo" resultType="int">
+        SELECT COUNT(*)
+        FROM content_versions
+        WHERE sub_chapter_id = #{subChapterId}
+          AND version_no = #{versionNo}
+    </select>
+
+    <insert id="insert"
+            parameterType="org.firstfolio.content.domain.ContentVersion"
+            useGeneratedKeys="true"
+            keyProperty="contentVersionId"
+            keyColumn="content_version_id">
+        INSERT INTO content_versions (
+            sub_chapter_id,
+            version_no,
+            schema_version,
+            storage_object_key,
+            storage_version_id,
+            status,
+            published_at,
+            created_by,
+            created_at
+        ) VALUES (
+            #{subChapterId},
+            #{versionNo},
+            #{schemaVersion},
+            #{storageObjectKey},
+            #{storageVersionId},
+            #{status},
+            #{publishedAt,jdbcType=TIMESTAMP},
+            #{createdBy},
+            #{createdAt}
+        )
+    </insert>
+
+</mapper>

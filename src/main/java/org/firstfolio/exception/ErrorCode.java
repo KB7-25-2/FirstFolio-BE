@@ -27,6 +27,10 @@ public enum ErrorCode {
     SUB_CHAPTER_ORDER_CONFLICT(HttpStatus.CONFLICT, "같은 순서의 소단원이 이미 존재합니다."),
     FOUNDATION_CONFLICT(HttpStatus.CONFLICT, "활성 포트폴리오 기초 과정이 이미 존재합니다."),
 
+    // 강좌 콘텐츠 버전
+    CONTENT_VERSION_CONFLICT(HttpStatus.CONFLICT, "같은 소단원 콘텐츠 버전이 이미 존재합니다."),
+    CONTENT_VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "강좌 콘텐츠 검증에 실패했습니다."),
+
     // 포트폴리오 (FUNC-033, 034, 036)
     PORTFOLIO_ALREADY_CONFIGURED(HttpStatus.CONFLICT, "이미 최초 포트폴리오를 구성했습니다."),
     INSUFFICIENT_SIMULATION_CASH(HttpStatus.UNPROCESSABLE_ENTITY, "사용 가능한 모의 현금이 부족합니다."),
