@@ -121,4 +121,74 @@
         )
     </insert>
 
+    <!-- ============================================================ 자산 이벤트 (FUNC-041) -->
+
+    <!--
+        도래한 예정 이벤트. idx_portfolio_transactions_schedule (status, scheduled_at)을 그대로 탄다.
+
+        FAILED는 담지 않는다 — 고쳐지지 않는 이벤트가 매 배치마다 같은 실패를 반복하게 된다.
+        재처리는 retry 엔드포인트로 명시적으로 한다.
+
+        식별자를 두 번째 정렬 키로 쓰는 이유는 만기 시각에 이자와 만기가 같은 초에 겹치기
+        때문이다. 일정을 만들 때 이자를 먼저 넣으므로 식별자 오름차순이 곧 "이자 → 만기"다.
+    -->
+    <select id="findDueScheduled" resultMap="transactionResult">
+        SELECT <include refid="columns"/>
+        FROM portfolio_transactions
+        WHERE status = 'SCHEDULED'
+          AND scheduled_at &lt;= #{processUntil}
+        ORDER BY scheduled_at, portfolio_transaction_id
+        LIMIT #{limit}
+    </select>
+
+    <select id="findByEventKey" resultMap="transactionResult">
+        SELECT <include refid="columns"/>
+        FROM portfolio_transactions
+        WHERE event_key = #{eventKey}
+    </select>
+
+    <!--
+        상태 조건이 이 UPDATE의 핵심이다. 이미 COMPLETED면 갱신 행이 0이 되어
+        배치를 두 번 돌려도 현금이 두 번 늘지 않는다.
+        금액(amount)은 가입·매수 시점에 확정해 두므로 여기서 건드리지 않는다.
+    -->
+    <update id="markCompleted">
+        UPDATE portfolio_transactions
+        SET status = 'COMPLETED',
+            processed_at = #{processedAt},
+            detail_json = #{detailJson}
+        WHERE portfolio_transaction_id = #{portfolioTransactionId}
+          AND status IN ('SCHEDULED', 'FAILED')
+    </update>
+
+    <!--
+        재처리에서 또 실패하면 사유를 최신으로 덮어쓴다. 완료된 이벤트를 실패로 되돌리지는 않는다.
+        실패는 반영이 아니므로 processed_at은 비워 둔다.
+    -->
+    <update id="markFailed">
+        UPDATE portfolio_transactions
+        SET status = 'FAILED',
+            detail_json = #{detailJson}
+        WHERE portfolio_transaction_id = #{portfolioTransactionId}
+          AND status IN ('SCHEDULED', 'FAILED')
+    </update>
+
+    <!--
+        해지·초기화로 더 이상 성립하지 않는 일정을 끊는다. 이미 처리된(COMPLETED) 이력은
+        그대로 남긴다 — 실제로 받은 이자를 지우면 현금과 이력이 어긋난다.
+    -->
+    <update id="cancelScheduledByHolding">
+        UPDATE portfolio_transactions
+        SET status = 'CANCELLED'
+        WHERE holding_id = #{holdingId}
+          AND status = 'SCHEDULED'
+    </update>
+
+    <update id="cancelScheduledByPortfolio">
+        UPDATE portfolio_transactions
+        SET status = 'CANCELLED'
+        WHERE portfolio_id = #{portfolioId}
+          AND status = 'SCHEDULED'
+    </update>
+
 </mapper>

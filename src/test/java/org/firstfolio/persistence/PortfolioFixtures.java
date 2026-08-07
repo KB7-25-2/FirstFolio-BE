@@ -79,7 +79,8 @@ final class PortfolioFixtures {
         }
     }
 
-    static void insertHolding(
+    /** @return 만들어진 보유 식별자 */
+    static long insertHolding(
             Connection connection,
             long portfolioId,
             long productId,
@@ -90,13 +91,20 @@ final class PortfolioFixtures {
                 "INSERT INTO portfolio_holdings ("
                         + "portfolio_id, product_id, quantity, principal_amount,"
                         + " terms_snapshot_json, status, created_at, updated_at"
-                        + ") VALUES (?, ?, ?, ?, '{}', 'ACTIVE', NOW(), NOW())"
+                        + ") VALUES (?, ?, ?, ?, '{}', 'ACTIVE', NOW(), NOW())",
+                Statement.RETURN_GENERATED_KEYS
         )) {
             statement.setLong(1, portfolioId);
             statement.setLong(2, productId);
             statement.setBigDecimal(3, new BigDecimal(quantity));
             statement.setBigDecimal(4, new BigDecimal(principal));
             statement.executeUpdate();
+
+            try (ResultSet keys = statement.getGeneratedKeys()) {
+                keys.next();
+
+                return keys.getLong(1);
+            }
         }
     }
 
