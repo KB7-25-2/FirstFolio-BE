@@ -5,8 +5,8 @@ import org.springframework.http.HttpStatus;
 /**
  * API_DOCS.md에 정의된 오류 코드와 HTTP 상태의 대응표.
  *
- * <p>담당 범위(FUNC-029~042, Portfolio / Product Simulation)의 코드만 담는다.
- * 다른 도메인이 자기 코드를 추가할 때도 이 enum을 함께 사용한다.</p>
+ * <p>도메인마다 따로 두지 않고 이 enum 하나를 함께 쓴다. 같은 상황에 도메인별로 다른 코드가
+ * 생기는 것을 막기 위함이다. 주석의 구획으로 담당 범위를 구분한다.</p>
  */
 public enum ErrorCode {
 
@@ -35,8 +35,9 @@ public enum ErrorCode {
     CONTENT_NOT_PUBLISHED(HttpStatus.NOT_FOUND, "공개된 강좌 콘텐츠가 없습니다."),
     CONTENT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "강좌 콘텐츠를 불러올 수 없습니다."),
 
-    // 포트폴리오 (FUNC-033, 034, 036)
-    PORTFOLIO_ALREADY_CONFIGURED(HttpStatus.CONFLICT, "이미 최초 포트폴리오를 구성했습니다."),
+    // 포트폴리오 (FUNC-034, 036)
+    // PORTFOLIO_ALREADY_CONFIGURED(409)는 POST /portfolios와 함께 폐기됐다.
+    // "최초 구성" 단계 자체가 없어져 두 번 구성할 일이 없다 (2026-08-05 팀 확정).
     INSUFFICIENT_SIMULATION_CASH(HttpStatus.UNPROCESSABLE_ENTITY, "사용 가능한 모의 현금이 부족합니다."),
     ACTIVE_PORTFOLIO_NOT_FOUND(HttpStatus.NOT_FOUND, "활성 포트폴리오가 없습니다."),
 

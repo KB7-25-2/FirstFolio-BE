@@ -63,6 +63,7 @@ class ServletConfigInterceptorPathTest {
     @ValueSource(strings = {
             "/api/internal/product-prices/refresh",
             "/api/internal/portfolio-events/process",
+            "/api/internal/portfolio-events/interest-8101-8201-20260729T0300Z/retry",
             "/internal/product-prices/refresh"
     })
     void internalInterceptorCoversInternalPaths(String path) {

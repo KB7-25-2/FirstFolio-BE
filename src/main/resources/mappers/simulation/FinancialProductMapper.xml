@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.simulation.mapper.FinancialProductMapper">
+
+    <!--
+        is_active(컬럼) 와 active(프로퍼티) 이름이 달라 자동 매핑에 기대지 않고 명시한다.
+        시각 컬럼은 UTC 값을 저장한다 (PROJECT_SPEC 16장).
+    -->
+    <resultMap id="financialProductResult" type="org.firstfolio.simulation.domain.FinancialProduct">
+        <id property="productId" column="product_id"/>
+        <result property="assetType" column="asset_type"/>
+        <result property="displayName" column="display_name"/>
+        <result property="description" column="description"/>
+        <result property="sourceProvider" column="source_provider"/>
+        <result property="sourceProductCode" column="source_product_code"/>
+        <result property="sourceProductName" column="source_product_name"/>
+        <result property="sourceReferenceAt" column="source_reference_at"/>
+        <result property="realTermsJson" column="real_terms_json"/>
+        <result property="simulationTermsJson" column="simulation_terms_json"/>
+        <result property="riskLevel" column="risk_level"/>
+        <result property="active" column="is_active"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="columns">
+        product_id,
+        asset_type,
+        display_name,
+        description,
+        source_provider,
+        source_product_code,
+        source_product_name,
+        source_reference_at,
+        real_terms_json,
+        simulation_terms_json,
+        risk_level,
+        is_active,
+        created_at,
+        updated_at
+    </sql>
+
+    <select id="findBySource" resultMap="financialProductResult">
+        SELECT <include refid="columns"/>
+        FROM financial_products
+        WHERE source_provider = #{sourceProvider}
+          AND source_product_code = #{sourceProductCode}
+        LIMIT 1
+    </select>
+
+    <select id="findById" resultMap="financialProductResult">
+        SELECT <include refid="columns"/>
+        FROM financial_products
+        WHERE product_id = #{productId}
+    </select>
+
+    <select id="findActiveById" resultMap="financialProductResult">
+        SELECT <include refid="columns"/>
+        FROM financial_products
+        WHERE product_id = #{productId}
+          AND is_active = TRUE
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="productId">
+        INSERT INTO financial_products (
+            asset_type,
+            display_name,
+            description,
+            source_provider,
+            source_product_code,
+            source_product_name,
+            source_reference_at,
+            real_terms_json,
+            simulation_terms_json,
+            risk_level,
+            is_active,
+            created_at,
+            updated_at
+        ) VALUES (
+            #{assetType},
+            #{displayName},
+            #{description},
+            #{sourceProvider},
+            #{sourceProductCode},
+            #{sourceProductName},
+            #{sourceReferenceAt},
+            #{realTermsJson},
+            #{simulationTermsJson},
+            #{riskLevel},
+            #{active},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <select id="findPage" resultMap="financialProductResult">
+        SELECT <include refid="columns"/>
+        FROM financial_products
+        <where>
+            <if test="assetType != null">
+                AND asset_type = #{assetType}
+            </if>
+            <if test="active != null">
+                AND is_active = #{active}
+            </if>
+            <if test="cursor != null">
+                AND product_id &gt; #{cursor}
+            </if>
+        </where>
+        ORDER BY product_id
+        LIMIT #{size}
+    </select>
+
+    <!-- idx_financial_products_active_type (is_active, asset_type)를 그대로 탄다. -->
+    <select id="findPriceTargets" resultMap="financialProductResult">
+        SELECT <include refid="columns"/>
+        FROM financial_products
+        WHERE is_active = TRUE
+          AND asset_type IN
+        <foreach item="assetType" collection="assetTypes" open="(" separator="," close=")">
+            #{assetType}
+        </foreach>
+        <!--
+            조건에서 컬렉션 메서드를 부르지 않는다. MyBatis가 OGNL 리플렉션으로 평가하는데,
+            List.of()가 만드는 ImmutableCollections$List12는 private 중첩 클래스라
+            JDK 17 모듈 캡슐화에 막혀 InaccessibleObjectException이 난다
+            (ArrayList면 통과해서, 호출하는 쪽에 따라 갈리는 함정이 된다).
+            빈 목록은 호출 전에 null로 바꿔서 넘긴다.
+        -->
+        <if test="productIds != null">
+            AND product_id IN
+            <foreach item="productId" collection="productIds" open="(" separator="," close=")">
+                #{productId}
+            </foreach>
+        </if>
+        ORDER BY product_id
+    </select>
+
+    <update id="updateEditableFields">
+        UPDATE financial_products
+        <set>
+            <if test="displayName != null">display_name = #{displayName},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="riskLevel != null">risk_level = #{riskLevel},</if>
+            <if test="simulationTermsJson != null">simulation_terms_json = #{simulationTermsJson},</if>
+            is_active = #{active},
+            updated_at = #{updatedAt}
+        </set>
+        WHERE product_id = #{productId}
+    </update>
+
+</mapper>

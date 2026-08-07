@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.portfolio.mapper.PortfolioTransactionMapper">
+
+    <resultMap id="transactionResult" type="org.firstfolio.portfolio.domain.PortfolioTransaction">
+        <id property="portfolioTransactionId" column="portfolio_transaction_id"/>
+        <result property="portfolioId" column="portfolio_id"/>
+        <result property="holdingId" column="holding_id"/>
+        <result property="productId" column="product_id"/>
+        <result property="transactionType" column="transaction_type"/>
+        <result property="amount" column="amount"/>
+        <result property="quantity" column="quantity"/>
+        <result property="unitPrice" column="unit_price"/>
+        <result property="status" column="status"/>
+        <result property="scheduledAt" column="scheduled_at"/>
+        <result property="processedAt" column="processed_at"/>
+        <result property="eventKey" column="event_key"/>
+        <result property="idempotencyKey" column="idempotency_key"/>
+        <result property="detailJson" column="detail_json"/>
+        <result property="createdAt" column="created_at"/>
+        <!-- financial_products에서 함께 읽는 표시용 필드 -->
+        <result property="productDisplayName" column="product_display_name"/>
+    </resultMap>
+
+    <sql id="columns">
+        portfolio_transaction_id,
+        portfolio_id,
+        holding_id,
+        product_id,
+        transaction_type,
+        amount,
+        quantity,
+        unit_price,
+        status,
+        scheduled_at,
+        processed_at,
+        event_key,
+        idempotency_key,
+        detail_json,
+        created_at
+    </sql>
+
+    <select id="findByIdempotencyKey" resultMap="transactionResult">
+        SELECT <include refid="columns"/>
+        FROM portfolio_transactions
+        WHERE idempotency_key = #{idempotencyKey}
+    </select>
+
+    <!--
+        최신순 정렬과 커서를 식별자 하나로 처리한다. AUTO_INCREMENT 식별자는 삽입 순서대로
+        커지므로 created_at 내림차순과 순서가 같고, 같은 시각에 여러 건이 들어와도
+        커서가 겹치지 않는다 (created_at만 쓰면 같은 시각의 건을 건너뛰거나 반복할 수 있다).
+
+        상품명은 사용자에게 보이는 가명만 읽는다. 지급·초기화처럼 상품이 없는 이력도 있어
+        LEFT JOIN이다.
+    -->
+    <select id="findPage" resultMap="transactionResult">
+        SELECT t.portfolio_transaction_id,
+               t.portfolio_id,
+               t.holding_id,
+               t.product_id,
+               t.transaction_type,
+               t.amount,
+               t.quantity,
+               t.unit_price,
+               t.status,
+               t.scheduled_at,
+               t.processed_at,
+               t.event_key,
+               t.idempotency_key,
+               t.detail_json,
+               t.created_at,
+               p.display_name AS product_display_name
+        FROM portfolio_transactions t
+                 LEFT JOIN financial_products p ON p.product_id = t.product_id
+        WHERE t.portfolio_id = #{portfolioId}
+        <if test="transactionType != null">
+            AND t.transaction_type = #{transactionType}
+        </if>
+        <if test="cursorId != null">
+            AND t.portfolio_transaction_id &lt; #{cursorId}
+        </if>
+        ORDER BY t.portfolio_transaction_id DESC
+        LIMIT #{limit}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="portfolioTransactionId">
+        INSERT INTO portfolio_transactions (
+            portfolio_id,
+            holding_id,
+            product_id,
+            transaction_type,
+            amount,
+            quantity,
+            unit_price,
+            status,
+            scheduled_at,
+            processed_at,
+            event_key,
+            idempotency_key,
+            detail_json,
+            created_at
+        ) VALUES (
+            #{portfolioId},
+            #{holdingId},
+            #{productId},
+            #{transactionType},
+            #{amount},
+            #{quantity},
+            #{unitPrice},
+            #{status},
+            #{scheduledAt},
+            #{processedAt},
+            #{eventKey},
+            #{idempotencyKey},
+            #{detailJson},
+            #{createdAt}
+        )
+    </insert>
+
+    <!-- ============================================================ 자산 이벤트 (FUNC-041) -->
+
+    <!--
+        도래한 예정 이벤트. idx_portfolio_transactions_schedule (status, scheduled_at)을 그대로 탄다.
+
+        FAILED는 담지 않는다 — 고쳐지지 않는 이벤트가 매 배치마다 같은 실패를 반복하게 된다.
+        재처리는 retry 엔드포인트로 명시적으로 한다.
+
+        식별자를 두 번째 정렬 키로 쓰는 이유는 만기 시각에 이자와 만기가 같은 초에 겹치기
+        때문이다. 일정을 만들 때 이자를 먼저 넣으므로 식별자 오름차순이 곧 "이자 → 만기"다.
+    -->
+    <select id="findDueScheduled" resultMap="transactionResult">
+        SELECT <include refid="columns"/>
+        FROM portfolio_transactions
+        WHERE status = 'SCHEDULED'
+          AND scheduled_at &lt;= #{processUntil}
+        ORDER BY scheduled_at, portfolio_transaction_id
+        LIMIT #{limit}
+    </select>
+
+    <select id="findByEventKey" resultMap="transactionResult">
+        SELECT <include refid="columns"/>
+        FROM portfolio_transactions
+        WHERE event_key = #{eventKey}
+    </select>
+
+    <!--
+        상태 조건이 이 UPDATE의 핵심이다. 이미 COMPLETED면 갱신 행이 0이 되어
+        배치를 두 번 돌려도 현금이 두 번 늘지 않는다.
+        금액(amount)은 가입·매수 시점에 확정해 두므로 여기서 건드리지 않는다.
+    -->
+    <update id="markCompleted">
+        UPDATE portfolio_transactions
+        SET status = 'COMPLETED',
+            processed_at = #{processedAt},
+            detail_json = #{detailJson}
+        WHERE portfolio_transaction_id = #{portfolioTransactionId}
+          AND status IN ('SCHEDULED', 'FAILED')
+    </update>
+
+    <!--
+        재처리에서 또 실패하면 사유를 최신으로 덮어쓴다. 완료된 이벤트를 실패로 되돌리지는 않는다.
+        실패는 반영이 아니므로 processed_at은 비워 둔다.
+    -->
+    <update id="markFailed">
+        UPDATE portfolio_transactions
+        SET status = 'FAILED',
+            detail_json = #{detailJson}
+        WHERE portfolio_transaction_id = #{portfolioTransactionId}
+          AND status IN ('SCHEDULED', 'FAILED')
+    </update>
+
+    <!--
+        해지·초기화로 더 이상 성립하지 않는 일정을 끊는다. 이미 처리된(COMPLETED) 이력은
+        그대로 남긴다 — 실제로 받은 이자를 지우면 현금과 이력이 어긋난다.
+    -->
+    <update id="cancelScheduledByHolding">
+        UPDATE portfolio_transactions
+        SET status = 'CANCELLED'
+        WHERE holding_id = #{holdingId}
+          AND status = 'SCHEDULED'
+    </update>
+
+    <update id="cancelScheduledByPortfolio">
+        UPDATE portfolio_transactions
+        SET status = 'CANCELLED'
+        WHERE portfolio_id = #{portfolioId}
+          AND status = 'SCHEDULED'
+    </update>
+
+</mapper>
