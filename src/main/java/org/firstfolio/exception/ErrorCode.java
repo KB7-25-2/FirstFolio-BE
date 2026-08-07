@@ -32,6 +32,8 @@ public enum ErrorCode {
     CONTENT_VERSION_CONFLICT(HttpStatus.CONFLICT, "같은 소단원 콘텐츠 버전이 이미 존재합니다."),
     CONTENT_NOT_PUBLISHABLE(HttpStatus.CONFLICT, "공개할 수 없는 강좌 콘텐츠 버전입니다."),
     CONTENT_VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "강좌 콘텐츠 검증에 실패했습니다."),
+    CONTENT_NOT_PUBLISHED(HttpStatus.NOT_FOUND, "공개된 강좌 콘텐츠가 없습니다."),
+    CONTENT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "강좌 콘텐츠를 불러올 수 없습니다."),
 
     // 포트폴리오 (FUNC-033, 034, 036)
     PORTFOLIO_ALREADY_CONFIGURED(HttpStatus.CONFLICT, "이미 최초 포트폴리오를 구성했습니다."),

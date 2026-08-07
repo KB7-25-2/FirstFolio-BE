@@ -30,6 +30,9 @@ class ContentVersionMapperXmlTest {
 
         assertTrue(configuration.hasMapper(ContentVersionMapper.class));
         assertTrue(configuration.hasStatement(
+                ContentVersionMapper.class.getName() + ".findCurrentPublishedLesson"
+        ));
+        assertTrue(configuration.hasStatement(
                 ContentVersionMapper.class.getName() + ".countBySubChapterIdAndVersionNo"
         ));
         assertTrue(configuration.hasStatement(
