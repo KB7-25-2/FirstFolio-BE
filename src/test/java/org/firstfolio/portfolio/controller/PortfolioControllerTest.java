@@ -14,6 +14,7 @@ import org.firstfolio.user.domain.UserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -24,6 +25,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -51,15 +54,17 @@ class PortfolioControllerTest {
 
     private PortfolioQueryService queryService;
     private org.firstfolio.portfolio.service.PortfolioResetService resetService;
+    private org.firstfolio.portfolio.service.TradeService tradeService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         queryService = mock(PortfolioQueryService.class);
         resetService = mock(org.firstfolio.portfolio.service.PortfolioResetService.class);
+        tradeService = mock(org.firstfolio.portfolio.service.TradeService.class);
 
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new PortfolioController(queryService, resetService))
+                .standaloneSetup(new PortfolioController(queryService, resetService, tradeService))
                 .setCustomArgumentResolvers(new CurrentUserArgumentResolver())
                 .setControllerAdvice(new CommonExceptionAdvice())
                 .setMessageConverters(
@@ -204,6 +209,131 @@ class PortfolioControllerTest {
                         .content("{\"confirmation\":\"틀린문구\",\"idempotency_key\":\"reset-101-2\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("RESET_CONFIRMATION_REQUIRED"));
+    }
+
+    @Test
+    @DisplayName("매수는 201로 체결 결과와 남은 현금을 돌려준다")
+    void executesBuy() throws Exception {
+        when(tradeService.trade(eq(USER_ID), any())).thenReturn(
+                new org.firstfolio.portfolio.service.TradeResult(
+                        8201L, "BUY", 87L,
+                        new BigDecimal("5000000.00"), new BigDecimal("4830000.00"),
+                        new BigDecimal("20.000000"), new BigDecimal("241500.0000"),
+                        "COMPLETED", new BigDecimal("25170000.00")
+                )
+        );
+
+        mockMvc.perform(authenticated(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .post("/api/portfolios/current/trades"))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"idempotency_key\":\"trade-101-1\",\"transaction_type\":\"BUY\","
+                                + "\"product_id\":87,\"amount\":\"5000000.00\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.portfolio_transaction_id").value(8201))
+                .andExpect(jsonPath("$.data.requested_amount").value("5000000.00"))
+                .andExpect(jsonPath("$.data.amount").value("4830000.00"))
+                .andExpect(jsonPath("$.data.quantity").value("20.000000"))
+                .andExpect(jsonPath("$.data.unit_price").value("241500.0000"))
+                .andExpect(jsonPath("$.data.cash_balance").value("25170000.00"));
+    }
+
+    @Test
+    @DisplayName("요청 필드를 그대로 서비스에 넘긴다")
+    void passesTradeRequestToService() throws Exception {
+        when(tradeService.trade(eq(USER_ID), any())).thenReturn(
+                new org.firstfolio.portfolio.service.TradeResult(
+                        8202L, "SELL", 87L, new BigDecimal("1932000.00"),
+                        new BigDecimal("1932000.00"), new BigDecimal("8.000000"),
+                        new BigDecimal("241500.0000"), "COMPLETED", new BigDecimal("9000000.00")
+                )
+        );
+
+        mockMvc.perform(authenticated(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .post("/api/portfolios/current/trades"))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"idempotency_key\":\"trade-101-2\",\"transaction_type\":\"SELL\","
+                                + "\"product_id\":87,\"quantity\":\"8.000000\"}"))
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<org.firstfolio.portfolio.service.TradeCommand> captor =
+                ArgumentCaptor.forClass(org.firstfolio.portfolio.service.TradeCommand.class);
+        verify(tradeService).trade(eq(USER_ID), captor.capture());
+
+        org.firstfolio.portfolio.service.TradeCommand command = captor.getValue();
+
+        assertEquals("trade-101-2", command.getIdempotencyKey());
+        assertEquals(org.firstfolio.portfolio.domain.TransactionType.SELL, command.getTransactionType());
+        assertEquals(87L, command.getProductId());
+        assertEquals(new BigDecimal("8.000000"), command.getQuantity());
+        assertNull(command.getAmount(), "매도에는 금액이 없어야 합니다.");
+    }
+
+    @Test
+    @DisplayName("예·적금·채권 매도는 금액도 수량도 없이 온다")
+    void acceptsSellWithoutAmountOrQuantity() throws Exception {
+        when(tradeService.trade(eq(USER_ID), any())).thenReturn(
+                new org.firstfolio.portfolio.service.TradeResult(
+                        8203L, "SELL", 25L, new BigDecimal("10000000.00"),
+                        new BigDecimal("10000000.00"), null, null,
+                        "COMPLETED", new BigDecimal("40000000.00")
+                )
+        );
+
+        mockMvc.perform(authenticated(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .post("/api/portfolios/current/trades"))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"idempotency_key\":\"trade-101-3\",\"transaction_type\":\"SELL\","
+                                + "\"product_id\":25}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.quantity").doesNotExist())
+                .andExpect(jsonPath("$.data.unit_price").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("매수·매도가 아닌 유형은 400이다")
+    void rejectsNonTradeTransactionType() throws Exception {
+        mockMvc.perform(authenticated(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .post("/api/portfolios/current/trades"))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"idempotency_key\":\"k\",\"transaction_type\":\"INTEREST\","
+                                + "\"product_id\":87,\"amount\":\"1000.00\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
+
+        verify(tradeService, org.mockito.Mockito.never()).trade(any(), any());
+    }
+
+    @Test
+    @DisplayName("거래 실패는 오류 응답으로 바뀐다")
+    void translatesTradeFailure() throws Exception {
+        when(tradeService.trade(eq(USER_ID), any()))
+                .thenThrow(new ApiException(ErrorCode.INSUFFICIENT_SIMULATION_CASH));
+
+        mockMvc.perform(authenticated(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .post("/api/portfolios/current/trades"))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"idempotency_key\":\"k\",\"transaction_type\":\"BUY\","
+                                + "\"product_id\":87,\"amount\":\"99999999.00\"}"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error.code").value("INSUFFICIENT_SIMULATION_CASH"));
+    }
+
+    @Test
+    @DisplayName("거래도 인증이 필요하다")
+    void rejectsUnauthenticatedTrade() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .post("/api/portfolios/current/trades")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"idempotency_key\":\"k\",\"transaction_type\":\"BUY\","
+                                + "\"product_id\":87,\"amount\":\"1000.00\"}"))
+                .andExpect(status().isUnauthorized());
+
+        verify(tradeService, org.mockito.Mockito.never()).trade(any(), any());
     }
 
     @Test

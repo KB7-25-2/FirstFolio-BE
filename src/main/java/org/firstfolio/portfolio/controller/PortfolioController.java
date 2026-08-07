@@ -4,11 +4,18 @@ import org.firstfolio.auth.annotation.CurrentUser;
 import org.firstfolio.auth.domain.AuthenticatedUser;
 import org.firstfolio.common.response.ApiResponse;
 import org.firstfolio.portfolio.dto.request.PortfolioResetRequest;
+import org.firstfolio.portfolio.dto.request.TradeRequest;
 import org.firstfolio.portfolio.dto.response.PortfolioDetailResponse;
 import org.firstfolio.portfolio.dto.response.PortfolioResetResponse;
 import org.firstfolio.portfolio.dto.response.PortfolioTransactionPageResponse;
+import org.firstfolio.portfolio.dto.response.TradeResponse;
+import org.firstfolio.portfolio.domain.TransactionType;
 import org.firstfolio.portfolio.service.PortfolioQueryService;
 import org.firstfolio.portfolio.service.PortfolioResetService;
+import org.firstfolio.portfolio.service.TradeCommand;
+import org.firstfolio.portfolio.service.TradeService;
+import org.firstfolio.exception.ApiException;
+import org.firstfolio.exception.ErrorCode;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,13 +41,16 @@ public class PortfolioController {
 
     private final PortfolioQueryService queryService;
     private final PortfolioResetService resetService;
+    private final TradeService tradeService;
 
     public PortfolioController(
             PortfolioQueryService queryService,
-            PortfolioResetService resetService
+            PortfolioResetService resetService,
+            TradeService tradeService
     ) {
         this.queryService = queryService;
         this.resetService = resetService;
+        this.tradeService = tradeService;
     }
 
     @GetMapping("/current")
@@ -60,6 +70,53 @@ public class PortfolioController {
         return ApiResponse.of(
                 queryService.findCurrentTransactions(currentUser.userId(), type, cursor, size)
         );
+    }
+
+    /**
+     * 모의 상품을 매수·매도한다 (FUNC-035).
+     *
+     * <p><b>매수는 금액, 매도는 수량</b>이다. 예·적금·채권 매도는 전량 해지라 둘 다 보내지 않는다.
+     * 잘못된 조합은 서비스가 {@code 422}로 거부한다 — 화면 검증과 별개로 서버도 확인한다.</p>
+     */
+    @PostMapping("/current/trades")
+    public ResponseEntity<ApiResponse<TradeResponse>> trade(
+            @CurrentUser AuthenticatedUser currentUser,
+            @RequestBody TradeRequest request
+    ) {
+        TradeCommand command = new TradeCommand(
+                request.getIdempotencyKey(),
+                parseTransactionType(request.getTransactionType()),
+                request.getProductId(),
+                request.getAmount(),
+                request.getQuantity()
+        );
+
+        TradeResponse response = new TradeResponse(
+                tradeService.trade(currentUser.userId(), command)
+        );
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(response));
+    }
+
+    /** 거래로 쓸 수 있는 유형은 매수·매도뿐이다. 이자·배당 같은 값이 오면 거부한다. */
+    private static TransactionType parseTransactionType(String transactionType) {
+        if (transactionType == null || transactionType.isBlank()) {
+            throw new ApiException(ErrorCode.INVALID_REQUEST, "거래 유형이 필요합니다.");
+        }
+
+        TransactionType parsed;
+
+        try {
+            parsed = TransactionType.valueOf(transactionType.trim().toUpperCase());
+        } catch (IllegalArgumentException exception) {
+            throw new ApiException(ErrorCode.INVALID_REQUEST, "거래 유형이 올바르지 않습니다.");
+        }
+
+        if (parsed != TransactionType.BUY && parsed != TransactionType.SELL) {
+            throw new ApiException(ErrorCode.INVALID_REQUEST, "매수 또는 매도만 요청할 수 있습니다.");
+        }
+
+        return parsed;
     }
 
     /**
