@@ -42,4 +42,62 @@
         ORDER BY h.holding_id
     </select>
 
+    <!--
+        상태를 가리지 않는다. 전량 매도로 SOLD가 된 행도 찾아야 재매수 때 되살릴 수 있다
+        (uq_portfolio_holdings_product 때문에 새로 INSERT할 수 없고, 거래 이력이 FK로
+        참조해 삭제도 못 한다). uq 인덱스를 그대로 탄다.
+    -->
+    <select id="findByPortfolioAndProduct" resultMap="holdingResult">
+        SELECT h.holding_id,
+               h.portfolio_id,
+               h.product_id,
+               h.quantity,
+               h.principal_amount,
+               h.average_cost,
+               h.terms_snapshot_json,
+               h.status,
+               h.created_at,
+               h.updated_at,
+               p.display_name AS product_display_name,
+               p.asset_type   AS product_asset_type
+        FROM portfolio_holdings h
+                 JOIN financial_products p ON p.product_id = h.product_id
+        WHERE h.portfolio_id = #{portfolioId}
+          AND h.product_id = #{productId}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="holdingId">
+        INSERT INTO portfolio_holdings (
+            portfolio_id,
+            product_id,
+            quantity,
+            principal_amount,
+            average_cost,
+            terms_snapshot_json,
+            status,
+            created_at,
+            updated_at
+        ) VALUES (
+            #{portfolioId},
+            #{productId},
+            #{quantity},
+            #{principalAmount},
+            #{averageCost},
+            #{termsSnapshotJson},
+            #{status},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <update id="update">
+        UPDATE portfolio_holdings
+        SET quantity = #{quantity},
+            principal_amount = #{principalAmount},
+            average_cost = #{averageCost},
+            status = #{status},
+            updated_at = #{updatedAt}
+        WHERE holding_id = #{holdingId}
+    </update>
+
 </mapper>

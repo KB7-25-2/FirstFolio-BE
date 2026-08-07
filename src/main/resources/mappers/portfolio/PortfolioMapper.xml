@@ -83,4 +83,26 @@
           AND status = 'ACTIVE'
     </update>
 
+    <!--
+        차감을 DB가 직접 하게 한다. 자바에서 계산한 값을 덮어쓰면 잔액을 읽은 뒤 쓰기 전에
+        끼어든 요청이 같은 잔액을 보고 함께 차감해, 보유 현금보다 많이 살 수 있다.
+        cash_balance >= amount 조건이 그 창을 없앤다 (갱신 행이 0이면 잔액 부족).
+    -->
+    <update id="decreaseCash">
+        UPDATE portfolios
+        SET cash_balance = cash_balance - #{amount},
+            updated_at = #{updatedAt}
+        WHERE portfolio_id = #{portfolioId}
+          AND status = 'ACTIVE'
+          AND cash_balance &gt;= #{amount}
+    </update>
+
+    <update id="increaseCash">
+        UPDATE portfolios
+        SET cash_balance = cash_balance + #{amount},
+            updated_at = #{updatedAt}
+        WHERE portfolio_id = #{portfolioId}
+          AND status = 'ACTIVE'
+    </update>
+
 </mapper>
