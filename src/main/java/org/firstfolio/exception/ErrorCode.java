@@ -17,6 +17,23 @@ public enum ErrorCode {
     ACCOUNT_NOT_ACTIVE(HttpStatus.FORBIDDEN, "이용할 수 없는 계정 상태입니다."),
     INVALID_SIGNUP_INPUT(HttpStatus.BAD_REQUEST, "가입 정보 또는 필수 약관 동의가 올바르지 않습니다."),
     ACCOUNT_CONFLICT(HttpStatus.CONFLICT, "이미 사용 중인 이메일, 인증 계정 또는 닉네임입니다."),
+    NO_PATCH_FIELDS(HttpStatus.BAD_REQUEST, "변경할 프로필 필드가 없습니다."),
+    NICKNAME_CONFLICT(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다."),
+
+    // 대·소단원 메타데이터
+    MAIN_CHAPTER_NOT_FOUND(HttpStatus.NOT_FOUND, "대단원을 찾을 수 없습니다."),
+    SUB_CHAPTER_NOT_FOUND(HttpStatus.NOT_FOUND, "소단원을 찾을 수 없습니다."),
+    INVALID_MAIN_CHAPTER(HttpStatus.UNPROCESSABLE_ENTITY, "대단원 정보가 올바르지 않습니다."),
+    SUB_CHAPTER_ORDER_CONFLICT(HttpStatus.CONFLICT, "같은 순서의 소단원이 이미 존재합니다."),
+    FOUNDATION_CONFLICT(HttpStatus.CONFLICT, "활성 포트폴리오 기초 과정이 이미 존재합니다."),
+
+    // 강좌 콘텐츠 버전
+    CONTENT_VERSION_NOT_FOUND(HttpStatus.NOT_FOUND, "강좌 콘텐츠 버전을 찾을 수 없습니다."),
+    CONTENT_VERSION_CONFLICT(HttpStatus.CONFLICT, "같은 소단원 콘텐츠 버전이 이미 존재합니다."),
+    CONTENT_NOT_PUBLISHABLE(HttpStatus.CONFLICT, "공개할 수 없는 강좌 콘텐츠 버전입니다."),
+    CONTENT_VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "강좌 콘텐츠 검증에 실패했습니다."),
+    CONTENT_NOT_PUBLISHED(HttpStatus.NOT_FOUND, "공개된 강좌 콘텐츠가 없습니다."),
+    CONTENT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "강좌 콘텐츠를 불러올 수 없습니다."),
 
     // 포트폴리오 (FUNC-034, 036)
     // PORTFOLIO_ALREADY_CONFIGURED(409)는 POST /portfolios와 함께 폐기됐다.

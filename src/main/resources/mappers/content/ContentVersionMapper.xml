@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.content.mapper.ContentVersionMapper">
+
+    <resultMap id="contentVersionResultMap"
+               type="org.firstfolio.content.domain.ContentVersion">
+        <id property="contentVersionId" column="content_version_id" />
+        <result property="subChapterId" column="sub_chapter_id" />
+        <result property="versionNo" column="version_no" />
+        <result property="schemaVersion" column="schema_version" />
+        <result property="storageObjectKey" column="storage_object_key" />
+        <result property="storageVersionId" column="storage_version_id" />
+        <result property="status" column="status" />
+        <result property="publishedAt" column="published_at" />
+        <result property="createdBy" column="created_by" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <resultMap id="publishedLessonReferenceResultMap"
+               type="org.firstfolio.content.domain.PublishedLessonReference">
+        <id property="contentVersionId" column="content_version_id" />
+        <result property="subChapterId" column="sub_chapter_id" />
+        <result property="title" column="title" />
+        <result property="schemaVersion" column="schema_version" />
+        <result property="storageObjectKey" column="storage_object_key" />
+        <result property="storageVersionId" column="storage_version_id" />
+    </resultMap>
+
+    <select id="findCurrentPublishedLesson"
+            resultMap="publishedLessonReferenceResultMap">
+        SELECT
+            sc.sub_chapter_id,
+            sc.title,
+            cv.content_version_id,
+            cv.schema_version,
+            cv.storage_object_key,
+            cv.storage_version_id
+        FROM sub_chapters sc
+        INNER JOIN content_versions cv
+            ON cv.content_version_id = sc.current_content_version_id
+           AND cv.sub_chapter_id = sc.sub_chapter_id
+        WHERE sc.sub_chapter_id = #{subChapterId}
+          AND sc.is_active = TRUE
+          AND cv.status = 'PUBLISHED'
+    </select>
+
+    <sql id="contentVersionColumns">
+        content_version_id,
+        sub_chapter_id,
+        version_no,
+        schema_version,
+        storage_object_key,
+        storage_version_id,
+        status,
+        published_at,
+        created_by,
+        created_at
+    </sql>
+
+    <select id="findAllBySubChapterId" resultMap="contentVersionResultMap">
+        SELECT <include refid="contentVersionColumns" />
+        FROM content_versions
+        WHERE sub_chapter_id = #{subChapterId}
+        ORDER BY version_no DESC, content_version_id DESC
+    </select>
+
+    <select id="findById" resultMap="contentVersionResultMap">
+        SELECT <include refid="contentVersionColumns" />
+        FROM content_versions
+        WHERE content_version_id = #{contentVersionId}
+    </select>
+
+    <select id="findByIdForUpdate" resultMap="contentVersionResultMap">
+        SELECT <include refid="contentVersionColumns" />
+        FROM content_versions
+        WHERE content_version_id = #{contentVersionId}
+        FOR UPDATE
+    </select>
+
+    <select id="countBySubChapterIdAndVersionNo" resultType="int">
+        SELECT COUNT(*)
+        FROM content_versions
+        WHERE sub_chapter_id = #{subChapterId}
+          AND version_no = #{versionNo}
+    </select>
+
+    <insert id="insert"
+            parameterType="org.firstfolio.content.domain.ContentVersion"
+            useGeneratedKeys="true"
+            keyProperty="contentVersionId"
+            keyColumn="content_version_id">
+        INSERT INTO content_versions (
+            sub_chapter_id,
+            version_no,
+            schema_version,
+            storage_object_key,
+            storage_version_id,
+            status,
+            published_at,
+            created_by,
+            created_at
+        ) VALUES (
+            #{subChapterId},
+            #{versionNo},
+            #{schemaVersion},
+            #{storageObjectKey},
+            #{storageVersionId},
+            #{status},
+            #{publishedAt,jdbcType=TIMESTAMP},
+            #{createdBy},
+            #{createdAt}
+        )
+    </insert>
+
+    <update id="publishDraft">
+        UPDATE content_versions
+        SET status = 'PUBLISHED',
+            published_at = #{publishedAt}
+        WHERE content_version_id = #{contentVersionId}
+          AND status = 'DRAFT'
+    </update>
+
+    <update id="retirePublished">
+        UPDATE content_versions
+        SET status = 'RETIRED'
+        WHERE content_version_id = #{contentVersionId}
+          AND status = 'PUBLISHED'
+    </update>
+
+</mapper>

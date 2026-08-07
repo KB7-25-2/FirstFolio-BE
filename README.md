@@ -33,7 +33,7 @@ cp .env.example .env.local
 
 ```text
 DB_DRIVER=net.sf.log4jdbc.sql.jdbcapi.DriverSpy
-DB_URL=jdbc:log4jdbc:mysql://localhost:3306/firstfolio_db?serverTimezone=UTC&characterEncoding=UTF-8
+DB_URL='jdbc:log4jdbc:mysql://localhost:3306/firstfolio_db?serverTimezone=UTC&characterEncoding=UTF-8'
 DB_USERNAME=firstfolio
 DB_PASSWORD=
 ```
@@ -58,6 +58,34 @@ IntelliJ에서 실행할 때는 EnvFile 플러그인을 설치한 뒤 `Run/Debug
 
 `.env.local`과 비밀번호는 저장소에 커밋하지 않고, 변수 이름과 안전한 기본값만 `.env.example`로 공유합니다.
 
+### 정적 콘텐츠 저장소
+
+로컬 개발 환경에서는 버전형 학습 콘텐츠를 로컬 파일 저장소에 보관합니다. 별도 설정이 없으면 `./.local/content`를 사용하며 `.local` 디렉터리는 Git에서 제외됩니다.
+
+```text
+CONTENT_STORAGE_TYPE=local
+CONTENT_LOCAL_ROOT=./.local/content
+CONTENT_STORAGE_MAX_BYTES=5242880
+```
+
+- `CONTENT_LOCAL_ROOT`의 상대 경로는 Tomcat 또는 애플리케이션 프로세스의 현재 작업 디렉터리를 기준으로 해석됩니다. 실행 위치가 달라질 수 있으면 절대 경로를 사용합니다.
+- `CONTENT_STORAGE_MAX_BYTES`는 객체 한 개의 최대 바이트 수이며 기본값은 5 MiB입니다.
+
+운영 환경에서는 다음과 같이 S3 저장소를 선택합니다.
+
+```text
+CONTENT_STORAGE_TYPE=s3
+CONTENT_STORAGE_MAX_BYTES=5242880
+CONTENT_S3_BUCKET=firstfolio-content
+CONTENT_S3_PREFIX=firstfolio
+AWS_REGION=ap-northeast-2
+```
+
+- S3 버킷은 Versioning을 활성화해야 합니다. 업로드 결과에 버전 ID가 없으면 설정 오류로 처리합니다.
+- `CONTENT_S3_PREFIX`는 버킷 내부 경로 구분용이며 DB에는 prefix를 제외한 공통 논리 객체 키를 저장합니다.
+- EC2에서는 액세스 키를 파일에 저장하지 않고 인스턴스 프로파일에 연결한 IAM Role을 사용합니다. 최소한 콘텐츠 경로에 대한 `s3:PutObject`, `s3:GetObjectVersion` 권한이 필요합니다.
+- 로컬 실행에서 S3를 사용하면 AWS SDK의 기본 자격 증명 체인(환경변수, AWS profile 등)을 사용합니다.
+
 ### Firebase Authentication
 
 Firebase Console에서 프로젝트와 Web App을 생성하고 Authentication의 로그인 제공자를 활성화합니다. 백엔드는 Firebase Admin SDK로 클라이언트가 전달한 ID Token을 검증합니다.
@@ -71,11 +99,12 @@ FIREBASE_PROJECT_ID=firstfolio-local
 GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/firebase-service-account.json
 TERMS_OF_SERVICE_VERSION=2026-08-01
 PRIVACY_POLICY_VERSION=2026-08-01
+NEWSLETTER_POLICY_VERSION=2026-08-01
 ```
 
 `GOOGLE_APPLICATION_CREDENTIALS`는 Google Application Default Credentials가 직접 읽습니다. `FIREBASE_PROJECT_ID`는 `application.properties`의 `firebase.project-id`로 연결됩니다.
 
-`TERMS_OF_SERVICE_VERSION`과 `PRIVACY_POLICY_VERSION`에는 현재 서비스에 적용 중인 실제 문서 버전을 입력합니다. 회원가입 시 서버가 이 버전과 동의 시각을 `user_consents` 이력에 저장하므로 운영 환경에서도 반드시 설정해야 합니다. 위 날짜는 형식 예시이며 실제 정책 버전으로 교체합니다.
+`TERMS_OF_SERVICE_VERSION`, `PRIVACY_POLICY_VERSION`, `NEWSLETTER_POLICY_VERSION`에는 현재 서비스에 적용 중인 실제 문서 버전을 입력합니다. 회원가입과 뉴스레터 수신 동의 변경 시 서버가 이 버전과 동의·철회 시각을 `user_consents` 이력에 저장하므로 운영 환경에서도 반드시 설정해야 합니다. 위 날짜는 형식 예시이며 실제 정책 버전으로 교체합니다.
 
 데이터베이스 환경변수와 동일하게 Tomcat을 실행하기 전에 `.env.local`을 현재 터미널에 불러오거나 IntelliJ EnvFile 설정으로 전달합니다. Firebase Bean은 실제 인증 기능에서 처음 사용할 때 초기화되므로 일반 단위 테스트에는 서비스 계정 파일이 필요하지 않습니다.
 
@@ -146,6 +175,28 @@ public ApiResponse<PortfolioResponse> getPortfolio(
 ```
 
 `AuthenticatedUser`에서는 FirstFolio 내부 `userId`, Firebase UID, 닉네임과 `roleCode`를 조회할 수 있습니다. 요청 본문이나 경로에서 받은 사용자 ID를 현재 로그인 사용자로 신뢰하지 않습니다.
+
+### 사용자 프로필 API
+
+인증된 사용자는 자신의 공개 프로필과 뉴스레터 수신 동의 상태를 조회·수정할 수 있습니다.
+
+- `GET /api/users/me`: 현재 사용자 프로필 조회
+- `PATCH /api/users/me`: 닉네임과 뉴스레터 수신 동의 상태 중 전달된 필드만 수정
+- `GET /api/points/balance`: 포인트 원장과 대조한 현재 포인트 잔액 조회
+
+닉네임은 2자 이상 10자 이하이며 중복을 허용하지 않습니다. 뉴스레터 동의 상태가 실제로 변경되면 `NEWSLETTER_POLICY_VERSION`과 변경 시각을 동의 이력에 기록합니다.
+
+### 대·소단원 메타데이터 API
+
+관리자 API는 `ADMIN` 권한이 필요하며 삭제 대신 `is_active`로 노출 상태를 관리합니다. 생성·수정과 관리자 감사 로그 저장은 하나의 트랜잭션으로 처리합니다.
+
+- `GET`, `POST /api/admin/main-chapters`: 대단원 목록 조회·생성
+- `GET /api/admin/main-chapters`는 선택적으로 `chapter_type`, `is_active` 필터를 받음
+- `PATCH /api/admin/main-chapters/{mainChapterId}`: 대단원 메타데이터 부분 수정
+- `GET`, `POST /api/admin/main-chapters/{mainChapterId}/sub-chapters`: 소단원 목록 조회·생성
+- `PATCH /api/admin/sub-chapters/{subChapterId}`: 소단원 메타데이터 부분 수정
+
+생성 요청의 대단원 `is_required`는 `FOUNDATION`이면 `true`, `ASSET`이면 `false`여야 합니다. 대·소단원은 생성 시 활성 상태가 되며, 소단원 생성 요청에는 `is_active`를 받지 않습니다. 소단원 표시 순서는 같은 대단원 안에서 중복할 수 없습니다.
 
 ### 빌드와 테스트
 

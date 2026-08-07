@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.user.mapper.PointBalanceMapper">
+
+    <resultMap id="pointBalanceResultMap"
+               type="org.firstfolio.user.domain.PointBalanceSnapshot">
+        <id property="userId" column="user_id" />
+        <result property="pointBalance" column="point_balance" />
+        <result property="ledgerBalance" column="ledger_balance" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <select id="findByUserId" resultMap="pointBalanceResultMap">
+        SELECT
+            u.user_id,
+            u.point_balance,
+            COALESCE(SUM(pt.amount), 0) AS ledger_balance,
+            COALESCE(MAX(pt.occurred_at), u.created_at) AS updated_at
+        FROM users u
+        LEFT JOIN point_transactions pt
+               ON pt.user_id = u.user_id
+        WHERE u.user_id = #{userId}
+        GROUP BY u.user_id, u.point_balance, u.created_at
+    </select>
+
+</mapper>
