@@ -127,9 +127,14 @@ public class AuthService implements AuthUseCase {
 
         LocalDateTime loginAt = LocalDateTime.now(clock);
         userMapper.updateLastLoginAt(user.getUserId(), loginAt);
+
+        // TODO 온보딩 구현 후 사용자 진행 상태 조회 로직으로 복원한다.
+        OnboardingStep onboardingStep = OnboardingStep.LEVEL_TEST;
+        /*
         OnboardingStep onboardingStep = OnboardingStep.valueOf(
                 userMapper.findOnboardingStep(user.getUserId())
         );
+        */
 
         return new LoginResult(
                 user.getUserId(),
