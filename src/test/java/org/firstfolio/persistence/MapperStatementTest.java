@@ -8,6 +8,7 @@ import org.apache.ibatis.session.SqlSessionFactory;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mybatis.spring.SqlSessionFactoryBean;
+import org.firstfolio.user.domain.User;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
@@ -15,12 +16,14 @@ import org.springframework.core.type.filter.AnnotationTypeFilter;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 
 import java.lang.reflect.Method;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -157,6 +160,40 @@ class MapperStatementTest {
         assertTrue(sql.contains("IN"));
         assertTrue(sql.contains("MAX(reference_at)"));
         assertFalse(sql.contains("IN ( )"), "빈 IN 절이 만들어지면 안 됩니다.");
+    }
+
+    @Test
+    @DisplayName("회원 INSERT는 모든 컬럼에 값을 바인딩한다")
+    void bindsEveryUserInsertColumn() {
+        String statementId = "org.firstfolio.user.mapper.UserMapper.insert";
+        User user = User.signup(
+                "firebase-uid",
+                "user@example.com",
+                "nickname",
+                LocalDateTime.of(2026, 8, 10, 0, 0)
+        );
+
+        BoundSql boundSql = configuration.getMappedStatement(statementId).getBoundSql(user);
+        List<String> parameterProperties = boundSql.getParameterMappings().stream()
+                .map(mapping -> mapping.getProperty())
+                .toList();
+
+        assertEquals(
+                List.of(
+                        "firebaseUid",
+                        "email",
+                        "nickname",
+                        "roleCode",
+                        "status",
+                        "pointBalance",
+                        "lastAttendanceDate",
+                        "newsletterOptIn",
+                        "createdAt",
+                        "updatedAt"
+                ),
+                parameterProperties
+        );
+        assertEquals(10, boundSql.getSql().chars().filter(character -> character == '?').count());
     }
 
     private String sqlOf(String statementId, Map<String, Object> parameters) {
