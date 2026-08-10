@@ -110,6 +110,17 @@ public class TradingHours {
     }
 
     /**
+     * 그 거래일의 마감 시각을 서버 시각(UTC)으로. <b>"오늘 마감 후"의 경계다.</b>
+     *
+     * <p>시간대 변환을 SQL에 넘기지 않으려고 자바에서 계산한다 — 질의는 이 값과 비교만 한다.</p>
+     */
+    public LocalDateTime closeAtUtc(LocalDate koreaDate) {
+        return ZonedDateTime.of(koreaDate, CLOSE, KOREA)
+                .withZoneSameInstant(ZoneOffset.UTC)
+                .toLocalDateTime();
+    }
+
+    /**
      * 지금 이 자산군을 거래할 수 있는지.
      *
      * @param nowUtc 서버 시각(UTC)

@@ -203,6 +203,68 @@ class PriceRefreshJdbcTest {
     }
 
     /**
+     * 종가 중복 방지가 기대는 질의를 실제 DB에서 확인한다.
+     *
+     * <p>{@code generation_key} 유니크 제약이 재시작 후 중복을 막아 줄 것으로 봤으나
+     * <b>2026-08-10 실측에서 뒤집혔다</b> — 시간외 거래(16:00~18:00) 중에는 시세 갱신 시각이
+     * 계속 바뀌어 90초 간격 두 호출에서 15건 중 9건이 새 행으로 저장됐다. 그래서 스케줄러가
+     * 이 질의로 직접 확인한다.</p>
+     */
+    @Test
+    @DisplayName("실제 DB에서 기준 시점 이후 저장된 가격 수를 센다")
+    void countsPricesSavedSinceGivenTime() throws Exception {
+        try (AnnotationConfigApplicationContext context = context()) {
+            DataSourceTransactionManager transactionManager =
+                    context.getBean(DataSourceTransactionManager.class);
+            FinancialProductMapper productMapper = context.getBean(FinancialProductMapper.class);
+            ProductPriceMapper priceMapper = context.getBean(ProductPriceMapper.class);
+
+            TransactionStatus transaction =
+                    transactionManager.getTransaction(new DefaultTransactionDefinition());
+
+            try {
+                FinancialProduct sample = productMapper
+                        .findPriceTargets(List.of(AssetType.STOCK, AssetType.FUND), null)
+                        .get(0);
+
+                // 기존 데이터와 겹치지 않도록 충분히 미래의 한 시점을 기준으로 삼는다.
+                LocalDateTime boundary = LocalDateTime.now(ZoneOffset.UTC).plusDays(400).withNano(0);
+
+                assertEquals(0, priceMapper.countSavedSince(boundary), "아직 아무것도 없어야 합니다.");
+
+                // 경계 이전 한 건 — 세어지면 안 된다.
+                priceMapper.insert(price(sample.getProductId(), boundary.minusMinutes(1), "before"));
+
+                assertEquals(0, priceMapper.countSavedSince(boundary), "경계 이전은 제외돼야 합니다.");
+
+                // 경계 정각 — 포함된다.
+                priceMapper.insert(price(sample.getProductId(), boundary, "at-boundary"));
+
+                assertEquals(1, priceMapper.countSavedSince(boundary), "경계 정각은 포함돼야 합니다.");
+
+                priceMapper.insert(price(sample.getProductId(), boundary.plusMinutes(1), "after"));
+
+                assertEquals(2, priceMapper.countSavedSince(boundary));
+            } finally {
+                transactionManager.rollback(transaction);
+            }
+        }
+    }
+
+    private static ProductPrice price(Long productId, LocalDateTime referenceAt, String suffix) {
+        ProductPrice row = new ProductPrice();
+
+        row.setProductId(productId);
+        row.setPrice(FAKE_PRICE);
+        row.setReferenceAt(referenceAt);
+        row.setSourceType("REAL_DATA");
+        row.setGenerationKey("test:countSavedSince:" + suffix + ":" + referenceAt);
+        row.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
+
+        return row;
+    }
+
+    /**
      * 대상 상품의 종목코드로 고정 가격을 돌려주는 대역.
      *
      * <p>실제 시세를 쓰면 값이 매번 달라 단언을 걸 수 없다. 확인하려는 것은 가격의 크기가 아니라

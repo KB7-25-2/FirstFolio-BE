@@ -130,8 +130,13 @@ public class PriceCacheScheduler {
      *
      * <h3>두 번 저장되지 않는다</h3>
      *
-     * <p>날짜 표시로 하루 한 번을 지키고, 표시가 재시작으로 날아가도 {@code generation_key}에
-     * 체결 시각이 들어 있어 유니크 제약이 막는다 — 이때는 "건너뜀"으로 집계된다.</p>
+     * <p>날짜 표시로 하루 한 번을 지킨다. 표시는 메모리에만 있어서 <b>재시작하면 날아가므로</b>
+     * 그때는 DB에 오늘 마감 후 저장된 행이 있는지 확인한다.</p>
+     *
+     * <p>원래는 {@code generation_key} 유니크 제약이 막아 줄 것으로 봤는데
+     * <b>실측에서 뒤집혔다</b> (2026-08-10). 시간외 거래(16:00~18:00) 중에는 시세 갱신 시각이
+     * 계속 바뀌어 키가 매번 달라진다 — 90초 간격으로 두 번 부르니 15건 중 9건이 새 행으로
+     * 저장됐다. 그래서 제약에 기대지 않고 직접 확인한다.</p>
      *
      * <p><b>실패하면 다음 주기에 다시 시도한다.</b> 표시는 성공한 뒤에만 남긴다. 다만 경고는
      * 그날 한 번만 남긴다 — 2초마다 실패하면 로그가 하룻밤에 3만 줄이 된다.</p>
@@ -140,6 +145,15 @@ public class PriceCacheScheduler {
         LocalDate today = tradingHours.koreaDate(nowUtc);
 
         if (today.equals(closingSavedOn.get())) {
+            return;
+        }
+
+        // 재시작으로 표시가 날아갔을 수 있다. 이미 남아 있으면 그것이 오늘의 종가다.
+        if (priceRefreshService.hasPricesSince(tradingHours.closeAtUtc(today))) {
+            closingSavedOn.set(today);
+
+            log.info("오늘 종가가 이미 저장돼 있어 건너뜁니다 거래일={}", today);
+
             return;
         }
 

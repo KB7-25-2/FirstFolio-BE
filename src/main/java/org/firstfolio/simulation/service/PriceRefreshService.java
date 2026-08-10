@@ -137,6 +137,16 @@ public class PriceRefreshService {
     }
 
     /**
+     * {@code from} 이후 기준 시점으로 저장된 가격이 있는지.
+     *
+     * <p>종가를 이미 남겼는지 확인하는 용도다. 가격 저장을 아는 자리가 여기라 조회도 여기에 둔다 —
+     * 스케줄러가 매퍼를 직접 들면 "스케줄러는 DB에 쓰지 않는다"는 경계가 흐려진다.</p>
+     */
+    public boolean hasPricesSince(LocalDateTime from) {
+        return productPriceMapper.countSavedSince(from) > 0;
+    }
+
+    /**
      * 한 종목의 가격을 저장한다.
      *
      * @return 실제로 저장했으면 true. 값이 없거나 이미 있으면 false

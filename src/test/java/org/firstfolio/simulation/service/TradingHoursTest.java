@@ -182,6 +182,26 @@ class TradingHoursTest {
     }
 
     @Test
+    @DisplayName("마감 시각을 서버 시각(UTC)으로 준다 — 15:30 KST = 06:30 UTC")
+    void convertsCloseTimeToUtc() {
+        assertEquals(
+                LocalDateTime.of(2026, 8, 6, 6, 30),
+                tradingHours.closeAtUtc(LocalDate.of(2026, 8, 6))
+        );
+    }
+
+    @Test
+    @DisplayName("마감 경계와 마감 판정이 어긋나지 않는다")
+    void closeBoundaryAgreesWithAfterCloseCheck() {
+        LocalDate day = LocalDate.of(2026, 8, 6);
+        LocalDateTime closeAt = tradingHours.closeAtUtc(day);
+
+        assertFalse(tradingHours.isAfterClose(closeAt), "마감 정각은 아직 지난 것이 아닙니다.");
+        assertTrue(tradingHours.isAfterClose(closeAt.plusSeconds(1)));
+        assertEquals(day, tradingHours.koreaDate(closeAt), "같은 거래일이어야 합니다.");
+    }
+
+    @Test
     @DisplayName("주식·펀드의 거래 가능 시간은 정규장과 정확히 같다")
     void marketPricedAssetsFollowMarketHours() {
         // 두 판정이 갈라지면 폴링은 도는데 거래는 막히는(혹은 반대) 상태가 생긴다.

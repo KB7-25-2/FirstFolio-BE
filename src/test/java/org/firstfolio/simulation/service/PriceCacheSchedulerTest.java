@@ -64,6 +64,7 @@ class PriceCacheSchedulerTest {
         when(tossClient.fetchPrices(anyList())).thenReturn(quotes);
         when(priceRefreshService.refresh(any(), any()))
                 .thenReturn(new PriceRefreshResult(null, 15, 15, 0));
+        when(priceRefreshService.hasPricesSince(any())).thenReturn(false);
     }
 
     /** 한국 시각을 서버가 쓰는 UTC로 바꾼다. */
@@ -386,5 +387,60 @@ class PriceCacheSchedulerTest {
                 .thenThrow(new IllegalStateException("403 access_denied"));
 
         schedulerAt(AFTER_CLOSE).pollDuringSession();
+    }
+
+    // ------------------------------------------------------------- 재시작 후 중복 방지
+
+    /**
+     * 표시는 메모리에만 있어 재시작하면 사라진다. 유니크 제약이 막아 줄 것으로 봤으나
+     * 2026-08-10 실측에서 뒤집혔다 — 시간외 거래 중에는 시세 갱신 시각이 계속 바뀌어
+     * 90초 간격 두 호출에서 15건 중 9건이 새 행으로 저장됐다.
+     */
+    @Test
+    @DisplayName("재시작해도 오늘 종가가 이미 있으면 다시 저장하지 않는다")
+    void doesNotSaveAgainWhenTodayAlreadyStored() {
+        when(priceRefreshService.hasPricesSince(any())).thenReturn(true);
+
+        schedulerAt(AFTER_CLOSE).pollDuringSession();
+
+        verify(priceRefreshService, never()).refresh(any(), any());
+    }
+
+    @Test
+    @DisplayName("확인 기준은 오늘 마감 시각이다 — 어제 종가를 오늘 것으로 착각하면 안 된다")
+    void checksAgainstTodaysCloseTime() {
+        schedulerAt(AFTER_CLOSE).pollDuringSession();
+
+        // 2026-08-06(목) 15:30 KST = 06:30 UTC
+        verify(priceRefreshService).hasPricesSince(LocalDateTime.of(2026, 8, 6, 6, 30));
+    }
+
+    @Test
+    @DisplayName("이미 있어 건너뛰면 그날은 더 확인하지 않는다")
+    void remembersSkipForTheRestOfTheDay() {
+        when(priceRefreshService.hasPricesSince(any())).thenReturn(true);
+
+        PriceCacheScheduler scheduler = schedulerAt(AFTER_CLOSE);
+
+        scheduler.pollDuringSession();
+        scheduler.pollDuringSession();
+        scheduler.pollDuringSession();
+
+        verify(priceRefreshService, times(1)).hasPricesSince(any());
+    }
+
+    @Test
+    @DisplayName("확인 자체가 실패해도 다음 주기에 다시 시도한다")
+    void retriesWhenTheCheckItselfFails() {
+        when(priceRefreshService.hasPricesSince(any()))
+                .thenThrow(new IllegalStateException("DB 일시 장애"))
+                .thenReturn(false);
+
+        PriceCacheScheduler scheduler = schedulerAt(AFTER_CLOSE);
+
+        scheduler.pollDuringSession();   // 확인에서 실패
+        scheduler.pollDuringSession();   // 확인 통과 후 저장
+
+        verify(priceRefreshService).refresh(utcOf(AFTER_CLOSE), null);
     }
 }
