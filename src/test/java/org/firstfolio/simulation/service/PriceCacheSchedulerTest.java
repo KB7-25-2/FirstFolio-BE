@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -43,6 +44,7 @@ class PriceCacheSchedulerTest {
 
     private FinancialProductMapper productMapper;
     private TossInvestClient tossClient;
+    private PriceRefreshService priceRefreshService;
     private PriceCache priceCache;
 
     private final List<FinancialProduct> targets = new ArrayList<>();
@@ -52,6 +54,7 @@ class PriceCacheSchedulerTest {
     void setUp() {
         productMapper = mock(FinancialProductMapper.class);
         tossClient = mock(TossInvestClient.class);
+        priceRefreshService = mock(PriceRefreshService.class);
         priceCache = new PriceCache();
 
         targets.clear();
@@ -59,6 +62,8 @@ class PriceCacheSchedulerTest {
 
         when(productMapper.findPriceTargets(anyList(), any())).thenReturn(targets);
         when(tossClient.fetchPrices(anyList())).thenReturn(quotes);
+        when(priceRefreshService.refresh(any(), any()))
+                .thenReturn(new PriceRefreshResult(null, 15, 15, 0));
     }
 
     /** 한국 시각을 서버가 쓰는 UTC로 바꾼다. */
@@ -77,6 +82,7 @@ class PriceCacheSchedulerTest {
         return new PriceCacheScheduler(
                 new TradingHours(),
                 new PriceQuoteFetcher(productMapper, tossClient),
+                priceRefreshService,
                 priceCache,
                 fixed,
                 enabled
@@ -122,8 +128,8 @@ class PriceCacheSchedulerTest {
     }
 
     @Test
-    @DisplayName("마감 후에는 토스를 부르지 않는다")
-    void doesNotPollAfterClose() {
+    @DisplayName("마감 후에는 캐시를 갱신하지 않는다")
+    void doesNotRefreshCacheAfterClose() {
         target(STOCK_ID, AssetType.STOCK, "005930");
         quote("005930", "241500");
 
@@ -289,5 +295,96 @@ class PriceCacheSchedulerTest {
         schedulerAt("2026-08-06T15:30:00").pollDuringSession();
 
         assertNotNull(priceCache.find(STOCK_ID));
+    }
+
+    // ------------------------------------------------------------- 종가 저장
+
+    @Test
+    @DisplayName("마감 뒤 첫 틱이 그날의 종가를 저장한다")
+    void savesClosingPriceAfterClose() {
+        schedulerAt(AFTER_CLOSE).pollDuringSession();
+
+        verify(priceRefreshService).refresh(utcOf(AFTER_CLOSE), null);
+    }
+
+    @Test
+    @DisplayName("같은 날 두 번째 틱부터는 저장하지 않는다 — 하루 15행이면 충분하다")
+    void savesClosingPriceOnlyOncePerDay() {
+        PriceCacheScheduler scheduler = schedulerAt(AFTER_CLOSE);
+
+        scheduler.pollDuringSession();
+        scheduler.pollDuringSession();
+        scheduler.pollDuringSession();
+
+        verify(priceRefreshService, times(1)).refresh(any(), any());
+    }
+
+    @Test
+    @DisplayName("개장 전에는 저장하지 않는다 — 전날 종가가 오늘 종가로 다시 들어간다")
+    void doesNotSaveBeforeOpen() {
+        // 평일 08:00 KST. 장은 닫혀 있지만 오늘 장이 끝난 것은 아니다.
+        schedulerAt("2026-08-06T08:00:00").pollDuringSession();
+
+        verify(priceRefreshService, never()).refresh(any(), any());
+    }
+
+    @Test
+    @DisplayName("주말에는 저장하지 않는다")
+    void doesNotSaveOnWeekend() {
+        schedulerAt(WEEKEND).pollDuringSession();
+        schedulerAt("2026-08-08T18:00:00").pollDuringSession();
+        schedulerAt("2026-08-09T18:00:00").pollDuringSession();
+
+        verify(priceRefreshService, never()).refresh(any(), any());
+    }
+
+    @Test
+    @DisplayName("장중에는 저장하지 않는다 — 2초마다 쌓으면 월 720MB다")
+    void doesNotSaveDuringSession() {
+        target(STOCK_ID, AssetType.STOCK, "005930");
+        quote("005930", "241500");
+
+        schedulerAt(DURING_SESSION).pollDuringSession();
+
+        verify(priceRefreshService, never()).refresh(any(), any());
+    }
+
+    @Test
+    @DisplayName("거래일이 바뀌면 다시 저장한다")
+    void savesAgainOnNextTradingDay() {
+        PriceCacheScheduler thursday = schedulerAt(AFTER_CLOSE);
+        thursday.pollDuringSession();
+
+        // 같은 인스턴스가 다음 날을 맞는 상황이라 스케줄러를 새로 만들지 않는다.
+        PriceCacheScheduler friday = schedulerAt("2026-08-07T18:00:00");
+        friday.pollDuringSession();
+
+        verify(priceRefreshService).refresh(utcOf(AFTER_CLOSE), null);
+        verify(priceRefreshService).refresh(utcOf("2026-08-07T18:00:00"), null);
+    }
+
+    @Test
+    @DisplayName("저장에 실패하면 다음 틱에 다시 시도한다 — 그날 종가를 잃으면 주말을 못 버틴다")
+    void retriesClosingPriceUntilItSucceeds() {
+        when(priceRefreshService.refresh(any(), any()))
+                .thenThrow(new IllegalStateException("일시 장애"))
+                .thenReturn(new PriceRefreshResult(null, 15, 15, 0));
+
+        PriceCacheScheduler scheduler = schedulerAt(AFTER_CLOSE);
+
+        scheduler.pollDuringSession();   // 실패
+        scheduler.pollDuringSession();   // 성공
+        scheduler.pollDuringSession();   // 성공했으므로 더 부르지 않는다
+
+        verify(priceRefreshService, times(2)).refresh(any(), any());
+    }
+
+    @Test
+    @DisplayName("저장 실패가 예외로 새어 나가지 않는다")
+    void doesNotLeakClosingFailure() {
+        when(priceRefreshService.refresh(any(), any()))
+                .thenThrow(new IllegalStateException("403 access_denied"));
+
+        schedulerAt(AFTER_CLOSE).pollDuringSession();
     }
 }

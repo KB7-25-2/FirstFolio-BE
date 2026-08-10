@@ -7,11 +7,13 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -110,6 +112,73 @@ class TradingHoursTest {
         // 예·적금은 24시간 '거래'할 수 있지만, 그것과 '장이 열렸는지'는 다른 질문이다.
         assertTrue(tradingHours.isOpen(AssetType.DEPOSIT_SAVINGS, afterClose));
         assertFalse(tradingHours.isMarketOpen(afterClose));
+    }
+
+    // ------------------------------------------------------------- 오늘 장이 끝났는가
+
+    @ParameterizedTest(name = "KST {0} → 마감 지남 {1}")
+    @DisplayName("마감 판정은 평일 15:30을 지난 뒤에만 참이다")
+    @CsvSource({
+            "2026-08-06T08:00:00, false",
+            "2026-08-06T12:00:00, false",
+            "2026-08-06T15:30:00, false",
+            "2026-08-06T15:30:01, true",
+            "2026-08-06T23:59:59, true"
+    })
+    void marksAfterCloseOnlyPastClosingTime(String koreaDateTime, boolean expected) {
+        assertTrue(tradingHours.isAfterClose(utcOf(koreaDateTime)) == expected);
+    }
+
+    @Test
+    @DisplayName("개장 전은 '닫혀 있다'이지만 '끝났다'는 아니다 — 둘을 섞으면 전날 종가를 다시 저장한다")
+    void separatesBeforeOpenFromAfterClose() {
+        LocalDateTime beforeOpen = utcOf("2026-08-06T08:00:00");
+
+        assertFalse(tradingHours.isMarketOpen(beforeOpen), "아직 안 열렸습니다.");
+        assertFalse(tradingHours.isAfterClose(beforeOpen), "하지만 오늘 장이 끝난 것도 아닙니다.");
+    }
+
+    @Test
+    @DisplayName("주말은 마감 판정에서도 거짓이다 — 토요일에 금요일 종가를 또 저장하면 안 된다")
+    void neverMarksAfterCloseOnWeekend() {
+        assertFalse(tradingHours.isAfterClose(utcOf("2026-08-08T18:00:00")), "토요일");
+        assertFalse(tradingHours.isAfterClose(utcOf("2026-08-09T18:00:00")), "일요일");
+    }
+
+    @Test
+    @DisplayName("개장·마감 판정이 동시에 참일 수 없다")
+    void openAndAfterCloseAreExclusive() {
+        for (String koreaDateTime : new String[]{
+                "2026-08-06T08:59:59",
+                "2026-08-06T09:00:00",
+                "2026-08-06T15:30:00",
+                "2026-08-06T15:30:01",
+                "2026-08-08T12:00:00"
+        }) {
+            LocalDateTime at = utcOf(koreaDateTime);
+
+            assertFalse(
+                    tradingHours.isMarketOpen(at) && tradingHours.isAfterClose(at),
+                    koreaDateTime + " — 장중이면서 마감 후일 수는 없습니다."
+            );
+        }
+    }
+
+    // ------------------------------------------------------------- 거래일 판정
+
+    @Test
+    @DisplayName("거래일은 한국 날짜다 — UTC로 세면 오전이 전날로 잡힌다")
+    void countsDayInKoreaTime() {
+        // KST 2026-08-06 08:00 = UTC 2026-08-05 23:00
+        assertEquals(LocalDate.of(2026, 8, 6), tradingHours.koreaDate(utcOf("2026-08-06T08:00:00")));
+        assertEquals(LocalDate.of(2026, 8, 6), tradingHours.koreaDate(utcOf("2026-08-06T23:59:59")));
+    }
+
+    @Test
+    @DisplayName("자정을 넘기면 거래일도 넘어간다")
+    void rollsOverAtKoreanMidnight() {
+        assertEquals(LocalDate.of(2026, 8, 6), tradingHours.koreaDate(utcOf("2026-08-06T23:59:59")));
+        assertEquals(LocalDate.of(2026, 8, 7), tradingHours.koreaDate(utcOf("2026-08-07T00:00:00")));
     }
 
     @Test

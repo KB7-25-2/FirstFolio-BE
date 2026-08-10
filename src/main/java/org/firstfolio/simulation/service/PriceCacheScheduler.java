@@ -11,10 +11,12 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * 장중에 시세를 받아 {@link PriceCache}를 갱신한다 (2026-08-07 확정).
@@ -22,11 +24,14 @@ import java.util.Map;
  * <p><b>DB에 쓰지 않는다.</b> 2초마다 저장하면 월 720MB가 쌓이는데 과거 가격을 읽는 코드가
  * 하나도 없다. 종가만 따로 저장한다.</p>
  *
- * <h3>정규장에만 돈다</h3>
+ * <h3>장중에는 캐시, 마감 뒤에는 종가 한 번</h3>
  *
- * <p>평일 09:00~15:30 KST 밖에서는 아무것도 하지 않는다. 마감 후에도 토스는 마지막 체결가를
- * 계속 돌려주지만, 그걸 받아 봐야 <b>캐시에 이미 있는 값과 같다.</b> 재시작 직후라면 캐시가
- * 비어 있는데 그때는 DB 종가로 평가되므로 역시 결과가 같다 — 부를 이유가 없다.</p>
+ * <p>정규장에는 캐시만 갱신하고, <b>마감 뒤 첫 틱</b>이 그날의 종가를 DB에 한 번 남긴다.
+ * 그 뒤로는 다음 개장까지 아무것도 하지 않는다 — 마감 후 토스가 돌려주는 값은 이미 저장한
+ * 것과 같다.</p>
+ *
+ * <p>개장 전(평일 오전)에는 저장하지 않는다. 그때 저장하면 <b>전날 종가가 오늘 종가로</b>
+ * 다시 들어간다.</p>
  *
  * <h3>실패해도 다음 주기에 다시 온다</h3>
  *
@@ -46,8 +51,15 @@ public class PriceCacheScheduler {
 
     private final TradingHours tradingHours;
     private final PriceQuoteFetcher quoteFetcher;
+    private final PriceRefreshService priceRefreshService;
     private final PriceCache priceCache;
     private final Clock clock;
+
+    /** 종가를 저장한 거래일(KST). 하루에 한 번만 저장하기 위한 표시다. */
+    private final AtomicReference<LocalDate> closingSavedOn = new AtomicReference<>();
+
+    /** 종가 저장에 실패한 거래일(KST). 같은 날 경고를 한 번만 남기려는 것이다. */
+    private final AtomicReference<LocalDate> closingFailedOn = new AtomicReference<>();
 
     /**
      * 폴링을 켤지 여부.
@@ -60,12 +72,14 @@ public class PriceCacheScheduler {
     public PriceCacheScheduler(
             TradingHours tradingHours,
             PriceQuoteFetcher quoteFetcher,
+            PriceRefreshService priceRefreshService,
             PriceCache priceCache,
             Clock clock,
             @Value("${price.cache.enabled:true}") boolean enabled
     ) {
         this.tradingHours = tradingHours;
         this.quoteFetcher = quoteFetcher;
+        this.priceRefreshService = priceRefreshService;
         this.priceCache = priceCache;
         this.clock = clock;
         this.enabled = enabled;
@@ -88,14 +102,64 @@ public class PriceCacheScheduler {
         try {
             LocalDateTime now = LocalDateTime.now(clock);
 
-            if (!tradingHours.isMarketOpen(now)) {
+            if (tradingHours.isMarketOpen(now)) {
+                refresh(now);
                 return;
             }
 
-            refresh(now);
+            // 마감 뒤 첫 틱이 그날의 종가를 남긴다. 개장 전 시간대에는 해당되지 않는다.
+            if (tradingHours.isAfterClose(now)) {
+                saveClosingPrice(now);
+            }
         } catch (Exception exception) {
             // 밖으로 내보내면 반복 실행이 멈출 수 있다. 직전 캐시로 계속 돈다.
             log.warn("시세 폴링에 실패했습니다. 다음 주기에 다시 시도합니다.", exception);
+        }
+    }
+
+    /**
+     * 그날의 종가를 {@code product_prices}에 하루 한 번 남긴다.
+     *
+     * <p><b>"종가"는 정규장 종료 후 첫 조회값이다.</b> 마감 뒤에도 토스는 마지막 체결가를 계속
+     * 돌려주므로 그 값을 그대로 쓴다.</p>
+     *
+     * <h3>왜 저장하는가</h3>
+     *
+     * <p>장중 가격은 메모리에만 있어서 앱이 재시작하면 사라진다. 종가가 DB에 남아 있어야
+     * <b>금요일 밤에 재시작해도 주말 내내 평가가 된다.</b> 하루 15행이라 삭제 배치도 필요 없다.</p>
+     *
+     * <h3>두 번 저장되지 않는다</h3>
+     *
+     * <p>날짜 표시로 하루 한 번을 지키고, 표시가 재시작으로 날아가도 {@code generation_key}에
+     * 체결 시각이 들어 있어 유니크 제약이 막는다 — 이때는 "건너뜀"으로 집계된다.</p>
+     *
+     * <p><b>실패하면 다음 주기에 다시 시도한다.</b> 표시는 성공한 뒤에만 남긴다. 다만 경고는
+     * 그날 한 번만 남긴다 — 2초마다 실패하면 로그가 하룻밤에 3만 줄이 된다.</p>
+     */
+    private void saveClosingPrice(LocalDateTime nowUtc) {
+        LocalDate today = tradingHours.koreaDate(nowUtc);
+
+        if (today.equals(closingSavedOn.get())) {
+            return;
+        }
+
+        try {
+            PriceRefreshResult result = priceRefreshService.refresh(nowUtc, null);
+
+            closingSavedOn.set(today);
+            closingFailedOn.set(null);
+
+            log.info(
+                    "종가 저장 완료 거래일={} 대상={} 저장={} 건너뜀={}",
+                    today,
+                    result.getProcessedCount(),
+                    result.getCreatedCount(),
+                    result.getSkippedCount()
+            );
+        } catch (Exception exception) {
+            if (!today.equals(closingFailedOn.getAndSet(today))) {
+                log.warn("종가 저장에 실패했습니다. 다음 주기에 다시 시도합니다 거래일=" + today, exception);
+            }
         }
     }
 

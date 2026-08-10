@@ -4,6 +4,7 @@ import org.firstfolio.simulation.domain.AssetType;
 import org.springframework.stereotype.Component;
 
 import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -76,6 +77,36 @@ public class TradingHours {
 
         // 15:30 정각은 아직 장중으로 본다 (마감 체결 포함).
         return !time.isBefore(OPEN) && !time.isAfter(CLOSE);
+    }
+
+    /**
+     * 오늘 정규장이 이미 끝났는지. <b>평일이면서 마감 시각을 지났을 때만 참이다.</b>
+     *
+     * <p>"장이 안 열려 있다"와는 다르다 — 개장 전(평일 오전)도 닫혀 있지만 <b>아직 끝난 것은
+     * 아니다.</b> 종가는 그날 장이 끝난 뒤에만 확정되므로 둘을 구분해야 한다. 구분하지 않으면
+     * 금요일 종가를 토요일·월요일 아침에 그날 종가로 다시 저장하게 된다.</p>
+     *
+     * <p>15:30 정각은 아직 장중이므로({@link #isMarketOpen}) 여기서는 거짓이다.</p>
+     *
+     * @param nowUtc 서버 시각(UTC)
+     */
+    public boolean isAfterClose(LocalDateTime nowUtc) {
+        ZonedDateTime korea = nowUtc.atOffset(ZoneOffset.UTC).atZoneSameInstant(KOREA);
+
+        if (isWeekend(korea.getDayOfWeek())) {
+            return false;
+        }
+
+        return korea.toLocalTime().isAfter(CLOSE);
+    }
+
+    /**
+     * 한국 기준 날짜. "하루에 한 번"을 세는 기준이다.
+     *
+     * <p>서버는 UTC로 도는데 UTC 날짜로 세면 KST 09:00 이전이 전날로 잡혀 하루가 어긋난다.</p>
+     */
+    public LocalDate koreaDate(LocalDateTime nowUtc) {
+        return nowUtc.atOffset(ZoneOffset.UTC).atZoneSameInstant(KOREA).toLocalDate();
     }
 
     /**
