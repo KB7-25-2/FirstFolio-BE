@@ -53,6 +53,9 @@
             #{nickname},
             #{roleCode},
             #{status},
+            #{pointBalance},
+            #{lastAttendanceDate,jdbcType=DATE},
+            #{newsletterOptIn},
             #{createdAt},
             #{updatedAt}
         )
