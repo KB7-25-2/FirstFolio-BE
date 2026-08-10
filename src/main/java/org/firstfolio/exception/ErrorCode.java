@@ -35,6 +35,12 @@ public enum ErrorCode {
     CONTENT_NOT_PUBLISHED(HttpStatus.NOT_FOUND, "공개된 강좌 콘텐츠가 없습니다."),
     CONTENT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "강좌 콘텐츠를 불러올 수 없습니다."),
 
+    // 퀴즈 문항 콘텐츠
+    QUESTION_NOT_FOUND(HttpStatus.NOT_FOUND, "퀴즈 문항을 찾을 수 없습니다."),
+    QUESTION_KEY_CONFLICT(HttpStatus.CONFLICT, "이미 존재하는 퀴즈 문항 논리 키입니다."),
+    QUESTION_VERSION_CONFLICT(HttpStatus.CONFLICT, "퀴즈 문항 버전을 생성할 수 없습니다."),
+    QUESTION_VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "퀴즈 문항 검증에 실패했습니다."),
+
     // 학습 진도
     CONTENT_VERSION_MISMATCH(HttpStatus.CONFLICT, "소단원과 콘텐츠 버전이 일치하지 않습니다."),
     INVALID_PAGE_ID(HttpStatus.UNPROCESSABLE_ENTITY, "존재하지 않는 학습 페이지 ID입니다."),

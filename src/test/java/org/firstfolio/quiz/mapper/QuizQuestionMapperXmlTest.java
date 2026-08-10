@@ -34,6 +34,18 @@ class QuizQuestionMapperXmlTest {
 
         String statementId = QuizQuestionMapper.class.getName() + ".findReferencesByIds";
         assertTrue(configuration.hasMapper(QuizQuestionMapper.class));
+        assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName() + ".findById"
+        ));
+        assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName() + ".findLatestByQuestionKeyForUpdate"
+        ));
+        assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName() + ".countByQuestionKey"
+        ));
+        assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName() + ".insert"
+        ));
         assertTrue(configuration.hasStatement(statementId));
 
         BoundSql boundSql = configuration.getMappedStatement(statementId)
@@ -41,6 +53,15 @@ class QuizQuestionMapperXmlTest {
         assertEquals(3, boundSql.getParameterMappings().size());
         assertTrue(normalize(boundSql.getSql()).contains(
                 "FROM quiz_questions WHERE question_id IN ( ? , ? , ? )"
+        ));
+
+        BoundSql lockSql = configuration.getMappedStatement(
+                        QuizQuestionMapper.class.getName()
+                                + ".findLatestByQuestionKeyForUpdate"
+                )
+                .getBoundSql(Map.of("questionKey", "deposit-basic-001"));
+        assertTrue(normalize(lockSql.getSql()).contains(
+                "WHERE question_key = ? ORDER BY version_no DESC LIMIT 1 FOR UPDATE"
         ));
     }
 
