@@ -42,9 +42,6 @@
             nickname,
             role_code,
             status,
-            point_balance,
-            last_attendance_date,
-            newsletter_opt_in,
             created_at,
             updated_at
         ) VALUES (
