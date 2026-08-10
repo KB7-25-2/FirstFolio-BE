@@ -41,6 +41,9 @@ public enum ErrorCode {
     QUESTION_VERSION_CONFLICT(HttpStatus.CONFLICT, "퀴즈 문항 버전을 생성할 수 없습니다."),
     QUESTION_VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "퀴즈 문항 검증에 실패했습니다."),
 
+    // 퀴즈 응시
+    QUIZ_NOT_AVAILABLE(HttpStatus.FORBIDDEN, "현재 조건에서는 퀴즈에 응시할 수 없습니다."),
+
     // 학습 진도
     CONTENT_VERSION_MISMATCH(HttpStatus.CONFLICT, "소단원과 콘텐츠 버전이 일치하지 않습니다."),
     INVALID_PAGE_ID(HttpStatus.UNPROCESSABLE_ENTITY, "존재하지 않는 학습 페이지 ID입니다."),

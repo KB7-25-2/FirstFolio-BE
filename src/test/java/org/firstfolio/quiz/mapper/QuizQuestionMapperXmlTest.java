@@ -46,6 +46,9 @@ class QuizQuestionMapperXmlTest {
         assertTrue(configuration.hasStatement(
                 QuizQuestionMapper.class.getName() + ".insert"
         ));
+        assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName() + ".findAllByIds"
+        ));
         assertTrue(configuration.hasStatement(statementId));
 
         BoundSql boundSql = configuration.getMappedStatement(statementId)

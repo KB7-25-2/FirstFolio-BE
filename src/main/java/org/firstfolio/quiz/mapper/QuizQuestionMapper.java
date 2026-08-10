@@ -22,5 +22,9 @@ public interface QuizQuestionMapper {
             @Param("questionIds") List<Long> questionIds
     );
 
+    List<QuizQuestion> findAllByIds(
+            @Param("questionIds") List<Long> questionIds
+    );
+
     int insert(QuizQuestion question);
 }

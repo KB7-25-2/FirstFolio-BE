@@ -98,6 +98,19 @@
         </foreach>
     </select>
 
+    <select id="findAllByIds" resultMap="questionResultMap">
+        SELECT <include refid="questionColumns" />
+        FROM quiz_questions
+        WHERE question_id IN
+        <foreach collection="questionIds"
+                 item="questionId"
+                 open="("
+                 separator=","
+                 close=")">
+            #{questionId}
+        </foreach>
+    </select>
+
     <insert id="insert"
             parameterType="org.firstfolio.quiz.domain.QuizQuestion"
             useGeneratedKeys="true"
