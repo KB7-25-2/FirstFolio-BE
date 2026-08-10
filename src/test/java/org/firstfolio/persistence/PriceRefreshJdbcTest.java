@@ -8,6 +8,7 @@ import org.firstfolio.simulation.domain.FinancialProduct;
 import org.firstfolio.simulation.domain.ProductPrice;
 import org.firstfolio.simulation.mapper.FinancialProductMapper;
 import org.firstfolio.simulation.mapper.ProductPriceMapper;
+import org.firstfolio.simulation.service.PriceQuoteFetcher;
 import org.firstfolio.simulation.service.PriceRefreshResult;
 import org.firstfolio.simulation.service.PriceRefreshService;
 import org.junit.jupiter.api.DisplayName;
@@ -76,8 +77,11 @@ class PriceRefreshJdbcTest {
 
                 assertFalse(targets.isEmpty(), "공개된 주식·펀드가 없습니다. 상품 시드를 먼저 등록하세요.");
 
-                PriceRefreshService service =
-                        new PriceRefreshService(productMapper, priceMapper, fakeClient(targets), new BigDecimal("0.30"));
+                PriceRefreshService service = new PriceRefreshService(
+                        new PriceQuoteFetcher(productMapper, fakeClient(targets)),
+                        priceMapper,
+                        new BigDecimal("0.30")
+                );
 
                 LocalDateTime referenceAt = LocalDateTime.now(ZoneOffset.UTC).withNano(0);
 
@@ -162,7 +166,9 @@ class PriceRefreshJdbcTest {
                 LocalDateTime first = LocalDateTime.now(ZoneOffset.UTC).withNano(0).minusMinutes(5);
 
                 PriceRefreshService sameQuote = new PriceRefreshService(
-                        productMapper, priceMapper, fakeClient(targets, QUOTED_AT), new BigDecimal("0.30")
+                        new PriceQuoteFetcher(productMapper, fakeClient(targets, QUOTED_AT)),
+                        priceMapper,
+                        new BigDecimal("0.30")
                 );
 
                 assertEquals(1, sameQuote.refresh(first, onlySample).getCreatedCount());
@@ -175,9 +181,11 @@ class PriceRefreshJdbcTest {
 
                 // 새 체결이 들어오면 그때 쌓인다.
                 PriceRefreshService newQuote = new PriceRefreshService(
-                        productMapper,
+                        new PriceQuoteFetcher(
+                                productMapper,
+                                fakeClient(targets, "2026-08-06T13:25:40.000+09:00")
+                        ),
                         priceMapper,
-                        fakeClient(targets, "2026-08-06T13:25:40.000+09:00"),
                         new BigDecimal("0.30")
                 );
                 LocalDateTime third = first.plusMinutes(2);

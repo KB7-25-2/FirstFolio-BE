@@ -52,9 +52,8 @@ class PriceRefreshServiceTest {
         tossInvestClient = mock(TossInvestClient.class);
 
         service = new PriceRefreshService(
-                financialProductMapper,
+                new PriceQuoteFetcher(financialProductMapper, tossInvestClient),
                 productPriceMapper,
-                tossInvestClient,
                 new BigDecimal("0.30")
         );
 

@@ -4,12 +4,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
-import org.firstfolio.simulation.client.toss.TossInvestClient;
 import org.firstfolio.simulation.client.toss.TossPricesResponse;
-import org.firstfolio.simulation.domain.AssetType;
 import org.firstfolio.simulation.domain.FinancialProduct;
 import org.firstfolio.simulation.domain.ProductPrice;
-import org.firstfolio.simulation.mapper.FinancialProductMapper;
 import org.firstfolio.simulation.mapper.ProductPriceMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
@@ -23,7 +20,6 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -66,23 +62,13 @@ import java.util.Map;
 @Service
 public class PriceRefreshService {
 
-    /** 기준 가격으로 평가하는 자산군. 예·적금·채권은 원금으로 평가하므로 가격이 없다. */
-    private static final List<AssetType> PRICE_BASED = List.of(AssetType.STOCK, AssetType.FUND);
-
-    /** 토스 한 번 호출의 종목 수 상한. 클라이언트도 같은 값으로 막는다. */
-    private static final int MAX_SYMBOLS_PER_CALL = 200;
-
-    /** 가격 자릿수. {@code DECIMAL(19, 4)} 컬럼과 맞춘다. */
-    private static final int PRICE_SCALE = 4;
-
     private static final String SOURCE_TYPE_REAL = "REAL_DATA";
     private static final String KEY_PREFIX = "toss";
 
     private static final Logger log = LogManager.getLogger(PriceRefreshService.class);
 
-    private final FinancialProductMapper financialProductMapper;
+    private final PriceQuoteFetcher quoteFetcher;
     private final ProductPriceMapper productPriceMapper;
-    private final TossInvestClient tossInvestClient;
 
     /**
      * 직전 가격 대비 허용 변동률. <b>정책 미확정 상태의 가정치다</b> (v3 7절).
@@ -94,14 +80,12 @@ public class PriceRefreshService {
     private final BigDecimal maxChangeRate;
 
     public PriceRefreshService(
-            FinancialProductMapper financialProductMapper,
+            PriceQuoteFetcher quoteFetcher,
             ProductPriceMapper productPriceMapper,
-            TossInvestClient tossInvestClient,
             @Value("${price.max-change-rate:0.30}") BigDecimal maxChangeRate
     ) {
-        this.financialProductMapper = financialProductMapper;
+        this.quoteFetcher = quoteFetcher;
         this.productPriceMapper = productPriceMapper;
-        this.tossInvestClient = tossInvestClient;
         this.maxChangeRate = maxChangeRate;
     }
 
@@ -116,8 +100,7 @@ public class PriceRefreshService {
 
         requireValidReferenceAt(referenceAt, now);
 
-        List<FinancialProduct> targets =
-                financialProductMapper.findPriceTargets(PRICE_BASED, emptyToNull(productIds));
+        List<FinancialProduct> targets = quoteFetcher.findTargets(productIds);
 
         if (targets.isEmpty()) {
             log.info("가격 갱신 대상이 없습니다 referenceAt={}", referenceAt);
@@ -125,9 +108,9 @@ public class PriceRefreshService {
             return new PriceRefreshResult(referenceAt, 0, 0, 0);
         }
 
-        Map<String, FinancialProduct> bySymbol = indexBySymbol(targets);
+        Map<String, FinancialProduct> bySymbol = quoteFetcher.indexBySymbol(targets);
         Map<Long, BigDecimal> previousPrices = previousPrices(targets);
-        Map<String, TossPricesResponse.Item> quotes = fetchQuotes(bySymbol.keySet());
+        Map<String, TossPricesResponse.Item> quotes = quoteFetcher.fetchQuotes(bySymbol.keySet());
 
         int created = 0;
 
@@ -177,11 +160,15 @@ public class PriceRefreshService {
             return false;
         }
 
-        BigDecimal price = quote.getLastPrice();
-
         // 없는 가격을 만들어 내지 않는다 (FUNC-036/040).
-        if (price == null || price.signum() <= 0) {
-            log.warn("가격이 올바르지 않습니다 productId={} price={}", product.getProductId(), price);
+        BigDecimal price = quoteFetcher.lastPrice(quote);
+
+        if (price == null) {
+            log.warn(
+                    "가격이 올바르지 않습니다 productId={} price={}",
+                    product.getProductId(),
+                    quote.getLastPrice()
+            );
 
             return false;
         }
@@ -191,7 +178,7 @@ public class PriceRefreshService {
         ProductPrice row = new ProductPrice();
 
         row.setProductId(product.getProductId());
-        row.setPrice(price.setScale(PRICE_SCALE, RoundingMode.HALF_UP));
+        row.setPrice(price);
         row.setReferenceAt(referenceAt);
         row.setSourceType(SOURCE_TYPE_REAL);
         row.setGenerationKey(generationKey(symbol, quote.getTimestamp(), referenceAt));
@@ -253,24 +240,6 @@ public class PriceRefreshService {
         }
     }
 
-    /** 종목코드 → 상품. 코드가 없는 상품은 조회할 방법이 없어 제외한다. */
-    private Map<String, FinancialProduct> indexBySymbol(List<FinancialProduct> targets) {
-        Map<String, FinancialProduct> bySymbol = new LinkedHashMap<>();
-
-        for (FinancialProduct product : targets) {
-            String symbol = product.getSourceProductCode();
-
-            if (symbol == null || symbol.isBlank()) {
-                log.warn("종목코드가 없어 가격을 갱신할 수 없습니다 productId={}", product.getProductId());
-                continue;
-            }
-
-            bySymbol.put(symbol.trim(), product);
-        }
-
-        return bySymbol;
-    }
-
     private Map<Long, BigDecimal> previousPrices(List<FinancialProduct> targets) {
         List<Long> productIds = new ArrayList<>();
 
@@ -285,33 +254,6 @@ public class PriceRefreshService {
         }
 
         return previous;
-    }
-
-    /** 상한을 넘으면 나눠 부른다. 종목이 늘어도 호출부가 바뀌지 않게 한다. */
-    private Map<String, TossPricesResponse.Item> fetchQuotes(java.util.Set<String> symbols) {
-        List<String> all = new ArrayList<>(symbols);
-        Map<String, TossPricesResponse.Item> quotes = new HashMap<>();
-
-        for (int from = 0; from < all.size(); from += MAX_SYMBOLS_PER_CALL) {
-            List<String> chunk = all.subList(from, Math.min(from + MAX_SYMBOLS_PER_CALL, all.size()));
-
-            for (TossPricesResponse.Item item : tossInvestClient.fetchPrices(chunk)) {
-                if (item.getSymbol() != null) {
-                    quotes.put(item.getSymbol().trim(), item);
-                }
-            }
-        }
-
-        return quotes;
-    }
-
-    /**
-     * 빈 목록은 "전체"와 같은 뜻이므로 null로 바꾼다.
-     *
-     * <p>매퍼에 빈 목록이 그대로 가면 {@code IN ()}이 만들어져 SQL 오류가 난다.</p>
-     */
-    private static List<Long> emptyToNull(List<Long> productIds) {
-        return productIds == null || productIds.isEmpty() ? null : productIds;
     }
 
     /** 미래 시각으로는 가격을 만들지 않는다 (FUNC-040 예외/제한사항). */
