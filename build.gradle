@@ -17,8 +17,15 @@ repositories {
 }
 
 ext {
+    awsSdkVersion = '2.48.1'
+    firebaseAdminVersion = '9.10.0'
+    jacksonVersion = '2.18.3'
+    jsonSchemaValidatorVersion = '2.0.4'
     junitVersion = '5.10.2'
+    log4jVersion = '2.26.1'
+    springdocVersion = '1.8.0'
     springVersion = '5.3.37'
+    mockitoVersion = '5.12.0'
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -32,24 +39,45 @@ dependencies {
             { exclude group: 'commons-logging', module: 'commons-logging' }
     implementation "org.springframework:spring-webmvc:${springVersion}"
 
+    // OpenAPI 3 / Swagger UI (Spring 5 + javax.servlet 호환 버전)
+    implementation "org.springdoc:springdoc-openapi-ui:${springdocVersion}"
+
     // Servlet API는 Tomcat에서 제공
     compileOnly 'javax.servlet:javax.servlet-api:4.0.1'
     compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
 
     // Log4j2 logging
-    implementation 'org.apache.logging.log4j:log4j-api:2.18.0'
-    implementation 'org.apache.logging.log4j:log4j-core:2.18.0'
-    implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.18.0'
+    implementation "org.apache.logging.log4j:log4j-api:${log4jVersion}"
+    implementation "org.apache.logging.log4j:log4j-core:${log4jVersion}"
+    runtimeOnly "org.apache.logging.log4j:log4j-slf4j2-impl:${log4jVersion}"
     implementation 'org.bgee.log4jdbc-log4j2:log4jdbc-log4j2-jdbc4:1.16'
 
     // Jackson - JSON 처리
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.9.4'
+    implementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+    implementation "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:${jacksonVersion}"
+    implementation("com.networknt:json-schema-validator:${jsonSchemaValidatorVersion}") {
+        exclude group: 'com.fasterxml.jackson.dataformat', module: 'jackson-dataformat-yaml'
+    }
+
+    // Firebase Authentication
+    implementation ("com.google.firebase:firebase-admin:${firebaseAdminVersion}") {
+        exclude group: 'com.fasterxml.jackson.dataformat',
+                module: 'jackson-dataformat-xml'
+    }
+
+    // AWS S3 정적 콘텐츠 저장소
+    implementation platform("software.amazon.awssdk:bom:${awsSdkVersion}")
+    implementation 'software.amazon.awssdk:s3'
 
     // Test
     testImplementation "org.springframework:spring-test:${springVersion}"
     testImplementation 'javax.servlet:javax.servlet-api:4.0.1'
     testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
+    testImplementation("org.junit.jupiter:junit-jupiter-params:${junitVersion}")
     testImplementation 'org.hamcrest:hamcrest:2.2'
+    testImplementation 'com.jayway.jsonpath:json-path:2.9.0'
+    testImplementation "org.mockito:mockito-core:${mockitoVersion}"
+    testImplementation "org.mockito:mockito-junit-jupiter:${mockitoVersion}"
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
@@ -64,7 +92,15 @@ dependencies {
     implementation 'org.mybatis:mybatis-spring:1.3.2'
 }
 
+// The JDBC driver converts LocalDateTime between the JVM default zone and the connection zone
+// (serverTimezone=UTC). If the test JVM runs in KST while the app server runs in UTC, both write
+// DATETIME values on different bases and they end up mixed in the same table.
+// Pin every test JVM to UTC so results do not depend on the developer's locale.
+def testJvmTimeZone = '-Duser.timezone=UTC'
+
 test {
+    jvmArgs testJvmTimeZone
+
     useJUnitPlatform {
         excludeTags 'jdbc'
     }
@@ -73,6 +109,8 @@ test {
 tasks.register('jdbcTest', Test) {
     description = 'Runs the JDBC connection integration test.'
     group = 'verification'
+
+    jvmArgs testJvmTimeZone
 
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath

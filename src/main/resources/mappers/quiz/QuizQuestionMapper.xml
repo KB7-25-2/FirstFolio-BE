@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.quiz.mapper.QuizQuestionMapper">
+
+    <resultMap id="questionReferenceResultMap"
+               type="org.firstfolio.quiz.domain.QuizQuestionReference">
+        <id property="questionId" column="question_id" />
+        <result property="usageType" column="usage_type" />
+        <result property="subChapterId" column="sub_chapter_id" />
+        <result property="status" column="status" />
+    </resultMap>
+
+    <select id="findReferencesByIds" resultMap="questionReferenceResultMap">
+        SELECT question_id,
+               usage_type,
+               sub_chapter_id,
+               status
+        FROM quiz_questions
+        WHERE question_id IN
+        <foreach collection="questionIds"
+                 item="questionId"
+                 open="("
+                 separator=","
+                 close=")">
+            #{questionId}
+        </foreach>
+    </select>
+
+</mapper>

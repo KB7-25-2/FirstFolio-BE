@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.portfolio.mapper.PortfolioMapper">
+
+    <resultMap id="portfolioResult" type="org.firstfolio.portfolio.domain.Portfolio">
+        <id property="portfolioId" column="portfolio_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="generationNo" column="generation_no"/>
+        <result property="status" column="status"/>
+        <result property="initialAmount" column="initial_amount"/>
+        <result property="cashBalance" column="cash_balance"/>
+        <result property="openedAt" column="opened_at"/>
+        <result property="closedAt" column="closed_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="columns">
+        portfolio_id,
+        user_id,
+        generation_no,
+        status,
+        initial_amount,
+        cash_balance,
+        opened_at,
+        closed_at,
+        created_at,
+        updated_at
+    </sql>
+
+    <!-- idx_portfolios_user_status (user_id, status)를 그대로 탄다. -->
+    <select id="findActiveByUserId" resultMap="portfolioResult">
+        SELECT <include refid="columns"/>
+        FROM portfolios
+        WHERE user_id = #{userId}
+          AND status = 'ACTIVE'
+        LIMIT 1
+    </select>
+
+    <select id="findById" resultMap="portfolioResult">
+        SELECT <include refid="columns"/>
+        FROM portfolios
+        WHERE portfolio_id = #{portfolioId}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="portfolioId">
+        INSERT INTO portfolios (
+            user_id,
+            generation_no,
+            status,
+            initial_amount,
+            cash_balance,
+            opened_at,
+            closed_at,
+            created_at,
+            updated_at
+        ) VALUES (
+            #{userId},
+            #{generationNo},
+            #{status},
+            #{initialAmount},
+            #{cashBalance},
+            #{openedAt},
+            #{closedAt},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
+    <!--
+        status = 'ACTIVE' 조건을 WHERE에 둔다. 조회와 갱신 사이에 다른 요청이 먼저 닫았다면
+        갱신 행이 0이 되어 호출한 쪽이 알아챌 수 있다 (애플리케이션 락 불필요).
+    -->
+    <update id="closeGeneration">
+        UPDATE portfolios
+        SET status = 'CLOSED',
+            closed_at = #{closedAt},
+            updated_at = #{closedAt}
+        WHERE portfolio_id = #{portfolioId}
+          AND status = 'ACTIVE'
+    </update>
+
+    <!--
+        차감을 DB가 직접 하게 한다. 자바에서 계산한 값을 덮어쓰면 잔액을 읽은 뒤 쓰기 전에
+        끼어든 요청이 같은 잔액을 보고 함께 차감해, 보유 현금보다 많이 살 수 있다.
+        cash_balance >= amount 조건이 그 창을 없앤다 (갱신 행이 0이면 잔액 부족).
+    -->
+    <update id="decreaseCash">
+        UPDATE portfolios
+        SET cash_balance = cash_balance - #{amount},
+            updated_at = #{updatedAt}
+        WHERE portfolio_id = #{portfolioId}
+          AND status = 'ACTIVE'
+          AND cash_balance &gt;= #{amount}
+    </update>
+
+    <update id="increaseCash">
+        UPDATE portfolios
+        SET cash_balance = cash_balance + #{amount},
+            updated_at = #{updatedAt}
+        WHERE portfolio_id = #{portfolioId}
+          AND status = 'ACTIVE'
+    </update>
+
+</mapper>

@@ -39,10 +39,16 @@ bin/
 .config.*
 application-local.properties
 
+# Firebase service account keys
+firebase-service-account*.json
+*firebase-adminsdk*.json
+service-account*.json
+
 # Runtime files
 logs/
 *.log
 uploads/
+/.local/
 
 # OS and JVM
 .DS_Store
