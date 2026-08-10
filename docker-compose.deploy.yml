@@ -1,0 +1,22 @@
+name: firstfolio-be-deploy
+
+services:
+  be-api:
+    image: 454231081430.dkr.ecr.ap-northeast-2.amazonaws.com/firstfolio-be:latest
+    env_file:
+      - .env.deploy
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    volumes:
+      - ${FIREBASE_KEY_PATH:-/opt/firstfolio/firebase-admin.json}:/run/secrets/firebase-admin.json:ro
+      - content-data:/var/firstfolio/content
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  content-data:

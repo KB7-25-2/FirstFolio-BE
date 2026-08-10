@@ -103,14 +103,14 @@ class AuthServiceTest {
     }
 
     @Test
-    void loginUpdatesLastLoginAndReturnsOnboardingStep() {
+    void loginTemporarilyReturnsLevelTestWhileOnboardingIsPending() {
         userMapper.foundUser = activeUser();
         userMapper.onboardingStep = "CURRICULUM";
 
         LoginResult result = authService.login("Bearer valid-token");
 
         assertEquals(101L, result.userId());
-        assertEquals(OnboardingStep.CURRICULUM, result.onboardingStep());
+        assertEquals(OnboardingStep.LEVEL_TEST, result.onboardingStep());
         assertEquals(
                 LocalDateTime.of(2026, 8, 1, 0, 0),
                 userMapper.updatedLastLoginAt
