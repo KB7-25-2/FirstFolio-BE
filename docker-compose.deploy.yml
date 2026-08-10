@@ -2,17 +2,13 @@ name: firstfolio-be-deploy
 
 services:
   be-api:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: firstfolio-be:deploy
+    image: 454231081430.dkr.ecr.ap-northeast-2.amazonaws.com/firstfolio-be:latest
     env_file:
       - .env.deploy
     ports:
       - "8080:8080"
     restart: unless-stopped
     volumes:
-      # Firebase 키는 이미지에 넣지 않고 호스트 파일을 읽기 전용으로 마운트한다.
       - ${FIREBASE_KEY_PATH:-/opt/firstfolio/firebase-admin.json}:/run/secrets/firebase-admin.json:ro
       - content-data:/var/firstfolio/content
     healthcheck:
