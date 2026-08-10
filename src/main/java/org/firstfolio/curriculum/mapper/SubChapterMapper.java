@@ -3,12 +3,17 @@ package org.firstfolio.curriculum.mapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.firstfolio.curriculum.domain.SubChapter;
+import org.firstfolio.curriculum.domain.PublicSubChapter;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
 public interface SubChapterMapper {
+
+    List<PublicSubChapter> findPublicByMainChapterId(
+            @Param("mainChapterId") long mainChapterId
+    );
 
     List<SubChapter> findAllByMainChapterId(
             @Param("mainChapterId") long mainChapterId

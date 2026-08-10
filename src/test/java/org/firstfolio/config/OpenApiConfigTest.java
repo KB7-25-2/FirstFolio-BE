@@ -5,7 +5,9 @@ import org.firstfolio.auth.controller.AuthController;
 import org.firstfolio.auth.domain.AuthenticatedUser;
 import org.firstfolio.auth.service.AuthUseCase;
 import org.firstfolio.learning.controller.LessonContentController;
+import org.firstfolio.learning.controller.PublicChapterController;
 import org.firstfolio.learning.service.LessonContentQueryService;
+import org.firstfolio.learning.service.PublicChapterQueryService;
 import org.firstfolio.portfolio.controller.PortfolioController;
 import org.firstfolio.portfolio.service.PortfolioQueryService;
 import org.firstfolio.portfolio.service.PortfolioResetService;
@@ -121,6 +123,15 @@ class OpenApiConfigTest {
                         "$.paths['/api/learning/sub-chapters/{subChapterId}'].get.parameters[0].description"
                 ).value("조회할 소단원 ID"))
                 .andExpect(jsonPath(
+                        "$.paths['/api/learning/main-chapters'].get.responses['200'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/PublicMainChapterListApiResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/main-chapters/{mainChapterId}/sub-chapters'].get.responses['200'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/PublicSubChapterListApiResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/main-chapters/{mainChapterId}/sub-chapters'].get.responses['404'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath(
                         "$.components.schemas.SignupRequest.properties.nickname.description"
                 ).value("2~10자의 서비스 닉네임"))
                 .andExpect(jsonPath(
@@ -175,6 +186,11 @@ class OpenApiConfigTest {
         @Bean
         LessonContentController lessonContentController() {
             return new LessonContentController(mock(LessonContentQueryService.class));
+        }
+
+        @Bean
+        PublicChapterController publicChapterController() {
+            return new PublicChapterController(mock(PublicChapterQueryService.class));
         }
 
         @Bean

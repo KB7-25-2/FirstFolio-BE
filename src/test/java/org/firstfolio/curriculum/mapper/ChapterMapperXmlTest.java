@@ -33,6 +33,9 @@ class ChapterMapperXmlTest {
                 SubChapterMapper.class.getName() + ".findByIdForUpdate"
         ));
         assertTrue(configuration.hasStatement(
+                SubChapterMapper.class.getName() + ".findPublicByMainChapterId"
+        ));
+        assertTrue(configuration.hasStatement(
                 SubChapterMapper.class.getName() + ".updateCurrentContentVersion"
         ));
         assertTrue(configuration.hasStatement(
