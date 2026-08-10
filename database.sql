@@ -1,6 +1,6 @@
 -- FirstFolio service database baseline DDL
--- Source: Notion "ERD 2.1" (24 tables total)
--- Scope: 23 non-AI tables. AI/RAG metadata is defined in the AI service DDL.
+-- Source: Notion "ERD 2.1" plus approved schema changes.
+-- Scope: 24 non-AI tables. AI/RAG metadata is defined in the AI service DDL.
 -- Target: MySQL 8.0.16+ (CHECK constraints are enforced from 8.0.16).
 -- Time policy: application code writes UTC values to DATETIME columns.
 
@@ -252,14 +252,15 @@ CREATE TABLE quiz_questions (
     main_chapter_id BIGINT NULL COMMENT '소속 대단원',
     sub_chapter_id BIGINT NULL COMMENT '소속 소단원. 대단원 퀴즈 문항은 NULL',
     display_order INT NULL COMMENT 'DB 범위 내 기본 문항 순서',
-    question_type VARCHAR(30) NOT NULL COMMENT 'SINGLE_CHOICE, MULTIPLE_CHOICE, TRUE_FALSE, SCENARIO',
+    question_type VARCHAR(30) NOT NULL COMMENT 'SINGLE_CHOICE, TRUE_FALSE, SCENARIO',
     difficulty VARCHAR(20) NULL COMMENT 'EASY, MEDIUM, HARD',
     prompt TEXT NOT NULL COMMENT '모든 문항에 공통으로 사용하는 질문 문장',
     scenario_json JSON NULL COMMENT '상황판단형의 캐릭터 상황, 금융시장 상황과 제약 조건',
     options_json JSON NULL COMMENT '선택지 배열',
     correct_answer_json JSON NOT NULL COMMENT '정답 데이터',
     explanation TEXT NOT NULL COMMENT '정답 해설',
-    source_refs_json JSON NULL COMMENT 'AI DB knowledge_contents ID, 근거 출처와 기준 시점. DB 간 FK는 애플리케이션에서 검증',
+    generation_type VARCHAR(20) NOT NULL COMMENT 'HUMAN, AI',
+    source_refs_json JSON NULL COMMENT 'AI 생성 문항의 knowledge_contents ID, 근거 출처와 기준 시점. DB 간 FK는 애플리케이션에서 검증',
     status VARCHAR(20) NOT NULL COMMENT 'DRAFT, REVIEW, PUBLISHED, RETIRED',
     created_by BIGINT NOT NULL COMMENT '작성자 또는 생성 작업 관리자',
     published_at DATETIME NULL COMMENT '게시 일시',
@@ -288,7 +289,6 @@ CREATE TABLE quiz_questions (
     CONSTRAINT chk_quiz_questions_type CHECK (
         question_type IN (
                           'SINGLE_CHOICE',
-                          'MULTIPLE_CHOICE',
                           'TRUE_FALSE',
                           'SCENARIO'
             )
@@ -300,6 +300,17 @@ CREATE TABLE quiz_questions (
         (question_type = 'SCENARIO' AND scenario_json IS NOT NULL)
             OR
         (question_type <> 'SCENARIO' AND scenario_json IS NULL)
+        ),
+    CONSTRAINT chk_quiz_questions_generation_type CHECK (
+        generation_type IN ('HUMAN', 'AI')
+        ),
+    CONSTRAINT chk_quiz_questions_source_refs CHECK (
+        (generation_type = 'HUMAN' AND source_refs_json IS NULL)
+            OR
+        (generation_type = 'AI'
+            AND source_refs_json IS NOT NULL
+            AND JSON_TYPE(source_refs_json) = 'ARRAY'
+            AND JSON_LENGTH(source_refs_json) > 0)
         ),
     CONSTRAINT chk_quiz_questions_status CHECK (
         status IN ('DRAFT', 'REVIEW', 'PUBLISHED', 'RETIRED')

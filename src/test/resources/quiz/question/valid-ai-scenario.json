@@ -1,0 +1,60 @@
+{
+  "question_key": "fund-scenario-001",
+  "usage_type": "MAIN_CHAPTER",
+  "main_chapter_id": 5,
+  "sub_chapter_id": null,
+  "question_type": "SCENARIO",
+  "difficulty": "MEDIUM",
+  "prompt": "제시된 조건에 가장 적절한 선택은 무엇인가요?",
+  "scenario_json": {
+    "title": "금융상품 선택",
+    "narrative": "가상의 사용자가 조건에 맞는 금융상품을 고릅니다.",
+    "persona": {
+      "name": "민서",
+      "age": "18세",
+      "job": "고등학생"
+    },
+    "requirements": {
+      "assets": "소액의 저축 자금",
+      "risk": "위험을 분산하고 싶음",
+      "goal": "시장 흐름 학습"
+    },
+    "market": {
+      "title": "시장 정보",
+      "reference_at": "2026-08-10T00:00:00Z",
+      "bullets": [
+        "검증된 시장 정보"
+      ]
+    },
+    "constraints": [
+      "한 상품에 자금을 집중하지 않는다."
+    ],
+    "paper_title": "선택 보고서"
+  },
+  "options_json": [
+    {
+      "key": "1",
+      "label": "선택지 1",
+      "description": "선택지에 대한 추가 설명"
+    },
+    {
+      "key": "2",
+      "label": "선택지 2",
+      "description": "선택지에 대한 추가 설명"
+    }
+  ],
+  "correct_answer_json": {
+    "key": "1"
+  },
+  "explanation": "제시된 조건을 모두 충족하는 선택지입니다.",
+  "generation_type": "AI",
+  "source_refs_json": [
+    {
+      "knowledge_content_id": 9001,
+      "title": "근거 문서",
+      "publisher": "발행 기관",
+      "url": null,
+      "reference_at": "2026-08-10T00:00:00Z"
+    }
+  ]
+}

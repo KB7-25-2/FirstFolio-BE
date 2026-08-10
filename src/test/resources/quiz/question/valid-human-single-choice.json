@@ -1,0 +1,27 @@
+{
+  "question_key": "deposit-basic-001",
+  "usage_type": "SUB_CHAPTER",
+  "main_chapter_id": 2,
+  "sub_chapter_id": 101,
+  "question_type": "SINGLE_CHOICE",
+  "difficulty": "EASY",
+  "prompt": "예금의 특징으로 가장 적절한 것은?",
+  "scenario_json": null,
+  "options_json": [
+    {
+      "key": "1",
+      "label": "선택지 1"
+    },
+    {
+      "key": "2",
+      "label": "선택지 2",
+      "description": null
+    }
+  ],
+  "correct_answer_json": {
+    "key": "1"
+  },
+  "explanation": "정답에 대한 해설입니다.",
+  "generation_type": "HUMAN",
+  "source_refs_json": null
+}
