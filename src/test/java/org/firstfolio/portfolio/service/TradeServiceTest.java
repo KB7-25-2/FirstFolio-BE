@@ -16,6 +16,7 @@ import org.firstfolio.simulation.domain.FinancialProduct;
 import org.firstfolio.simulation.domain.ProductPrice;
 import org.firstfolio.simulation.mapper.FinancialProductMapper;
 import org.firstfolio.simulation.service.CurrentPriceReader;
+import org.firstfolio.simulation.service.TradingHours;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

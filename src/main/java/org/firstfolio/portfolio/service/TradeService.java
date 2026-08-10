@@ -23,6 +23,7 @@ import org.firstfolio.simulation.domain.FinancialProduct;
 import org.firstfolio.simulation.domain.ProductPrice;
 import org.firstfolio.simulation.mapper.FinancialProductMapper;
 import org.firstfolio.simulation.service.CurrentPriceReader;
+import org.firstfolio.simulation.service.TradingHours;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
