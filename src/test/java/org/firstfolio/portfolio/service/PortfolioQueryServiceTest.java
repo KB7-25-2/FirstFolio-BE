@@ -17,6 +17,8 @@ import org.firstfolio.portfolio.mapper.PortfolioTransactionMapper;
 import org.firstfolio.simulation.domain.AssetType;
 import org.firstfolio.simulation.domain.ProductPrice;
 import org.firstfolio.simulation.mapper.ProductPriceMapper;
+import org.firstfolio.simulation.service.CurrentPriceReader;
+import org.firstfolio.simulation.service.PriceCache;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -62,7 +64,10 @@ class PortfolioQueryServiceTest {
         service = new PortfolioQueryService(
                 portfolioMapper,
                 transactionMapper,
-                new PortfolioValuationService(holdingMapper, productPriceMapper)
+                new PortfolioValuationService(
+                        holdingMapper,
+                        new CurrentPriceReader(new PriceCache(), productPriceMapper)
+                )
         );
 
         holdings.clear();

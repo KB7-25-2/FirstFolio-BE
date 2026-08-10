@@ -33,13 +33,21 @@ class FinancialProductDetailQueryTest {
 
     private FinancialProductMapper productMapper;
     private ProductPriceMapper priceMapper;
+    private PriceCache priceCache;
     private FinancialProductQueryService service;
 
     @BeforeEach
     void setUp() {
         productMapper = mock(FinancialProductMapper.class);
         priceMapper = mock(ProductPriceMapper.class);
-        service = new FinancialProductQueryService(productMapper, priceMapper, new TermsJsonCodec());
+        priceCache = new PriceCache();
+
+        // 상세의 현재가는 체결가와 같은 자리에서 읽어야 한다. 진짜 리더를 써서 그 경로를 지난다.
+        service = new FinancialProductQueryService(
+                productMapper,
+                new CurrentPriceReader(priceCache, priceMapper),
+                new TermsJsonCodec()
+        );
     }
 
     private static FinancialProduct product(AssetType type, String provider) {
@@ -134,6 +142,28 @@ class FinancialProductDetailQueryTest {
 
         assertEquals(new BigDecimal("241500.0000"), response.getCurrentPrice());
         assertEquals(LocalDateTime.of(2026, 8, 4, 8, 43), response.getPriceReferenceAt());
+    }
+
+    @Test
+    @DisplayName("장중에는 캐시의 실시간 가격을 준다 — 구매 모달의 예상 금액이 체결가와 맞아야 한다")
+    void prefersCachedPriceOverStoredClosingPrice() {
+        givenProduct(product(AssetType.STOCK, "TOSSINVEST"));
+
+        ProductPrice live = new ProductPrice();
+        live.setProductId(PRODUCT_ID);
+        live.setPrice(new BigDecimal("242000.0000"));
+        live.setReferenceAt(LocalDateTime.of(2026, 8, 6, 3, 30));
+        priceCache.put(live);
+
+        ProductPrice closing = new ProductPrice();
+        closing.setPrice(new BigDecimal("241500.0000"));
+        closing.setReferenceAt(LocalDateTime.of(2026, 8, 4, 8, 43));
+        when(priceMapper.findLatestByProductId(PRODUCT_ID)).thenReturn(closing);
+
+        ProductDetailResponse response = service.findById(PRODUCT_ID);
+
+        assertEquals(new BigDecimal("242000.0000"), response.getCurrentPrice());
+        assertEquals(LocalDateTime.of(2026, 8, 6, 3, 30), response.getPriceReferenceAt());
     }
 
     @Test
