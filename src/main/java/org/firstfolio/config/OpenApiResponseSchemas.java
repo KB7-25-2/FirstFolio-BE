@@ -16,6 +16,8 @@ import org.firstfolio.curriculum.dto.response.SubChapterCreateResponse;
 import org.firstfolio.curriculum.dto.response.SubChapterListResponse;
 import org.firstfolio.curriculum.dto.response.SubChapterPatchResponse;
 import org.firstfolio.learning.dto.response.LessonContentResponse;
+import org.firstfolio.learning.dto.response.LearningProgressResponse;
+import org.firstfolio.learning.dto.response.LearningProgressUpdateResponse;
 import org.firstfolio.learning.dto.response.PublicMainChapterListResponse;
 import org.firstfolio.learning.dto.response.PublicSubChapterListResponse;
 import org.firstfolio.portfolio.dto.response.PortfolioDetailResponse;
@@ -57,6 +59,12 @@ public final class OpenApiResponseSchemas {
 
     @Schema(name = "LessonContentApiResponse")
     public record LessonContent(LessonContentResponse data) { }
+
+    @Schema(name = "LearningProgressApiResponse")
+    public record LearningProgress(LearningProgressResponse data) { }
+
+    @Schema(name = "LearningProgressUpdateApiResponse")
+    public record LearningProgressUpdate(LearningProgressUpdateResponse data) { }
 
     @Schema(name = "PublicMainChapterListApiResponse")
     public record PublicMainChapterList(PublicMainChapterListResponse data) { }

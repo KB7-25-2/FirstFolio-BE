@@ -5,8 +5,10 @@ import org.firstfolio.auth.controller.AuthController;
 import org.firstfolio.auth.domain.AuthenticatedUser;
 import org.firstfolio.auth.service.AuthUseCase;
 import org.firstfolio.learning.controller.LessonContentController;
+import org.firstfolio.learning.controller.LearningProgressController;
 import org.firstfolio.learning.controller.PublicChapterController;
 import org.firstfolio.learning.service.LessonContentQueryService;
+import org.firstfolio.learning.service.LearningProgressService;
 import org.firstfolio.learning.service.PublicChapterQueryService;
 import org.firstfolio.portfolio.controller.PortfolioController;
 import org.firstfolio.portfolio.service.PortfolioQueryService;
@@ -132,6 +134,18 @@ class OpenApiConfigTest {
                         "$.paths['/api/learning/main-chapters/{mainChapterId}/sub-chapters'].get.responses['404'].content['application/json'].schema['$ref']"
                 ).value("#/components/schemas/ErrorResponse"))
                 .andExpect(jsonPath(
+                        "$.paths['/api/learning/sub-chapters/{subChapterId}/progress'].put.responses['200'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/LearningProgressUpdateApiResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/sub-chapters/{subChapterId}/progress'].post"
+                ).doesNotExist())
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/sub-chapters/{subChapterId}/progress'].get.responses['200'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/LearningProgressApiResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/sub-chapters/{subChapterId}/progress'].get.responses['404'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath(
                         "$.components.schemas.SignupRequest.properties.nickname.description"
                 ).value("2~10자의 서비스 닉네임"))
                 .andExpect(jsonPath(
@@ -191,6 +205,11 @@ class OpenApiConfigTest {
         @Bean
         PublicChapterController publicChapterController() {
             return new PublicChapterController(mock(PublicChapterQueryService.class));
+        }
+
+        @Bean
+        LearningProgressController learningProgressController() {
+            return new LearningProgressController(mock(LearningProgressService.class));
         }
 
         @Bean

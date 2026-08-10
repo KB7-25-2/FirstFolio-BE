@@ -205,6 +205,45 @@ CREATE TABLE user_learning_progress (
     INDEX idx_user_learning_progress_continue (user_id, status, updated_at)
 ) ENGINE = InnoDB COMMENT = '사용자별 소단원 진행 위치와 최초 완료 상태';
 
+CREATE TABLE user_learning_progress_events (
+    progress_event_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '학습 진도 변경 이벤트 식별자',
+    progress_id BIGINT NOT NULL COMMENT '대상 현재 진도 행',
+    user_id BIGINT NOT NULL COMMENT '학습 사용자',
+    sub_chapter_id BIGINT NOT NULL COMMENT '대상 소단원',
+    content_version_id BIGINT NOT NULL COMMENT '실제로 학습한 콘텐츠 버전',
+    event_type VARCHAR(30) NOT NULL COMMENT 'PROGRESS_UPDATED 또는 COMPLETED',
+    previous_status VARCHAR(20) NULL COMMENT '변경 전 상태. 최초 생성이면 NOT_STARTED',
+    status VARCHAR(20) NOT NULL COMMENT '변경 후 상태',
+    previous_page_id VARCHAR(100) NULL COMMENT '변경 전 마지막 페이지 ID',
+    last_page_id VARCHAR(100) NULL COMMENT '변경 후 마지막 페이지 ID',
+    occurred_at DATETIME NOT NULL COMMENT '진도 변경 발생 시각',
+    CONSTRAINT pk_user_learning_progress_events PRIMARY KEY (progress_event_id),
+    CONSTRAINT fk_learning_progress_events_progress
+        FOREIGN KEY (progress_id) REFERENCES user_learning_progress (progress_id)
+            ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CONSTRAINT fk_learning_progress_events_user
+        FOREIGN KEY (user_id) REFERENCES users (user_id)
+            ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CONSTRAINT fk_learning_progress_events_sub
+        FOREIGN KEY (sub_chapter_id) REFERENCES sub_chapters (sub_chapter_id)
+            ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CONSTRAINT fk_learning_progress_events_content
+        FOREIGN KEY (content_version_id) REFERENCES content_versions (content_version_id)
+            ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CONSTRAINT chk_learning_progress_events_type CHECK (
+        event_type IN ('PROGRESS_UPDATED', 'COMPLETED')
+        ),
+    CONSTRAINT chk_learning_progress_events_previous_status CHECK (
+        previous_status IS NULL
+        OR previous_status IN ('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED')
+        ),
+    CONSTRAINT chk_learning_progress_events_status CHECK (
+        status IN ('IN_PROGRESS', 'COMPLETED')
+        ),
+    INDEX idx_learning_progress_events_progress_time (progress_id, occurred_at),
+    INDEX idx_learning_progress_events_user_time (user_id, occurred_at)
+) ENGINE = InnoDB COMMENT = '사용자 소단원 학습 진도의 생성·이동·최초 완료 변경 이력';
+
 CREATE TABLE quiz_questions (
     question_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '특정 문항 버전 행의 식별자',
     question_key VARCHAR(100) NOT NULL COMMENT '버전 간 동일 문항을 묶는 논리 키',

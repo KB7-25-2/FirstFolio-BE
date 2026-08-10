@@ -35,6 +35,10 @@ public enum ErrorCode {
     CONTENT_NOT_PUBLISHED(HttpStatus.NOT_FOUND, "공개된 강좌 콘텐츠가 없습니다."),
     CONTENT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "강좌 콘텐츠를 불러올 수 없습니다."),
 
+    // 학습 진도
+    CONTENT_VERSION_MISMATCH(HttpStatus.CONFLICT, "소단원과 콘텐츠 버전이 일치하지 않습니다."),
+    INVALID_PAGE_ID(HttpStatus.UNPROCESSABLE_ENTITY, "존재하지 않는 학습 페이지 ID입니다."),
+
     // 포트폴리오 (FUNC-034, 036)
     // PORTFOLIO_ALREADY_CONFIGURED(409)는 POST /portfolios와 함께 폐기됐다.
     // "최초 구성" 단계 자체가 없어져 두 번 구성할 일이 없다 (2026-08-05 팀 확정).
