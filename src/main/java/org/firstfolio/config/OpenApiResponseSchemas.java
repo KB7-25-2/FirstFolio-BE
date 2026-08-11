@@ -28,6 +28,7 @@ import org.firstfolio.portfolio.dto.response.PortfolioTransactionPageResponse;
 import org.firstfolio.portfolio.dto.response.TradeResponse;
 import org.firstfolio.quiz.dto.response.QuizQuestionCreateResponse;
 import org.firstfolio.quiz.dto.response.QuizAttemptStartResponse;
+import org.firstfolio.quiz.dto.response.QuizAnswerGradingResponse;
 import org.firstfolio.simulation.dto.response.PriceRefreshResponse;
 import org.firstfolio.simulation.dto.response.ProductDetailResponse;
 import org.firstfolio.simulation.dto.response.ProductPageResponse;
@@ -106,6 +107,9 @@ public final class OpenApiResponseSchemas {
 
     @Schema(name = "QuizAttemptStartApiResponse")
     public record QuizAttemptStart(QuizAttemptStartResponse data) { }
+
+    @Schema(name = "QuizAnswerGradingApiResponse")
+    public record QuizAnswerGrading(QuizAnswerGradingResponse data) { }
 
     @Schema(name = "PortfolioDetailApiResponse")
     public record PortfolioDetail(PortfolioDetailResponse data) { }

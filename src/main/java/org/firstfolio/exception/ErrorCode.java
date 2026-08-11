@@ -43,6 +43,12 @@ public enum ErrorCode {
 
     // 퀴즈 응시
     QUIZ_NOT_AVAILABLE(HttpStatus.FORBIDDEN, "현재 조건에서는 퀴즈에 응시할 수 없습니다."),
+    QUIZ_ATTEMPT_FORBIDDEN(HttpStatus.FORBIDDEN, "본인 소유의 퀴즈 응시가 아닙니다."),
+    QUIZ_ATTEMPT_NOT_FOUND(HttpStatus.NOT_FOUND, "퀴즈 응시를 찾을 수 없습니다."),
+    QUESTION_NOT_IN_ATTEMPT(HttpStatus.NOT_FOUND, "해당 응시에 포함된 문항이 아닙니다."),
+    ATTEMPT_ALREADY_GRADED(HttpStatus.CONFLICT, "이미 종료된 퀴즈 응시입니다."),
+    ANSWER_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "이미 제출한 답안은 변경할 수 없습니다."),
+    INVALID_SELECTED_CHOICE(HttpStatus.UNPROCESSABLE_ENTITY, "선택한 답안이 올바르지 않습니다."),
 
     // 학습 진도
     CONTENT_VERSION_MISMATCH(HttpStatus.CONFLICT, "소단원과 콘텐츠 버전이 일치하지 않습니다."),

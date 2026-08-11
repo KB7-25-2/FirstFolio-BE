@@ -15,6 +15,8 @@ import org.firstfolio.portfolio.service.PortfolioQueryService;
 import org.firstfolio.portfolio.service.PortfolioResetService;
 import org.firstfolio.portfolio.service.TradeService;
 import org.firstfolio.quiz.controller.QuizAttemptController;
+import org.firstfolio.quiz.controller.QuizAnswerController;
+import org.firstfolio.quiz.service.QuizAnswerGradingService;
 import org.firstfolio.quiz.service.QuizAttemptStartService;
 import org.firstfolio.simulation.controller.InternalProductPriceController;
 import org.firstfolio.simulation.service.PriceRefreshService;
@@ -154,6 +156,12 @@ class OpenApiConfigTest {
                         "$.paths['/api/learning/sub-chapters/{subChapterId}/quiz-attempts'].post.responses['403'].content['application/json'].schema['$ref']"
                 ).value("#/components/schemas/ErrorResponse"))
                 .andExpect(jsonPath(
+                        "$.paths['/api/learning/quiz-attempts/{attemptId}/answers/{questionId}'].put.responses['200'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/QuizAnswerGradingApiResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/quiz-attempts/{attemptId}/answers/{questionId}'].put.responses['409'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath(
                         "$.components.schemas.SignupRequest.properties.nickname.description"
                 ).value("2~10자의 서비스 닉네임"))
                 .andExpect(jsonPath(
@@ -223,6 +231,11 @@ class OpenApiConfigTest {
         @Bean
         QuizAttemptController quizAttemptController() {
             return new QuizAttemptController(mock(QuizAttemptStartService.class));
+        }
+
+        @Bean
+        QuizAnswerController quizAnswerController() {
+            return new QuizAnswerController(mock(QuizAnswerGradingService.class));
         }
 
         @Bean

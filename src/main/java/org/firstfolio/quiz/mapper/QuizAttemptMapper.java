@@ -10,6 +10,8 @@ import java.util.List;
 @Mapper
 public interface QuizAttemptMapper {
 
+    QuizAttempt findByIdForUpdate(@Param("attemptId") long attemptId);
+
     QuizAttempt findInProgressByUserIdAndSubChapterIdForUpdate(
             @Param("userId") long userId,
             @Param("subChapterId") long subChapterId
@@ -24,7 +26,16 @@ public interface QuizAttemptMapper {
             @Param("attemptId") long attemptId
     );
 
+    QuizAnswer findAnswerByAttemptIdAndQuestionIdForUpdate(
+            @Param("attemptId") long attemptId,
+            @Param("questionId") long questionId
+    );
+
+    int countAnsweredByAttemptId(@Param("attemptId") long attemptId);
+
     int insertAttempt(QuizAttempt attempt);
 
     int insertAnswer(QuizAnswer answer);
+
+    int gradeAnswerIfUnanswered(QuizAnswer answer);
 }

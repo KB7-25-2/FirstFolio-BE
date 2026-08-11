@@ -31,6 +31,7 @@ class QuizAttemptMapperXmlTest {
         }
 
         assertTrue(configuration.hasMapper(QuizAttemptMapper.class));
+        assertTrue(configuration.hasStatement(id("findByIdForUpdate")));
         assertTrue(configuration.hasStatement(id(
                 "findInProgressByUserIdAndSubChapterIdForUpdate"
         )));
@@ -38,8 +39,13 @@ class QuizAttemptMapperXmlTest {
                 "findMaxAttemptNoByUserIdAndSubChapterId"
         )));
         assertTrue(configuration.hasStatement(id("findAnswersByAttemptId")));
+        assertTrue(configuration.hasStatement(id(
+                "findAnswerByAttemptIdAndQuestionIdForUpdate"
+        )));
+        assertTrue(configuration.hasStatement(id("countAnsweredByAttemptId")));
         assertTrue(configuration.hasStatement(id("insertAttempt")));
         assertTrue(configuration.hasStatement(id("insertAnswer")));
+        assertTrue(configuration.hasStatement(id("gradeAnswerIfUnanswered")));
 
         BoundSql lockSql = configuration.getMappedStatement(id(
                         "findInProgressByUserIdAndSubChapterIdForUpdate"
@@ -55,6 +61,25 @@ class QuizAttemptMapperXmlTest {
                 .getBoundSql(Map.of("attemptId", 3001L));
         assertTrue(normalize(answersSql.getSql()).contains(
                 "WHERE attempt_id = ? ORDER BY display_order ASC"
+        ));
+
+        BoundSql answerLockSql = configuration.getMappedStatement(id(
+                        "findAnswerByAttemptIdAndQuestionIdForUpdate"
+                ))
+                .getBoundSql(Map.of(
+                        "attemptId", 3001L,
+                        "questionId", 1001L
+                ));
+        assertTrue(normalize(answerLockSql.getSql()).contains(
+                "WHERE attempt_id = ? AND question_id = ? FOR UPDATE"
+        ));
+
+        BoundSql gradeSql = configuration.getMappedStatement(
+                        id("gradeAnswerIfUnanswered")
+                )
+                .getBoundSql(new org.firstfolio.quiz.domain.QuizAnswer());
+        assertTrue(normalize(gradeSql.getSql()).contains(
+                "WHERE quiz_answer_id = ? AND user_answer_json IS NULL"
         ));
     }
 

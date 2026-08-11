@@ -51,6 +51,13 @@
         submitted_at
     </sql>
 
+    <select id="findByIdForUpdate" resultMap="quizAttemptResultMap">
+        SELECT <include refid="quizAttemptColumns" />
+        FROM quiz_attempts
+        WHERE attempt_id = #{attemptId}
+        FOR UPDATE
+    </select>
+
     <select id="findInProgressByUserIdAndSubChapterIdForUpdate"
             resultMap="quizAttemptResultMap">
         SELECT <include refid="quizAttemptColumns" />
@@ -87,6 +94,31 @@
         FROM quiz_answers
         WHERE attempt_id = #{attemptId}
         ORDER BY display_order ASC
+    </select>
+
+    <select id="findAnswerByAttemptIdAndQuestionIdForUpdate"
+            resultMap="quizAnswerResultMap">
+        SELECT
+            quiz_answer_id,
+            attempt_id,
+            question_id,
+            display_order,
+            question_snapshot_json,
+            user_answer_json,
+            is_correct,
+            answered_at,
+            created_at
+        FROM quiz_answers
+        WHERE attempt_id = #{attemptId}
+          AND question_id = #{questionId}
+        FOR UPDATE
+    </select>
+
+    <select id="countAnsweredByAttemptId" resultType="int">
+        SELECT COUNT(*)
+        FROM quiz_answers
+        WHERE attempt_id = #{attemptId}
+          AND user_answer_json IS NOT NULL
     </select>
 
     <insert id="insertAttempt"
@@ -148,5 +180,15 @@
             #{createdAt}
         )
     </insert>
+
+    <update id="gradeAnswerIfUnanswered"
+            parameterType="org.firstfolio.quiz.domain.QuizAnswer">
+        UPDATE quiz_answers
+        SET user_answer_json = #{userAnswerJson},
+            is_correct = #{correct},
+            answered_at = #{answeredAt}
+        WHERE quiz_answer_id = #{quizAnswerId}
+          AND user_answer_json IS NULL
+    </update>
 
 </mapper>
