@@ -11,6 +11,8 @@ import org.firstfolio.portfolio.mapper.PortfolioHoldingMapper;
 import org.firstfolio.simulation.domain.AssetType;
 import org.firstfolio.simulation.domain.ProductPrice;
 import org.firstfolio.simulation.mapper.ProductPriceMapper;
+import org.firstfolio.simulation.service.CurrentPriceReader;
+import org.firstfolio.simulation.service.PriceCache;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,6 +43,7 @@ class PortfolioValuationServiceTest {
 
     private PortfolioHoldingMapper holdingMapper;
     private ProductPriceMapper productPriceMapper;
+    private PriceCache priceCache;
     private PortfolioValuationService service;
 
     private final List<PortfolioHolding> holdings = new ArrayList<>();
@@ -50,7 +53,14 @@ class PortfolioValuationServiceTest {
     void setUp() {
         holdingMapper = mock(PortfolioHoldingMapper.class);
         productPriceMapper = mock(ProductPriceMapper.class);
-        service = new PortfolioValuationService(holdingMapper, productPriceMapper);
+        priceCache = new PriceCache();
+
+        // CurrentPriceReader를 모킹하지 않고 진짜를 쓴다 — 캐시 미스 시 DB로 넘어가는 경로까지
+        // 함께 지나야 "평가와 체결이 같은 값을 본다"는 것이 실제로 확인된다.
+        service = new PortfolioValuationService(
+                holdingMapper,
+                new CurrentPriceReader(priceCache, productPriceMapper)
+        );
 
         holdings.clear();
         prices.clear();
@@ -287,5 +297,61 @@ class PortfolioValuationServiceTest {
     void rejectsMissingPortfolio() {
         assertThrows(IllegalArgumentException.class, () -> service.valuate(null));
         assertThrows(IllegalArgumentException.class, () -> service.valuate(new Portfolio()));
+    }
+
+    // ------------------------------------------------------------- 캐시 경유
+
+    /** 캐시에 직접 넣는다 — 장중 폴링이 갱신해 둔 상태를 흉내 낸다. */
+    private void cached(long productId, String price, LocalDateTime referenceAt) {
+        ProductPrice productPrice = new ProductPrice();
+
+        productPrice.setProductId(productId);
+        productPrice.setPrice(new BigDecimal(price));
+        productPrice.setReferenceAt(referenceAt);
+
+        priceCache.put(productPrice);
+    }
+
+    @Test
+    @DisplayName("장중에는 캐시의 실시간 가격으로 평가한다 — 체결가와 같은 값이어야 한다")
+    void valuesWithCachedPriceDuringSession() {
+        LocalDateTime live = LocalDateTime.of(2026, 8, 6, 3, 30);
+
+        holding(8101L, 25L, AssetType.STOCK, "10.000000", "700000.00");
+        cached(25L, "80000.0000", live);
+        price(25L, "75000.0000");   // DB에는 종가가 남아 있다
+
+        HoldingValuation valuation = service.valuate(portfolio("0.00")).getHoldings().get(0);
+
+        assertEquals(new BigDecimal("800000.00"), valuation.getValuationAmount(), "캐시 값으로 평가해야 합니다.");
+        assertEquals(live, valuation.getValuedAt(), "기준 시점도 캐시의 것이어야 합니다.");
+        verify(productPriceMapper, never()).findLatestByProductIds(any());
+    }
+
+    @Test
+    @DisplayName("캐시가 비면 DB 종가로 평가한다 — 재시작 직후에도 평가가 멈추지 않는다")
+    void fallsBackToStoredClosingPrice() {
+        holding(8101L, 25L, AssetType.STOCK, "10.000000", "700000.00");
+        price(25L, "75000.0000");
+
+        HoldingValuation valuation = service.valuate(portfolio("0.00")).getHoldings().get(0);
+
+        assertEquals(new BigDecimal("750000.00"), valuation.getValuationAmount());
+        assertEquals(ValuationBasis.MARKET_PRICE, valuation.getBasis());
+    }
+
+    @Test
+    @DisplayName("일부만 캐시에 있으면 빠진 것만 DB에서 읽는다")
+    void queriesOnlyUncachedProducts() {
+        holding(8101L, 26L, AssetType.STOCK, "1.000000", "100000.00");
+        holding(8102L, 27L, AssetType.FUND, "1.000000", "100000.00");
+        cached(26L, "110000.0000", PRICE_TIME);
+        price(27L, "120000.0000");
+
+        PortfolioValuation valuation = service.valuate(portfolio("0.00"));
+
+        assertEquals(new BigDecimal("110000.00"), valuation.getHoldings().get(0).getValuationAmount());
+        assertEquals(new BigDecimal("120000.00"), valuation.getHoldings().get(1).getValuationAmount());
+        verify(productPriceMapper).findLatestByProductIds(Arrays.asList(27L));
     }
 }

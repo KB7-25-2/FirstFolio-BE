@@ -55,6 +55,14 @@
             AND latest.reference_at = p.reference_at
     </select>
 
+    <!-- 오늘 마감 후 저장된 종가가 이미 있는지. 상품을 가리지 않아 인덱스를 타지 않지만
+         하루 15행짜리 테이블이고 재시작 직후 한 번만 부른다. -->
+    <select id="countSavedSince" resultType="int">
+        SELECT COUNT(*)
+        FROM product_prices
+        WHERE reference_at >= #{from}
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="productPriceId">
         INSERT INTO product_prices (
             product_id,

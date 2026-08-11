@@ -9,7 +9,7 @@ import org.firstfolio.portfolio.domain.ValuationBasis;
 import org.firstfolio.portfolio.mapper.PortfolioHoldingMapper;
 import org.firstfolio.simulation.domain.AssetType;
 import org.firstfolio.simulation.domain.ProductPrice;
-import org.firstfolio.simulation.mapper.ProductPriceMapper;
+import org.firstfolio.simulation.service.CurrentPriceReader;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,7 +19,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +37,8 @@ import java.util.Set;
  *   <tr>
  *     <td>주식·펀드 (매수형)</td>
  *     <td>보유 수량 × 마지막 유효 기준 가격</td>
- *     <td>시세가 오르내리는 상품이다. 가격은 {@code product_prices}에 쌓인다 (FUNC-040).</td>
+ *     <td>시세가 오르내리는 상품이다. 가격은 {@link CurrentPriceReader}에서 읽는다 —
+ *         체결가와 같은 자리다 (FUNC-040).</td>
  *   </tr>
  *   <tr>
  *     <td>예·적금·채권 (가입형)</td>
@@ -65,14 +65,14 @@ public class PortfolioValuationService {
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
     private final PortfolioHoldingMapper holdingMapper;
-    private final ProductPriceMapper productPriceMapper;
+    private final CurrentPriceReader priceReader;
 
     public PortfolioValuationService(
             PortfolioHoldingMapper holdingMapper,
-            ProductPriceMapper productPriceMapper
+            CurrentPriceReader priceReader
     ) {
         this.holdingMapper = holdingMapper;
-        this.productPriceMapper = productPriceMapper;
+        this.priceReader = priceReader;
     }
 
     /**
@@ -180,6 +180,12 @@ public class PortfolioValuationService {
         return allocations;
     }
 
+    /**
+     * 시세로 평가하는 보유의 기준 가격.
+     *
+     * <p>{@link CurrentPriceReader}를 거친다 — <b>체결가와 같은 자리에서 읽어야</b> 화면의
+     * 평가액과 실제 체결 금액이 갈라지지 않는다. 빈 목록·캐시 미스 처리는 그쪽이 맡는다.</p>
+     */
     private Map<Long, ProductPrice> latestPrices(List<PortfolioHolding> holdings) {
         Set<Long> productIds = new LinkedHashSet<>();
 
@@ -189,17 +195,7 @@ public class PortfolioValuationService {
             }
         }
 
-        if (productIds.isEmpty()) {
-            return Map.of();
-        }
-
-        Map<Long, ProductPrice> prices = new HashMap<>();
-
-        for (ProductPrice price : productPriceMapper.findLatestByProductIds(new ArrayList<>(productIds))) {
-            prices.put(price.getProductId(), price);
-        }
-
-        return prices;
+        return priceReader.readAll(productIds);
     }
 
     /**
