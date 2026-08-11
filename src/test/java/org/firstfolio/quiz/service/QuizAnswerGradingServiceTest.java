@@ -9,6 +9,8 @@ import org.firstfolio.quiz.domain.QuizAttemptStatus;
 import org.firstfolio.quiz.domain.QuizGenerationType;
 import org.firstfolio.quiz.domain.QuizType;
 import org.firstfolio.quiz.mapper.QuizAttemptMapper;
+import org.firstfolio.reward.domain.QuizRewardResult;
+import org.firstfolio.reward.service.QuizRewardService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -36,17 +38,20 @@ class QuizAnswerGradingServiceTest {
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 11, 1, 30);
 
     private QuizAttemptMapper quizAttemptMapper;
+    private QuizRewardService quizRewardService;
     private QuizAnswerGradingService service;
 
     @BeforeEach
     void setUp() {
         quizAttemptMapper = mock(QuizAttemptMapper.class);
+        quizRewardService = mock(QuizRewardService.class);
         service = new QuizAnswerGradingService(
                 quizAttemptMapper,
                 Clock.fixed(
                         Instant.parse("2026-08-11T01:30:00Z"),
                         ZoneOffset.UTC
-                )
+                ),
+                quizRewardService
         );
     }
 
@@ -84,12 +89,18 @@ class QuizAnswerGradingServiceTest {
     void returnsExistingResultForSameAnswerEvenAfterAttemptWasGraded() {
         QuizAttempt gradedAttempt = inProgressAttempt(3);
         gradedAttempt.setStatus(QuizAttemptStatus.GRADED);
+        gradedAttempt.setCorrectCount(2);
+        gradedAttempt.setScore(67);
+        gradedAttempt.setRewardPolicyId(91L);
+        gradedAttempt.setPointTransactionId(7001L);
         QuizAnswer answered = unanswered();
         answered.setUserAnswerJson("{\"key\":\"B\"}");
         answered.setCorrect(false);
         answered.setAnsweredAt(NOW.minusMinutes(1));
         arrange(gradedAttempt, answered);
         when(quizAttemptMapper.countAnsweredByAttemptId(ATTEMPT_ID)).thenReturn(3);
+        when(quizRewardService.restore(USER_ID, ATTEMPT_ID, 91L, 7001L))
+                .thenReturn(new QuizRewardResult(91L, 200, 7001L));
 
         QuizAnswerGradingResult result = service.grade(
                 USER_ID,
@@ -101,6 +112,10 @@ class QuizAnswerGradingServiceTest {
         assertEquals(QuizAttemptStatus.GRADED, result.attemptStatus());
         assertEquals(3, result.answeredCount());
         assertTrue(result.allAnswered());
+        assertEquals(2, result.correctCount());
+        assertEquals(67, result.score());
+        assertEquals(200, result.reward().points());
+        assertEquals("NEXT_SUB_CHAPTER", result.nextAction());
         verify(quizAttemptMapper, never()).gradeAnswerIfUnanswered(any());
     }
 
@@ -150,10 +165,19 @@ class QuizAnswerGradingServiceTest {
     }
 
     @Test
-    void keepsAttemptInProgressWhenAllAnswersAreStoredInThisPhase() {
+    void completesAttemptAndGrantsRewardWhenLastAnswerIsStored() {
         arrange(inProgressAttempt(3), unanswered());
         when(quizAttemptMapper.gradeAnswerIfUnanswered(any())).thenReturn(1);
         when(quizAttemptMapper.countAnsweredByAttemptId(ATTEMPT_ID)).thenReturn(3);
+        when(quizAttemptMapper.countCorrectByAttemptId(ATTEMPT_ID)).thenReturn(2);
+        when(quizRewardService.grantForCompletedAttempt(
+                USER_ID,
+                ATTEMPT_ID,
+                1,
+                2,
+                NOW
+        )).thenReturn(new QuizRewardResult(91L, 200, 7001L));
+        when(quizAttemptMapper.completeAttemptIfInProgress(any())).thenReturn(1);
 
         QuizAnswerGradingResult result = service.grade(
                 USER_ID,
@@ -164,7 +188,51 @@ class QuizAnswerGradingServiceTest {
 
         assertTrue(result.correct());
         assertTrue(result.allAnswered());
-        assertEquals(QuizAttemptStatus.IN_PROGRESS, result.attemptStatus());
+        assertEquals(QuizAttemptStatus.GRADED, result.attemptStatus());
+        assertEquals(2, result.correctCount());
+        assertEquals(67, result.score());
+        assertEquals(200, result.reward().points());
+        assertEquals(7001L, result.reward().pointTransactionId());
+        assertEquals("NEXT_SUB_CHAPTER", result.nextAction());
+
+        ArgumentCaptor<QuizAttempt> captor = ArgumentCaptor.forClass(
+                QuizAttempt.class
+        );
+        verify(quizAttemptMapper).completeAttemptIfInProgress(captor.capture());
+        assertEquals(QuizAttemptStatus.GRADED, captor.getValue().getStatus());
+        assertEquals(2, captor.getValue().getCorrectCount());
+        assertEquals(67, captor.getValue().getScore());
+        assertEquals(91L, captor.getValue().getRewardPolicyId());
+        assertEquals(7001L, captor.getValue().getPointTransactionId());
+        assertEquals(NOW, captor.getValue().getSubmittedAt());
+    }
+
+    @Test
+    void doesNotCompleteAttemptWhenRewardProcessingFails() {
+        arrange(inProgressAttempt(3), unanswered());
+        when(quizAttemptMapper.gradeAnswerIfUnanswered(any())).thenReturn(1);
+        when(quizAttemptMapper.countAnsweredByAttemptId(ATTEMPT_ID)).thenReturn(3);
+        when(quizAttemptMapper.countCorrectByAttemptId(ATTEMPT_ID)).thenReturn(2);
+        when(quizRewardService.grantForCompletedAttempt(
+                USER_ID,
+                ATTEMPT_ID,
+                1,
+                2,
+                NOW
+        )).thenThrow(new ApiException(ErrorCode.INTERNAL_ERROR));
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> service.grade(
+                        USER_ID,
+                        ATTEMPT_ID,
+                        QUESTION_ID,
+                        "C"
+                )
+        );
+
+        assertEquals(ErrorCode.INTERNAL_ERROR, exception.getErrorCode());
+        verify(quizAttemptMapper, never()).completeAttemptIfInProgress(any());
     }
 
     @Test

@@ -33,9 +33,13 @@ public interface QuizAttemptMapper {
 
     int countAnsweredByAttemptId(@Param("attemptId") long attemptId);
 
+    int countCorrectByAttemptId(@Param("attemptId") long attemptId);
+
     int insertAttempt(QuizAttempt attempt);
 
     int insertAnswer(QuizAnswer answer);
 
     int gradeAnswerIfUnanswered(QuizAnswer answer);
+
+    int completeAttemptIfInProgress(QuizAttempt attempt);
 }

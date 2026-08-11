@@ -11,6 +11,7 @@ import org.firstfolio.quiz.domain.QuizAnswerGradingResult;
 import org.firstfolio.quiz.domain.QuizAttemptStatus;
 import org.firstfolio.quiz.domain.QuizGenerationType;
 import org.firstfolio.quiz.service.QuizAnswerGradingService;
+import org.firstfolio.reward.domain.QuizRewardResult;
 import org.firstfolio.user.domain.UserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -78,7 +79,11 @@ class QuizAnswerControllerTest {
                 .andExpect(jsonPath("$.data.attempt.status").value("IN_PROGRESS"))
                 .andExpect(jsonPath("$.data.attempt.answered_count").value(1))
                 .andExpect(jsonPath("$.data.attempt.total_count").value(3))
-                .andExpect(jsonPath("$.data.attempt.completed").value(false));
+                .andExpect(jsonPath("$.data.attempt.completed").value(false))
+                .andExpect(jsonPath("$.data.attempt.correct_count").doesNotExist())
+                .andExpect(jsonPath("$.data.attempt.score").doesNotExist())
+                .andExpect(jsonPath("$.data.reward").doesNotExist())
+                .andExpect(jsonPath("$.data.next_action").doesNotExist());
 
         verify(service).grade(USER_ID, ATTEMPT_ID, QUESTION_ID, "B");
     }
@@ -124,6 +129,28 @@ class QuizAnswerControllerTest {
     }
 
     @Test
+    void returnsFinalScoreAndRewardWhenLastQuestionCompletesQuiz() throws Exception {
+        when(service.grade(USER_ID, ATTEMPT_ID, QUESTION_ID, "C"))
+                .thenReturn(completedResult());
+
+        mockMvc.perform(authenticated(put(
+                        "/api/learning/quiz-attempts/3001/answers/1001"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"answer\":{\"key\":\"C\"}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attempt.status").value("GRADED"))
+                .andExpect(jsonPath("$.data.attempt.answered_count").value(3))
+                .andExpect(jsonPath("$.data.attempt.correct_count").value(2))
+                .andExpect(jsonPath("$.data.attempt.score").value(67))
+                .andExpect(jsonPath("$.data.attempt.completed").value(true))
+                .andExpect(jsonPath("$.data.reward.points").value(200))
+                .andExpect(jsonPath("$.data.reward.point_transaction_id")
+                        .value(7001))
+                .andExpect(jsonPath("$.data.next_action")
+                        .value("NEXT_SUB_CHAPTER"));
+    }
+
+    @Test
     void rejectsUnauthenticatedRequest() throws Exception {
         mockMvc.perform(put(
                         "/api/learning/quiz-attempts/3001/answers/1001")
@@ -147,7 +174,31 @@ class QuizAnswerControllerTest {
                 QuizAttemptStatus.IN_PROGRESS,
                 1,
                 3,
-                false
+                false,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    private QuizAnswerGradingResult completedResult() {
+        return new QuizAnswerGradingResult(
+                ATTEMPT_ID,
+                QUESTION_ID,
+                QuizGenerationType.HUMAN,
+                "C",
+                true,
+                "C",
+                "정기예금 해설",
+                QuizAttemptStatus.GRADED,
+                3,
+                3,
+                true,
+                2,
+                67,
+                new QuizRewardResult(91L, 200, 7001L),
+                "NEXT_SUB_CHAPTER"
         );
     }
 

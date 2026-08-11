@@ -32,7 +32,8 @@ public class QuizAnswerController {
             summary = "퀴즈 문항별 답안 제출 및 즉시 채점",
             description = "응시에 고정된 문항 스냅샷으로 단일 답안을 채점하고 정답과 해설을 반환합니다. "
                     + "동일 답안 재요청은 응시 상태와 관계없이 기존 결과를 반환하며 답안 순서는 강제하지 않습니다. "
-                    + "응시 완료와 포인트 지급은 후속 구현에서 마지막 문항 트랜잭션에 연결합니다.",
+                    + "마지막 미응답 문항이면 응시 결과를 확정하고 최초 응시에 한해 정답 수 기반 포인트를 "
+                    + "같은 트랜잭션에서 지급합니다.",
             responses = {
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(
                             responseCode = "200",

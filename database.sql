@@ -340,6 +340,8 @@ CREATE TABLE quiz_attempts (
     total_count INT NOT NULL DEFAULT 0 COMMENT '전체 문제 수',
     correct_count INT NOT NULL DEFAULT 0 COMMENT '정답 수',
     score INT NOT NULL DEFAULT 0 COMMENT '채점 점수',
+    reward_policy_id BIGINT NULL COMMENT '완료 시 적용한 QUIZ_REWARD 정책 버전',
+    point_transaction_id BIGINT NULL COMMENT '최초 응시 완료 보상 원장. 미지급이면 NULL',
     started_at DATETIME NOT NULL COMMENT '응시 시작 일시',
     submitted_at DATETIME NULL COMMENT '최종 제출 일시',
     CONSTRAINT pk_quiz_attempts PRIMARY KEY (attempt_id),
@@ -354,6 +356,9 @@ CREATE TABLE quiz_attempts (
            ON UPDATE RESTRICT ON DELETE RESTRICT,
     CONSTRAINT fk_quiz_attempts_content_version
        FOREIGN KEY (content_version_id) REFERENCES content_versions (content_version_id)
+           ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CONSTRAINT fk_quiz_attempts_reward_policy
+       FOREIGN KEY (reward_policy_id) REFERENCES system_policies (policy_id)
            ON UPDATE RESTRICT ON DELETE RESTRICT,
     CONSTRAINT chk_quiz_attempts_type CHECK (
        quiz_type IN ('LEVEL_TEST', 'SUB_CHAPTER', 'MAIN_CHAPTER')
@@ -377,7 +382,8 @@ CREATE TABLE quiz_attempts (
        ),
     INDEX idx_quiz_attempts_user_status (user_id, quiz_type, status, started_at),
     INDEX idx_quiz_attempts_main_chapter (main_chapter_id, user_id, attempt_no),
-    INDEX idx_quiz_attempts_sub_chapter (sub_chapter_id, user_id, attempt_no)
+    INDEX idx_quiz_attempts_sub_chapter (sub_chapter_id, user_id, attempt_no),
+    INDEX idx_quiz_attempts_reward_policy (reward_policy_id)
 ) ENGINE = InnoDB COMMENT = '레벨·소단원·대단원 퀴즈 응시';
 
 CREATE TABLE quiz_answers (
@@ -426,6 +432,12 @@ CREATE TABLE point_transactions (
     INDEX idx_point_transactions_user_time (user_id, occurred_at),
     INDEX idx_point_transactions_reason (reason_type, reason_id)
 ) ENGINE = InnoDB COMMENT = '포인트 적립·사용·취소·만료 원장';
+
+ALTER TABLE quiz_attempts
+    ADD CONSTRAINT uq_quiz_attempts_point_transaction UNIQUE (point_transaction_id),
+    ADD CONSTRAINT fk_quiz_attempts_point_transaction
+        FOREIGN KEY (point_transaction_id) REFERENCES point_transactions (point_transaction_id)
+            ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 CREATE TABLE daily_quests (
     daily_quest_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '일일 퀘스트 식별자',

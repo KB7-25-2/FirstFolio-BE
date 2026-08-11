@@ -12,6 +12,8 @@ import org.firstfolio.quiz.domain.QuizAttempt;
 import org.firstfolio.quiz.domain.QuizAttemptStatus;
 import org.firstfolio.quiz.domain.QuizGenerationType;
 import org.firstfolio.quiz.mapper.QuizAttemptMapper;
+import org.firstfolio.reward.domain.QuizRewardResult;
+import org.firstfolio.reward.service.QuizRewardService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,14 +29,17 @@ public class QuizAnswerGradingService {
 
     private final QuizAttemptMapper quizAttemptMapper;
     private final Clock clock;
+    private final QuizRewardService quizRewardService;
     private final ObjectMapper objectMapper;
 
     public QuizAnswerGradingService(
             QuizAttemptMapper quizAttemptMapper,
-            Clock clock
+            Clock clock,
+            QuizRewardService quizRewardService
     ) {
         this.quizAttemptMapper = quizAttemptMapper;
         this.clock = clock;
+        this.quizRewardService = quizRewardService;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -90,7 +95,67 @@ public class QuizAnswerGradingService {
         if (quizAttemptMapper.gradeAnswerIfUnanswered(answer) != 1) {
             throw new ApiException(ErrorCode.INTERNAL_ERROR);
         }
-        return result(attempt, answer, snapshot, selectedKey);
+        return completeAndResult(
+                attempt,
+                answer,
+                snapshot,
+                selectedKey
+        );
+    }
+
+    private QuizAnswerGradingResult completeAndResult(
+            QuizAttempt attempt,
+            QuizAnswer answer,
+            QuestionSnapshot snapshot,
+            String selectedKey
+    ) {
+        int answeredCount = answeredCount(attempt);
+        if (answeredCount < attempt.getTotalCount()) {
+            return result(
+                    attempt,
+                    answer,
+                    snapshot,
+                    selectedKey,
+                    answeredCount,
+                    null
+            );
+        }
+
+        int correctCount = quizAttemptMapper.countCorrectByAttemptId(
+                attempt.getAttemptId()
+        );
+        if (correctCount < 0 || correctCount > attempt.getTotalCount()) {
+            throw new ApiException(ErrorCode.INTERNAL_ERROR);
+        }
+
+        LocalDateTime completedAt = answer.getAnsweredAt();
+        QuizRewardResult reward = quizRewardService
+                .grantForCompletedAttempt(
+                        attempt.getUserId(),
+                        attempt.getAttemptId(),
+                        attempt.getAttemptNo(),
+                        correctCount,
+                        completedAt
+                );
+
+        attempt.setStatus(QuizAttemptStatus.GRADED);
+        attempt.setCorrectCount(correctCount);
+        attempt.setScore(score(correctCount, attempt.getTotalCount()));
+        attempt.setRewardPolicyId(reward.policyId());
+        attempt.setPointTransactionId(reward.pointTransactionId());
+        attempt.setSubmittedAt(completedAt);
+
+        if (quizAttemptMapper.completeAttemptIfInProgress(attempt) != 1) {
+            throw new ApiException(ErrorCode.INTERNAL_ERROR);
+        }
+        return result(
+                attempt,
+                answer,
+                snapshot,
+                selectedKey,
+                answeredCount,
+                reward
+        );
     }
 
     private QuizAnswerGradingResult result(
@@ -99,16 +164,38 @@ public class QuizAnswerGradingService {
             QuestionSnapshot snapshot,
             String selectedKey
     ) {
+        int answeredCount = answeredCount(attempt);
+        QuizRewardResult reward = attempt.getStatus() == QuizAttemptStatus.GRADED
+                ? quizRewardService.restore(
+                        attempt.getUserId(),
+                        attempt.getAttemptId(),
+                        attempt.getRewardPolicyId(),
+                        attempt.getPointTransactionId()
+                )
+                : null;
+        return result(
+                attempt,
+                answer,
+                snapshot,
+                selectedKey,
+                answeredCount,
+                reward
+        );
+    }
+
+    private QuizAnswerGradingResult result(
+            QuizAttempt attempt,
+            QuizAnswer answer,
+            QuestionSnapshot snapshot,
+            String selectedKey,
+            int answeredCount,
+            QuizRewardResult reward
+    ) {
         if (answer.getCorrect() == null) {
             throw new ApiException(ErrorCode.INTERNAL_ERROR);
         }
 
-        int answeredCount = quizAttemptMapper.countAnsweredByAttemptId(
-                attempt.getAttemptId()
-        );
-        if (answeredCount < 0 || answeredCount > attempt.getTotalCount()) {
-            throw new ApiException(ErrorCode.INTERNAL_ERROR);
-        }
+        boolean completed = attempt.getStatus() == QuizAttemptStatus.GRADED;
 
         return new QuizAnswerGradingResult(
                 attempt.getAttemptId(),
@@ -121,8 +208,31 @@ public class QuizAnswerGradingService {
                 attempt.getStatus(),
                 answeredCount,
                 attempt.getTotalCount(),
-                answeredCount == attempt.getTotalCount()
+                answeredCount == attempt.getTotalCount(),
+                completed ? attempt.getCorrectCount() : null,
+                completed ? attempt.getScore() : null,
+                reward,
+                completed && attempt.getQuizType() == org.firstfolio.quiz.domain.QuizType.SUB_CHAPTER
+                        ? "NEXT_SUB_CHAPTER"
+                        : null
         );
+    }
+
+    private int answeredCount(QuizAttempt attempt) {
+        int answeredCount = quizAttemptMapper.countAnsweredByAttemptId(
+                attempt.getAttemptId()
+        );
+        if (answeredCount < 0 || answeredCount > attempt.getTotalCount()) {
+            throw new ApiException(ErrorCode.INTERNAL_ERROR);
+        }
+        return answeredCount;
+    }
+
+    private int score(int correctCount, int totalCount) {
+        if (totalCount <= 0) {
+            throw new ApiException(ErrorCode.INTERNAL_ERROR);
+        }
+        return Math.round(correctCount * 100.0f / totalCount);
     }
 
     private String normalizeSelectedKey(String selectedKey) {

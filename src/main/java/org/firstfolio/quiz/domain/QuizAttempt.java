@@ -15,6 +15,8 @@ public class QuizAttempt {
     private int totalCount;
     private int correctCount;
     private int score;
+    private Long rewardPolicyId;
+    private Long pointTransactionId;
     private LocalDateTime startedAt;
     private LocalDateTime submittedAt;
 
@@ -104,6 +106,22 @@ public class QuizAttempt {
 
     public void setScore(int score) {
         this.score = score;
+    }
+
+    public Long getRewardPolicyId() {
+        return rewardPolicyId;
+    }
+
+    public void setRewardPolicyId(Long rewardPolicyId) {
+        this.rewardPolicyId = rewardPolicyId;
+    }
+
+    public Long getPointTransactionId() {
+        return pointTransactionId;
+    }
+
+    public void setPointTransactionId(Long pointTransactionId) {
+        this.pointTransactionId = pointTransactionId;
     }
 
     public LocalDateTime getStartedAt() {

@@ -18,6 +18,8 @@
         <result property="totalCount" column="total_count" />
         <result property="correctCount" column="correct_count" />
         <result property="score" column="score" />
+        <result property="rewardPolicyId" column="reward_policy_id" />
+        <result property="pointTransactionId" column="point_transaction_id" />
         <result property="startedAt" column="started_at" />
         <result property="submittedAt" column="submitted_at" />
     </resultMap>
@@ -47,6 +49,8 @@
         total_count,
         correct_count,
         score,
+        reward_policy_id,
+        point_transaction_id,
         started_at,
         submitted_at
     </sql>
@@ -121,6 +125,13 @@
           AND user_answer_json IS NOT NULL
     </select>
 
+    <select id="countCorrectByAttemptId" resultType="int">
+        SELECT COUNT(*)
+        FROM quiz_answers
+        WHERE attempt_id = #{attemptId}
+          AND is_correct = TRUE
+    </select>
+
     <insert id="insertAttempt"
             parameterType="org.firstfolio.quiz.domain.QuizAttempt"
             useGeneratedKeys="true"
@@ -189,6 +200,19 @@
             answered_at = #{answeredAt}
         WHERE quiz_answer_id = #{quizAnswerId}
           AND user_answer_json IS NULL
+    </update>
+
+    <update id="completeAttemptIfInProgress"
+            parameterType="org.firstfolio.quiz.domain.QuizAttempt">
+        UPDATE quiz_attempts
+        SET status = #{status},
+            correct_count = #{correctCount},
+            score = #{score},
+            reward_policy_id = #{rewardPolicyId},
+            point_transaction_id = #{pointTransactionId,jdbcType=BIGINT},
+            submitted_at = #{submittedAt}
+        WHERE attempt_id = #{attemptId}
+          AND status = 'IN_PROGRESS'
     </update>
 
 </mapper>

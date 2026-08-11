@@ -43,9 +43,11 @@ class QuizAttemptMapperXmlTest {
                 "findAnswerByAttemptIdAndQuestionIdForUpdate"
         )));
         assertTrue(configuration.hasStatement(id("countAnsweredByAttemptId")));
+        assertTrue(configuration.hasStatement(id("countCorrectByAttemptId")));
         assertTrue(configuration.hasStatement(id("insertAttempt")));
         assertTrue(configuration.hasStatement(id("insertAnswer")));
         assertTrue(configuration.hasStatement(id("gradeAnswerIfUnanswered")));
+        assertTrue(configuration.hasStatement(id("completeAttemptIfInProgress")));
 
         BoundSql lockSql = configuration.getMappedStatement(id(
                         "findInProgressByUserIdAndSubChapterIdForUpdate"
@@ -80,6 +82,17 @@ class QuizAttemptMapperXmlTest {
                 .getBoundSql(new org.firstfolio.quiz.domain.QuizAnswer());
         assertTrue(normalize(gradeSql.getSql()).contains(
                 "WHERE quiz_answer_id = ? AND user_answer_json IS NULL"
+        ));
+
+        BoundSql completeSql = configuration.getMappedStatement(
+                        id("completeAttemptIfInProgress")
+                )
+                .getBoundSql(new org.firstfolio.quiz.domain.QuizAttempt());
+        assertTrue(normalize(completeSql.getSql()).contains(
+                "reward_policy_id = ?, point_transaction_id = ?, submitted_at = ?"
+        ));
+        assertTrue(normalize(completeSql.getSql()).contains(
+                "WHERE attempt_id = ? AND status = 'IN_PROGRESS'"
         ));
     }
 
