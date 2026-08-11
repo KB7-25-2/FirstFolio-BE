@@ -3,8 +3,10 @@ package org.firstfolio.simulation.service;
 import org.firstfolio.simulation.domain.ProductPrice;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -96,5 +98,18 @@ public class PriceCache {
     /** 캐시된 상품 수. 폴링이 실제로 돌고 있는지 로그·점검으로 확인할 때 쓴다. */
     public int size() {
         return prices.size();
+    }
+
+    /**
+     * 지금 캐시에 든 전부. <b>점검용이다.</b>
+     *
+     * <p>정상 폴링은 로그를 남기지 않아서(2초 주기라 하루 11,700줄이 된다) 캐시가 채워졌는지
+     * 밖에서 볼 방법이 없었다. 내부 점검 API가 이 값을 쓴다.</p>
+     *
+     * <p>돌려주는 목록은 호출한 쪽의 것이고, 담긴 {@link ProductPrice}는 캐시가 들고 있는 것과
+     * 같은 객체다 — <b>고치지 않는다.</b></p>
+     */
+    public List<ProductPrice> snapshot() {
+        return new ArrayList<>(prices.values());
     }
 }

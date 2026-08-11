@@ -11,7 +11,11 @@ import org.firstfolio.portfolio.service.PortfolioQueryService;
 import org.firstfolio.portfolio.service.PortfolioResetService;
 import org.firstfolio.portfolio.service.TradeService;
 import org.firstfolio.simulation.controller.InternalProductPriceController;
+import org.firstfolio.simulation.service.PriceCache;
 import org.firstfolio.simulation.service.PriceRefreshService;
+import org.firstfolio.simulation.service.TradingHours;
+
+import java.time.Clock;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -179,7 +183,12 @@ class OpenApiConfigTest {
 
         @Bean
         InternalProductPriceController internalProductPriceController() {
-            return new InternalProductPriceController(mock(PriceRefreshService.class));
+            return new InternalProductPriceController(
+                    mock(PriceRefreshService.class),
+                    new PriceCache(),
+                    new TradingHours(),
+                    Clock.systemUTC()
+            );
         }
     }
 
