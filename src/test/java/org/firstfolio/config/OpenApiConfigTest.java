@@ -5,9 +5,11 @@ import org.firstfolio.auth.controller.AuthController;
 import org.firstfolio.auth.domain.AuthenticatedUser;
 import org.firstfolio.auth.service.AuthUseCase;
 import org.firstfolio.learning.controller.LessonContentController;
+import org.firstfolio.learning.controller.LearningContinueController;
 import org.firstfolio.learning.controller.LearningProgressController;
 import org.firstfolio.learning.controller.PublicChapterController;
 import org.firstfolio.learning.service.LessonContentQueryService;
+import org.firstfolio.learning.service.LearningContinueService;
 import org.firstfolio.learning.service.LearningProgressService;
 import org.firstfolio.learning.service.PublicChapterQueryService;
 import org.firstfolio.portfolio.controller.PortfolioController;
@@ -152,6 +154,17 @@ class OpenApiConfigTest {
                         "$.paths['/api/learning/sub-chapters/{subChapterId}/progress'].get.responses['404'].content['application/json'].schema['$ref']"
                 ).value("#/components/schemas/ErrorResponse"))
                 .andExpect(jsonPath(
+                        "$.paths['/api/learning/continue'].get.responses['200'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/LearningContinueApiResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/continue'].get.responses['404'].description"
+                ).value(org.hamcrest.Matchers.containsString(
+                        "CONTINUE_POSITION_NOT_FOUND"
+                )))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/continue'].get.responses['503'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath(
                         "$.paths['/api/learning/sub-chapters/{subChapterId}/quiz-attempts'].post.responses['201'].content['application/json'].schema['$ref']"
                 ).value("#/components/schemas/QuizAttemptStartApiResponse"))
                 .andExpect(jsonPath(
@@ -234,6 +247,13 @@ class OpenApiConfigTest {
         @Bean
         LearningProgressController learningProgressController() {
             return new LearningProgressController(mock(LearningProgressService.class));
+        }
+
+        @Bean
+        LearningContinueController learningContinueController() {
+            return new LearningContinueController(
+                    mock(LearningContinueService.class)
+            );
         }
 
         @Bean
