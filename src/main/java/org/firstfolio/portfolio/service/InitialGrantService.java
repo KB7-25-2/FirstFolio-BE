@@ -22,8 +22,8 @@ import java.time.ZoneOffset;
  *
  * <h3>학습 도메인과의 연결 지점</h3>
  *
- * <p>지급 트리거는 학습 도메인의 {@code POST /quiz-attempts/{attempt_id}/submit}에서 발생한다.
- * 학습 도메인은 이번 작업 범위가 아니므로 <b>이 서비스를 호출하는 쪽만 맞추면 된다.</b></p>
+ * <p>지급 트리거는 대단원 퀴즈의 마지막 문항 답안이 채점되어 포트폴리오 기초
+ * 과정이 완료되는 시점에 발생한다.</p>
  *
  * <pre>
  * // 학습 도메인 (FOUNDATION 대단원 합격 처리 안에서)
@@ -31,7 +31,7 @@ import java.time.ZoneOffset;
  *
  * // 응답 조립
  * response.setFoundationGrant(grant);            // granted / amount / portfolioId
- * response.setNextAction(grant.isGranted() ? "PORTFOLIO" : null);
+ * response.setNextAction("PORTFOLIO_SETUP");
  * </pre>
  *
  * <p>같은 트랜잭션 안에서 호출하면 퀴즈 채점과 지급이 함께 커밋된다. 별도 트랜잭션으로

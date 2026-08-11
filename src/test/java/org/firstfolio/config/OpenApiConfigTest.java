@@ -5,11 +5,23 @@ import org.firstfolio.auth.controller.AuthController;
 import org.firstfolio.auth.domain.AuthenticatedUser;
 import org.firstfolio.auth.service.AuthUseCase;
 import org.firstfolio.learning.controller.LessonContentController;
+import org.firstfolio.learning.controller.LearningContinueController;
+import org.firstfolio.learning.controller.LearningProgressController;
+import org.firstfolio.learning.controller.PublicChapterController;
 import org.firstfolio.learning.service.LessonContentQueryService;
+import org.firstfolio.learning.service.LearningContinueService;
+import org.firstfolio.learning.service.LearningProgressService;
+import org.firstfolio.learning.service.PublicChapterQueryService;
 import org.firstfolio.portfolio.controller.PortfolioController;
 import org.firstfolio.portfolio.service.PortfolioQueryService;
 import org.firstfolio.portfolio.service.PortfolioResetService;
 import org.firstfolio.portfolio.service.TradeService;
+import org.firstfolio.quiz.controller.QuizAttemptController;
+import org.firstfolio.quiz.controller.QuizAnswerController;
+import org.firstfolio.quiz.controller.MainChapterQuizAttemptController;
+import org.firstfolio.quiz.service.MainChapterQuizAttemptStartService;
+import org.firstfolio.quiz.service.QuizAnswerGradingService;
+import org.firstfolio.quiz.service.QuizAttemptStartService;
 import org.firstfolio.simulation.controller.InternalProductPriceController;
 import org.firstfolio.simulation.service.PriceRefreshService;
 import org.junit.jupiter.api.AfterEach;
@@ -121,6 +133,56 @@ class OpenApiConfigTest {
                         "$.paths['/api/learning/sub-chapters/{subChapterId}'].get.parameters[0].description"
                 ).value("조회할 소단원 ID"))
                 .andExpect(jsonPath(
+                        "$.paths['/api/learning/main-chapters'].get.responses['200'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/PublicMainChapterListApiResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/main-chapters/{mainChapterId}/sub-chapters'].get.responses['200'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/PublicSubChapterListApiResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/main-chapters/{mainChapterId}/sub-chapters'].get.responses['404'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/sub-chapters/{subChapterId}/progress'].put.responses['200'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/LearningProgressUpdateApiResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/sub-chapters/{subChapterId}/progress'].post"
+                ).doesNotExist())
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/sub-chapters/{subChapterId}/progress'].get.responses['200'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/LearningProgressApiResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/sub-chapters/{subChapterId}/progress'].get.responses['404'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/continue'].get.responses['200'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/LearningContinueApiResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/continue'].get.responses['404'].description"
+                ).value(org.hamcrest.Matchers.containsString(
+                        "CONTINUE_POSITION_NOT_FOUND"
+                )))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/continue'].get.responses['503'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/sub-chapters/{subChapterId}/quiz-attempts'].post.responses['201'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/QuizAttemptStartApiResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/sub-chapters/{subChapterId}/quiz-attempts'].post.responses['403'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/main-chapters/{mainChapterId}/quiz-attempts'].post.responses['201'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/QuizAttemptStartApiResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/main-chapters/{mainChapterId}/quiz-attempts'].post.responses['403'].description"
+                ).value(org.hamcrest.Matchers.containsString("SUB_CHAPTERS_INCOMPLETE")))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/quiz-attempts/{attemptId}/answers/{questionId}'].put.responses['200'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/QuizAnswerGradingApiResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/quiz-attempts/{attemptId}/answers/{questionId}'].put.responses['409'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/ErrorResponse"))
+                .andExpect(jsonPath(
                         "$.components.schemas.SignupRequest.properties.nickname.description"
                 ).value("2~10자의 서비스 닉네임"))
                 .andExpect(jsonPath(
@@ -175,6 +237,40 @@ class OpenApiConfigTest {
         @Bean
         LessonContentController lessonContentController() {
             return new LessonContentController(mock(LessonContentQueryService.class));
+        }
+
+        @Bean
+        PublicChapterController publicChapterController() {
+            return new PublicChapterController(mock(PublicChapterQueryService.class));
+        }
+
+        @Bean
+        LearningProgressController learningProgressController() {
+            return new LearningProgressController(mock(LearningProgressService.class));
+        }
+
+        @Bean
+        LearningContinueController learningContinueController() {
+            return new LearningContinueController(
+                    mock(LearningContinueService.class)
+            );
+        }
+
+        @Bean
+        QuizAttemptController quizAttemptController() {
+            return new QuizAttemptController(mock(QuizAttemptStartService.class));
+        }
+
+        @Bean
+        MainChapterQuizAttemptController mainChapterQuizAttemptController() {
+            return new MainChapterQuizAttemptController(
+                    mock(MainChapterQuizAttemptStartService.class)
+            );
+        }
+
+        @Bean
+        QuizAnswerController quizAnswerController() {
+            return new QuizAnswerController(mock(QuizAnswerGradingService.class));
         }
 
         @Bean

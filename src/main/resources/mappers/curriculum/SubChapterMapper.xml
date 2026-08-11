@@ -18,6 +18,36 @@
         <result property="updatedAt" column="updated_at" />
     </resultMap>
 
+    <resultMap id="publicSubChapterResultMap"
+               type="org.firstfolio.curriculum.domain.PublicSubChapter">
+        <id property="subChapterId" column="sub_chapter_id" />
+        <result property="mainChapterId" column="main_chapter_id" />
+        <result property="title" column="title" />
+        <result property="description" column="description" />
+        <result property="displayOrder" column="display_order" />
+        <result property="contentAvailable" column="content_available" />
+    </resultMap>
+
+    <select id="findPublicByMainChapterId"
+            resultMap="publicSubChapterResultMap">
+        SELECT
+            sc.sub_chapter_id,
+            sc.main_chapter_id,
+            sc.title,
+            sc.description,
+            sc.display_order,
+            CASE WHEN cv.content_version_id IS NULL THEN FALSE ELSE TRUE END
+                AS content_available
+        FROM sub_chapters sc
+        LEFT JOIN content_versions cv
+            ON cv.content_version_id = sc.current_content_version_id
+           AND cv.sub_chapter_id = sc.sub_chapter_id
+           AND cv.status = 'PUBLISHED'
+        WHERE sc.main_chapter_id = #{mainChapterId}
+          AND sc.is_active = TRUE
+        ORDER BY sc.display_order, sc.sub_chapter_id
+    </select>
+
     <sql id="subChapterColumns">
         sub_chapter_id,
         main_chapter_id,

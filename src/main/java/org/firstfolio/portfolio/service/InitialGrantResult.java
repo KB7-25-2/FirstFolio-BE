@@ -5,8 +5,7 @@ import java.math.BigDecimal;
 /**
  * 초기 모의투자금 지급 결과.
  *
- * <p>API_DOCS {@code POST /quiz-attempts/{attempt_id}/submit} 응답의
- * {@code foundation_grant} 객체에 그대로 대응한다.</p>
+ * <p>대단원 퀴즈 마지막 문항 채점 응답의 {@code foundation_grant} 객체에 대응한다.</p>
  */
 public class InitialGrantResult {
 

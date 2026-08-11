@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.reward.mapper.QuizRewardMapper">
+
+    <resultMap id="rewardPolicyResultMap"
+               type="org.firstfolio.reward.domain.RewardPolicy">
+        <id property="policyId" column="policy_id" />
+        <result property="policyKey" column="policy_key" />
+        <result property="versionNo" column="version_no" />
+        <result property="configJson" column="config_json" />
+    </resultMap>
+
+    <resultMap id="pointTransactionResultMap"
+               type="org.firstfolio.reward.domain.PointTransaction">
+        <id property="pointTransactionId" column="point_transaction_id" />
+        <result property="userId" column="user_id" />
+        <result property="transactionType" column="transaction_type" />
+        <result property="amount" column="amount" />
+        <result property="reasonType" column="reason_type" />
+        <result property="reasonId" column="reason_id" />
+        <result property="balanceAfter" column="balance_after" />
+        <result property="idempotencyKey" column="idempotency_key" />
+        <result property="occurredAt" column="occurred_at" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <select id="findActivePolicyAt" resultMap="rewardPolicyResultMap">
+        SELECT policy_id, policy_key, version_no, config_json
+        FROM system_policies
+        WHERE policy_key = #{policyKey}
+          AND is_active = TRUE
+          AND effective_from &lt;= #{effectiveAt}
+          AND (effective_to IS NULL OR effective_to &gt; #{effectiveAt})
+        ORDER BY version_no DESC
+        LIMIT 1
+        FOR SHARE
+    </select>
+
+    <select id="findTransactionById" resultMap="pointTransactionResultMap">
+        SELECT
+            point_transaction_id,
+            user_id,
+            transaction_type,
+            amount,
+            reason_type,
+            reason_id,
+            balance_after,
+            idempotency_key,
+            occurred_at,
+            created_at
+        FROM point_transactions
+        WHERE point_transaction_id = #{pointTransactionId}
+    </select>
+
+    <update id="increasePointBalance">
+        UPDATE users
+        SET point_balance = point_balance + #{amount},
+            updated_at = #{updatedAt}
+        WHERE user_id = #{userId}
+    </update>
+
+    <select id="findPointBalance" resultType="java.lang.Integer">
+        SELECT point_balance
+        FROM users
+        WHERE user_id = #{userId}
+    </select>
+
+    <insert id="insertTransaction"
+            parameterType="org.firstfolio.reward.domain.PointTransaction"
+            useGeneratedKeys="true"
+            keyProperty="pointTransactionId"
+            keyColumn="point_transaction_id">
+        INSERT INTO point_transactions (
+            user_id,
+            transaction_type,
+            amount,
+            reason_type,
+            reason_id,
+            balance_after,
+            idempotency_key,
+            occurred_at,
+            created_at
+        ) VALUES (
+            #{userId},
+            #{transactionType},
+            #{amount},
+            #{reasonType},
+            #{reasonId},
+            #{balanceAfter},
+            #{idempotencyKey},
+            #{occurredAt},
+            #{createdAt}
+        )
+    </insert>
+
+</mapper>

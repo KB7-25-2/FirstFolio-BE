@@ -1,0 +1,240 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.quiz.mapper.QuizAttemptMapper">
+
+    <resultMap id="quizAttemptResultMap"
+               type="org.firstfolio.quiz.domain.QuizAttempt">
+        <id property="attemptId" column="attempt_id" />
+        <result property="userId" column="user_id" />
+        <result property="quizType" column="quiz_type" />
+        <result property="mainChapterId" column="main_chapter_id" />
+        <result property="subChapterId" column="sub_chapter_id" />
+        <result property="contentVersionId" column="content_version_id" />
+        <result property="attemptNo" column="attempt_no" />
+        <result property="status" column="status" />
+        <result property="totalCount" column="total_count" />
+        <result property="correctCount" column="correct_count" />
+        <result property="score" column="score" />
+        <result property="rewardPolicyId" column="reward_policy_id" />
+        <result property="pointTransactionId" column="point_transaction_id" />
+        <result property="startedAt" column="started_at" />
+        <result property="submittedAt" column="submitted_at" />
+    </resultMap>
+
+    <resultMap id="quizAnswerResultMap"
+               type="org.firstfolio.quiz.domain.QuizAnswer">
+        <id property="quizAnswerId" column="quiz_answer_id" />
+        <result property="attemptId" column="attempt_id" />
+        <result property="questionId" column="question_id" />
+        <result property="displayOrder" column="display_order" />
+        <result property="questionSnapshotJson" column="question_snapshot_json" />
+        <result property="userAnswerJson" column="user_answer_json" />
+        <result property="correct" column="is_correct" />
+        <result property="answeredAt" column="answered_at" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <sql id="quizAttemptColumns">
+        attempt_id,
+        user_id,
+        quiz_type,
+        main_chapter_id,
+        sub_chapter_id,
+        content_version_id,
+        attempt_no,
+        status,
+        total_count,
+        correct_count,
+        score,
+        reward_policy_id,
+        point_transaction_id,
+        started_at,
+        submitted_at
+    </sql>
+
+    <select id="findByIdForUpdate" resultMap="quizAttemptResultMap">
+        SELECT <include refid="quizAttemptColumns" />
+        FROM quiz_attempts
+        WHERE attempt_id = #{attemptId}
+        FOR UPDATE
+    </select>
+
+    <select id="findInProgressByUserIdAndSubChapterIdForUpdate"
+            resultMap="quizAttemptResultMap">
+        SELECT <include refid="quizAttemptColumns" />
+        FROM quiz_attempts
+        WHERE user_id = #{userId}
+          AND quiz_type = 'SUB_CHAPTER'
+          AND sub_chapter_id = #{subChapterId}
+          AND status = 'IN_PROGRESS'
+        ORDER BY attempt_no DESC
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="findInProgressByUserIdAndMainChapterIdForUpdate"
+            resultMap="quizAttemptResultMap">
+        SELECT <include refid="quizAttemptColumns" />
+        FROM quiz_attempts
+        WHERE user_id = #{userId}
+          AND quiz_type = 'MAIN_CHAPTER'
+          AND main_chapter_id = #{mainChapterId}
+          AND status = 'IN_PROGRESS'
+        ORDER BY attempt_no DESC
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="findMaxAttemptNoByUserIdAndSubChapterId"
+            resultType="java.lang.Integer">
+        SELECT MAX(attempt_no)
+        FROM quiz_attempts
+        WHERE user_id = #{userId}
+          AND quiz_type = 'SUB_CHAPTER'
+          AND sub_chapter_id = #{subChapterId}
+    </select>
+
+    <select id="findMaxAttemptNoByUserIdAndMainChapterId"
+            resultType="java.lang.Integer">
+        SELECT MAX(attempt_no)
+        FROM quiz_attempts
+        WHERE user_id = #{userId}
+          AND quiz_type = 'MAIN_CHAPTER'
+          AND main_chapter_id = #{mainChapterId}
+    </select>
+
+    <select id="findAnswersByAttemptId" resultMap="quizAnswerResultMap">
+        SELECT
+            quiz_answer_id,
+            attempt_id,
+            question_id,
+            display_order,
+            question_snapshot_json,
+            user_answer_json,
+            is_correct,
+            answered_at,
+            created_at
+        FROM quiz_answers
+        WHERE attempt_id = #{attemptId}
+        ORDER BY display_order ASC
+    </select>
+
+    <select id="findAnswerByAttemptIdAndQuestionIdForUpdate"
+            resultMap="quizAnswerResultMap">
+        SELECT
+            quiz_answer_id,
+            attempt_id,
+            question_id,
+            display_order,
+            question_snapshot_json,
+            user_answer_json,
+            is_correct,
+            answered_at,
+            created_at
+        FROM quiz_answers
+        WHERE attempt_id = #{attemptId}
+          AND question_id = #{questionId}
+        FOR UPDATE
+    </select>
+
+    <select id="countAnsweredByAttemptId" resultType="int">
+        SELECT COUNT(*)
+        FROM quiz_answers
+        WHERE attempt_id = #{attemptId}
+          AND user_answer_json IS NOT NULL
+    </select>
+
+    <select id="countCorrectByAttemptId" resultType="int">
+        SELECT COUNT(*)
+        FROM quiz_answers
+        WHERE attempt_id = #{attemptId}
+          AND is_correct = TRUE
+    </select>
+
+    <insert id="insertAttempt"
+            parameterType="org.firstfolio.quiz.domain.QuizAttempt"
+            useGeneratedKeys="true"
+            keyProperty="attemptId"
+            keyColumn="attempt_id">
+        INSERT INTO quiz_attempts (
+            user_id,
+            quiz_type,
+            main_chapter_id,
+            sub_chapter_id,
+            content_version_id,
+            attempt_no,
+            status,
+            total_count,
+            correct_count,
+            score,
+            started_at,
+            submitted_at
+        ) VALUES (
+            #{userId},
+            #{quizType},
+            #{mainChapterId,jdbcType=BIGINT},
+            #{subChapterId,jdbcType=BIGINT},
+            #{contentVersionId,jdbcType=BIGINT},
+            #{attemptNo},
+            #{status},
+            #{totalCount},
+            #{correctCount},
+            #{score},
+            #{startedAt},
+            #{submittedAt,jdbcType=TIMESTAMP}
+        )
+    </insert>
+
+    <insert id="insertAnswer"
+            parameterType="org.firstfolio.quiz.domain.QuizAnswer"
+            useGeneratedKeys="true"
+            keyProperty="quizAnswerId"
+            keyColumn="quiz_answer_id">
+        INSERT INTO quiz_answers (
+            attempt_id,
+            question_id,
+            display_order,
+            question_snapshot_json,
+            user_answer_json,
+            is_correct,
+            answered_at,
+            created_at
+        ) VALUES (
+            #{attemptId},
+            #{questionId},
+            #{displayOrder},
+            #{questionSnapshotJson},
+            #{userAnswerJson,jdbcType=VARCHAR},
+            #{correct,jdbcType=BOOLEAN},
+            #{answeredAt,jdbcType=TIMESTAMP},
+            #{createdAt}
+        )
+    </insert>
+
+    <update id="gradeAnswerIfUnanswered"
+            parameterType="org.firstfolio.quiz.domain.QuizAnswer">
+        UPDATE quiz_answers
+        SET user_answer_json = #{userAnswerJson},
+            is_correct = #{correct},
+            answered_at = #{answeredAt}
+        WHERE quiz_answer_id = #{quizAnswerId}
+          AND user_answer_json IS NULL
+    </update>
+
+    <update id="completeAttemptIfInProgress"
+            parameterType="org.firstfolio.quiz.domain.QuizAttempt">
+        UPDATE quiz_attempts
+        SET status = #{status},
+            correct_count = #{correctCount},
+            score = #{score},
+            reward_policy_id = #{rewardPolicyId},
+            point_transaction_id = #{pointTransactionId,jdbcType=BIGINT},
+            submitted_at = #{submittedAt}
+        WHERE attempt_id = #{attemptId}
+          AND status = 'IN_PROGRESS'
+    </update>
+
+</mapper>

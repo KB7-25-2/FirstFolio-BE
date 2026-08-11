@@ -1,6 +1,6 @@
 -- FirstFolio service database baseline DDL
--- Source: Notion "ERD 2.1" (24 tables total)
--- Scope: 23 non-AI tables. AI/RAG metadata is defined in the AI service DDL.
+-- Source: Notion "ERD 2.1" plus approved schema changes.
+-- Scope: 24 non-AI tables. AI/RAG metadata is defined in the AI service DDL.
 -- Target: MySQL 8.0.16+ (CHECK constraints are enforced from 8.0.16).
 -- Time policy: application code writes UTC values to DATETIME columns.
 
@@ -205,6 +205,45 @@ CREATE TABLE user_learning_progress (
     INDEX idx_user_learning_progress_continue (user_id, status, updated_at)
 ) ENGINE = InnoDB COMMENT = '사용자별 소단원 진행 위치와 최초 완료 상태';
 
+CREATE TABLE user_learning_progress_events (
+    progress_event_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '학습 진도 변경 이벤트 식별자',
+    progress_id BIGINT NOT NULL COMMENT '대상 현재 진도 행',
+    user_id BIGINT NOT NULL COMMENT '학습 사용자',
+    sub_chapter_id BIGINT NOT NULL COMMENT '대상 소단원',
+    content_version_id BIGINT NOT NULL COMMENT '실제로 학습한 콘텐츠 버전',
+    event_type VARCHAR(30) NOT NULL COMMENT 'PROGRESS_UPDATED 또는 COMPLETED',
+    previous_status VARCHAR(20) NULL COMMENT '변경 전 상태. 최초 생성이면 NOT_STARTED',
+    status VARCHAR(20) NOT NULL COMMENT '변경 후 상태',
+    previous_page_id VARCHAR(100) NULL COMMENT '변경 전 마지막 페이지 ID',
+    last_page_id VARCHAR(100) NULL COMMENT '변경 후 마지막 페이지 ID',
+    occurred_at DATETIME NOT NULL COMMENT '진도 변경 발생 시각',
+    CONSTRAINT pk_user_learning_progress_events PRIMARY KEY (progress_event_id),
+    CONSTRAINT fk_learning_progress_events_progress
+        FOREIGN KEY (progress_id) REFERENCES user_learning_progress (progress_id)
+            ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CONSTRAINT fk_learning_progress_events_user
+        FOREIGN KEY (user_id) REFERENCES users (user_id)
+            ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CONSTRAINT fk_learning_progress_events_sub
+        FOREIGN KEY (sub_chapter_id) REFERENCES sub_chapters (sub_chapter_id)
+            ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CONSTRAINT fk_learning_progress_events_content
+        FOREIGN KEY (content_version_id) REFERENCES content_versions (content_version_id)
+            ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CONSTRAINT chk_learning_progress_events_type CHECK (
+        event_type IN ('PROGRESS_UPDATED', 'COMPLETED')
+        ),
+    CONSTRAINT chk_learning_progress_events_previous_status CHECK (
+        previous_status IS NULL
+        OR previous_status IN ('NOT_STARTED', 'IN_PROGRESS', 'COMPLETED')
+        ),
+    CONSTRAINT chk_learning_progress_events_status CHECK (
+        status IN ('IN_PROGRESS', 'COMPLETED')
+        ),
+    INDEX idx_learning_progress_events_progress_time (progress_id, occurred_at),
+    INDEX idx_learning_progress_events_user_time (user_id, occurred_at)
+) ENGINE = InnoDB COMMENT = '사용자 소단원 학습 진도의 생성·이동·최초 완료 변경 이력';
+
 CREATE TABLE quiz_questions (
     question_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '특정 문항 버전 행의 식별자',
     question_key VARCHAR(100) NOT NULL COMMENT '버전 간 동일 문항을 묶는 논리 키',
@@ -213,14 +252,15 @@ CREATE TABLE quiz_questions (
     main_chapter_id BIGINT NULL COMMENT '소속 대단원',
     sub_chapter_id BIGINT NULL COMMENT '소속 소단원. 대단원 퀴즈 문항은 NULL',
     display_order INT NULL COMMENT 'DB 범위 내 기본 문항 순서',
-    question_type VARCHAR(30) NOT NULL COMMENT 'SINGLE_CHOICE, MULTIPLE_CHOICE, TRUE_FALSE, SCENARIO',
+    question_type VARCHAR(30) NOT NULL COMMENT 'SINGLE_CHOICE, TRUE_FALSE, SCENARIO',
     difficulty VARCHAR(20) NULL COMMENT 'EASY, MEDIUM, HARD',
     prompt TEXT NOT NULL COMMENT '모든 문항에 공통으로 사용하는 질문 문장',
     scenario_json JSON NULL COMMENT '상황판단형의 캐릭터 상황, 금융시장 상황과 제약 조건',
     options_json JSON NULL COMMENT '선택지 배열',
     correct_answer_json JSON NOT NULL COMMENT '정답 데이터',
     explanation TEXT NOT NULL COMMENT '정답 해설',
-    source_refs_json JSON NULL COMMENT 'AI DB knowledge_contents ID, 근거 출처와 기준 시점. DB 간 FK는 애플리케이션에서 검증',
+    generation_type VARCHAR(20) NOT NULL COMMENT 'HUMAN, AI',
+    source_refs_json JSON NULL COMMENT 'AI 생성 문항의 knowledge_contents ID, 근거 출처와 기준 시점. DB 간 FK는 애플리케이션에서 검증',
     status VARCHAR(20) NOT NULL COMMENT 'DRAFT, REVIEW, PUBLISHED, RETIRED',
     created_by BIGINT NOT NULL COMMENT '작성자 또는 생성 작업 관리자',
     published_at DATETIME NULL COMMENT '게시 일시',
@@ -249,7 +289,6 @@ CREATE TABLE quiz_questions (
     CONSTRAINT chk_quiz_questions_type CHECK (
         question_type IN (
                           'SINGLE_CHOICE',
-                          'MULTIPLE_CHOICE',
                           'TRUE_FALSE',
                           'SCENARIO'
             )
@@ -261,6 +300,17 @@ CREATE TABLE quiz_questions (
         (question_type = 'SCENARIO' AND scenario_json IS NOT NULL)
             OR
         (question_type <> 'SCENARIO' AND scenario_json IS NULL)
+        ),
+    CONSTRAINT chk_quiz_questions_generation_type CHECK (
+        generation_type IN ('HUMAN', 'AI')
+        ),
+    CONSTRAINT chk_quiz_questions_source_refs CHECK (
+        (generation_type = 'HUMAN' AND source_refs_json IS NULL)
+            OR
+        (generation_type = 'AI'
+            AND source_refs_json IS NOT NULL
+            AND JSON_TYPE(source_refs_json) = 'ARRAY'
+            AND JSON_LENGTH(source_refs_json) > 0)
         ),
     CONSTRAINT chk_quiz_questions_status CHECK (
         status IN ('DRAFT', 'REVIEW', 'PUBLISHED', 'RETIRED')
@@ -290,6 +340,8 @@ CREATE TABLE quiz_attempts (
     total_count INT NOT NULL DEFAULT 0 COMMENT '전체 문제 수',
     correct_count INT NOT NULL DEFAULT 0 COMMENT '정답 수',
     score INT NOT NULL DEFAULT 0 COMMENT '채점 점수',
+    reward_policy_id BIGINT NULL COMMENT '완료 시 적용한 QUIZ_REWARD 정책 버전',
+    point_transaction_id BIGINT NULL COMMENT '최초 응시 완료 보상 원장. 미지급이면 NULL',
     started_at DATETIME NOT NULL COMMENT '응시 시작 일시',
     submitted_at DATETIME NULL COMMENT '최종 제출 일시',
     CONSTRAINT pk_quiz_attempts PRIMARY KEY (attempt_id),
@@ -304,6 +356,9 @@ CREATE TABLE quiz_attempts (
            ON UPDATE RESTRICT ON DELETE RESTRICT,
     CONSTRAINT fk_quiz_attempts_content_version
        FOREIGN KEY (content_version_id) REFERENCES content_versions (content_version_id)
+           ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CONSTRAINT fk_quiz_attempts_reward_policy
+       FOREIGN KEY (reward_policy_id) REFERENCES system_policies (policy_id)
            ON UPDATE RESTRICT ON DELETE RESTRICT,
     CONSTRAINT chk_quiz_attempts_type CHECK (
        quiz_type IN ('LEVEL_TEST', 'SUB_CHAPTER', 'MAIN_CHAPTER')
@@ -327,7 +382,8 @@ CREATE TABLE quiz_attempts (
        ),
     INDEX idx_quiz_attempts_user_status (user_id, quiz_type, status, started_at),
     INDEX idx_quiz_attempts_main_chapter (main_chapter_id, user_id, attempt_no),
-    INDEX idx_quiz_attempts_sub_chapter (sub_chapter_id, user_id, attempt_no)
+    INDEX idx_quiz_attempts_sub_chapter (sub_chapter_id, user_id, attempt_no),
+    INDEX idx_quiz_attempts_reward_policy (reward_policy_id)
 ) ENGINE = InnoDB COMMENT = '레벨·소단원·대단원 퀴즈 응시';
 
 CREATE TABLE quiz_answers (
@@ -376,6 +432,12 @@ CREATE TABLE point_transactions (
     INDEX idx_point_transactions_user_time (user_id, occurred_at),
     INDEX idx_point_transactions_reason (reason_type, reason_id)
 ) ENGINE = InnoDB COMMENT = '포인트 적립·사용·취소·만료 원장';
+
+ALTER TABLE quiz_attempts
+    ADD CONSTRAINT uq_quiz_attempts_point_transaction UNIQUE (point_transaction_id),
+    ADD CONSTRAINT fk_quiz_attempts_point_transaction
+        FOREIGN KEY (point_transaction_id) REFERENCES point_transactions (point_transaction_id)
+            ON UPDATE RESTRICT ON DELETE RESTRICT;
 
 CREATE TABLE daily_quests (
     daily_quest_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '일일 퀘스트 식별자',

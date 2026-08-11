@@ -35,6 +35,27 @@ public enum ErrorCode {
     CONTENT_NOT_PUBLISHED(HttpStatus.NOT_FOUND, "공개된 강좌 콘텐츠가 없습니다."),
     CONTENT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "강좌 콘텐츠를 불러올 수 없습니다."),
 
+    // 퀴즈 문항 콘텐츠
+    QUESTION_NOT_FOUND(HttpStatus.NOT_FOUND, "퀴즈 문항을 찾을 수 없습니다."),
+    QUESTION_KEY_CONFLICT(HttpStatus.CONFLICT, "이미 존재하는 퀴즈 문항 논리 키입니다."),
+    QUESTION_VERSION_CONFLICT(HttpStatus.CONFLICT, "퀴즈 문항 버전을 생성할 수 없습니다."),
+    QUESTION_VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "퀴즈 문항 검증에 실패했습니다."),
+
+    // 퀴즈 응시
+    QUIZ_NOT_AVAILABLE(HttpStatus.FORBIDDEN, "현재 조건에서는 퀴즈에 응시할 수 없습니다."),
+    QUIZ_ATTEMPT_FORBIDDEN(HttpStatus.FORBIDDEN, "본인 소유의 퀴즈 응시가 아닙니다."),
+    QUIZ_ATTEMPT_NOT_FOUND(HttpStatus.NOT_FOUND, "퀴즈 응시를 찾을 수 없습니다."),
+    QUESTION_NOT_IN_ATTEMPT(HttpStatus.NOT_FOUND, "해당 응시에 포함된 문항이 아닙니다."),
+    ATTEMPT_ALREADY_GRADED(HttpStatus.CONFLICT, "이미 종료된 퀴즈 응시입니다."),
+    ANSWER_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "이미 제출한 답안은 변경할 수 없습니다."),
+    INVALID_SELECTED_CHOICE(HttpStatus.UNPROCESSABLE_ENTITY, "선택한 답안이 올바르지 않습니다."),
+    SUB_CHAPTERS_INCOMPLETE(HttpStatus.FORBIDDEN, "대단원의 모든 소단원 학습을 먼저 완료해야 합니다."),
+
+    // 학습 진도
+    CONTINUE_POSITION_NOT_FOUND(HttpStatus.NOT_FOUND, "이어갈 미완료 학습 위치가 없습니다."),
+    CONTENT_VERSION_MISMATCH(HttpStatus.CONFLICT, "소단원과 콘텐츠 버전이 일치하지 않습니다."),
+    INVALID_PAGE_ID(HttpStatus.UNPROCESSABLE_ENTITY, "존재하지 않는 학습 페이지 ID입니다."),
+
     // 포트폴리오 (FUNC-034, 036)
     // PORTFOLIO_ALREADY_CONFIGURED(409)는 POST /portfolios와 함께 폐기됐다.
     // "최초 구성" 단계 자체가 없어져 두 번 구성할 일이 없다 (2026-08-05 팀 확정).
