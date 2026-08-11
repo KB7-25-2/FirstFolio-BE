@@ -1,7 +1,10 @@
 package org.firstfolio.quiz.service;
 
+import org.firstfolio.curriculum.domain.ChapterType;
 import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
+import org.firstfolio.learning.domain.MainChapterCompletionResult;
+import org.firstfolio.learning.service.MainChapterCompletionService;
 import org.firstfolio.quiz.domain.QuizAnswer;
 import org.firstfolio.quiz.domain.QuizAnswerGradingResult;
 import org.firstfolio.quiz.domain.QuizAttempt;
@@ -39,19 +42,22 @@ class QuizAnswerGradingServiceTest {
 
     private QuizAttemptMapper quizAttemptMapper;
     private QuizRewardService quizRewardService;
+    private MainChapterCompletionService mainChapterCompletionService;
     private QuizAnswerGradingService service;
 
     @BeforeEach
     void setUp() {
         quizAttemptMapper = mock(QuizAttemptMapper.class);
         quizRewardService = mock(QuizRewardService.class);
+        mainChapterCompletionService = mock(MainChapterCompletionService.class);
         service = new QuizAnswerGradingService(
                 quizAttemptMapper,
                 Clock.fixed(
                         Instant.parse("2026-08-11T01:30:00Z"),
                         ZoneOffset.UTC
                 ),
-                quizRewardService
+                quizRewardService,
+                mainChapterCompletionService
         );
     }
 
@@ -93,6 +99,7 @@ class QuizAnswerGradingServiceTest {
         gradedAttempt.setScore(67);
         gradedAttempt.setRewardPolicyId(91L);
         gradedAttempt.setPointTransactionId(7001L);
+        gradedAttempt.setSubmittedAt(NOW);
         QuizAnswer answered = unanswered();
         answered.setUserAnswerJson("{\"key\":\"B\"}");
         answered.setCorrect(false);
@@ -233,6 +240,49 @@ class QuizAnswerGradingServiceTest {
 
         assertEquals(ErrorCode.INTERNAL_ERROR, exception.getErrorCode());
         verify(quizAttemptMapper, never()).completeAttemptIfInProgress(any());
+    }
+
+    @Test
+    void completesMainChapterAfterAllAnswersRegardlessOfScore() {
+        QuizAttempt attempt = inProgressAttempt(1);
+        attempt.setQuizType(QuizType.MAIN_CHAPTER);
+        attempt.setMainChapterId(10L);
+        attempt.setSubChapterId(null);
+        attempt.setContentVersionId(null);
+        arrange(attempt, unanswered());
+        when(quizAttemptMapper.gradeAnswerIfUnanswered(any())).thenReturn(1);
+        when(quizAttemptMapper.countAnsweredByAttemptId(ATTEMPT_ID)).thenReturn(1);
+        when(quizAttemptMapper.countCorrectByAttemptId(ATTEMPT_ID)).thenReturn(0);
+        when(quizRewardService.grantForCompletedAttempt(
+                USER_ID,
+                ATTEMPT_ID,
+                1,
+                0,
+                NOW
+        )).thenReturn(new QuizRewardResult(91L, 0, null));
+        MainChapterCompletionResult completion =
+                new MainChapterCompletionResult(
+                        ChapterType.ASSET,
+                        true,
+                        null
+                );
+        when(mainChapterCompletionService.complete(USER_ID, 10L, NOW))
+                .thenReturn(completion);
+        when(quizAttemptMapper.completeAttemptIfInProgress(any())).thenReturn(1);
+
+        QuizAnswerGradingResult result = service.grade(
+                USER_ID,
+                ATTEMPT_ID,
+                QUESTION_ID,
+                "B"
+        );
+
+        assertFalse(result.correct());
+        assertEquals(0, result.correctCount());
+        assertEquals(0, result.score());
+        assertEquals(completion, result.mainChapterCompletion());
+        assertEquals("NEXT_MAIN_CHAPTER", result.nextAction());
+        verify(mainChapterCompletionService).complete(USER_ID, 10L, NOW);
     }
 
     @Test

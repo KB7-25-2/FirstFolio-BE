@@ -75,6 +75,19 @@
         FOR UPDATE
     </select>
 
+    <select id="findInProgressByUserIdAndMainChapterIdForUpdate"
+            resultMap="quizAttemptResultMap">
+        SELECT <include refid="quizAttemptColumns" />
+        FROM quiz_attempts
+        WHERE user_id = #{userId}
+          AND quiz_type = 'MAIN_CHAPTER'
+          AND main_chapter_id = #{mainChapterId}
+          AND status = 'IN_PROGRESS'
+        ORDER BY attempt_no DESC
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
     <select id="findMaxAttemptNoByUserIdAndSubChapterId"
             resultType="java.lang.Integer">
         SELECT MAX(attempt_no)
@@ -82,6 +95,15 @@
         WHERE user_id = #{userId}
           AND quiz_type = 'SUB_CHAPTER'
           AND sub_chapter_id = #{subChapterId}
+    </select>
+
+    <select id="findMaxAttemptNoByUserIdAndMainChapterId"
+            resultType="java.lang.Integer">
+        SELECT MAX(attempt_no)
+        FROM quiz_attempts
+        WHERE user_id = #{userId}
+          AND quiz_type = 'MAIN_CHAPTER'
+          AND main_chapter_id = #{mainChapterId}
     </select>
 
     <select id="findAnswersByAttemptId" resultMap="quizAnswerResultMap">

@@ -1,5 +1,6 @@
 package org.firstfolio.quiz.domain;
 
+import org.firstfolio.learning.domain.MainChapterCompletionResult;
 import org.firstfolio.reward.domain.QuizRewardResult;
 
 import java.util.Objects;
@@ -19,6 +20,7 @@ public record QuizAnswerGradingResult(
         Integer correctCount,
         Integer score,
         QuizRewardResult reward,
+        MainChapterCompletionResult mainChapterCompletion,
         String nextAction
 ) {
     public QuizAnswerGradingResult {
@@ -31,6 +33,12 @@ public record QuizAnswerGradingResult(
                 && (correctCount == null || score == null || reward == null)) {
             throw new IllegalArgumentException(
                     "graded result must include score and reward"
+            );
+        }
+        if (attemptStatus != QuizAttemptStatus.GRADED
+                && mainChapterCompletion != null) {
+            throw new IllegalArgumentException(
+                    "in-progress result must not include main chapter completion"
             );
         }
     }

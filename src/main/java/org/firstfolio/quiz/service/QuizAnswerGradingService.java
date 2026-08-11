@@ -4,13 +4,17 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.firstfolio.curriculum.domain.ChapterType;
 import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
+import org.firstfolio.learning.domain.MainChapterCompletionResult;
+import org.firstfolio.learning.service.MainChapterCompletionService;
 import org.firstfolio.quiz.domain.QuizAnswer;
 import org.firstfolio.quiz.domain.QuizAnswerGradingResult;
 import org.firstfolio.quiz.domain.QuizAttempt;
 import org.firstfolio.quiz.domain.QuizAttemptStatus;
 import org.firstfolio.quiz.domain.QuizGenerationType;
+import org.firstfolio.quiz.domain.QuizType;
 import org.firstfolio.quiz.mapper.QuizAttemptMapper;
 import org.firstfolio.reward.domain.QuizRewardResult;
 import org.firstfolio.reward.service.QuizRewardService;
@@ -30,16 +34,19 @@ public class QuizAnswerGradingService {
     private final QuizAttemptMapper quizAttemptMapper;
     private final Clock clock;
     private final QuizRewardService quizRewardService;
+    private final MainChapterCompletionService mainChapterCompletionService;
     private final ObjectMapper objectMapper;
 
     public QuizAnswerGradingService(
             QuizAttemptMapper quizAttemptMapper,
             Clock clock,
-            QuizRewardService quizRewardService
+            QuizRewardService quizRewardService,
+            MainChapterCompletionService mainChapterCompletionService
     ) {
         this.quizAttemptMapper = quizAttemptMapper;
         this.clock = clock;
         this.quizRewardService = quizRewardService;
+        this.mainChapterCompletionService = mainChapterCompletionService;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -117,6 +124,7 @@ public class QuizAnswerGradingService {
                     snapshot,
                     selectedKey,
                     answeredCount,
+                    null,
                     null
             );
         }
@@ -137,6 +145,8 @@ public class QuizAnswerGradingService {
                         correctCount,
                         completedAt
                 );
+        MainChapterCompletionResult mainChapterCompletion =
+                completeMainChapter(attempt, completedAt);
 
         attempt.setStatus(QuizAttemptStatus.GRADED);
         attempt.setCorrectCount(correctCount);
@@ -154,7 +164,8 @@ public class QuizAnswerGradingService {
                 snapshot,
                 selectedKey,
                 answeredCount,
-                reward
+                reward,
+                mainChapterCompletion
         );
     }
 
@@ -173,13 +184,21 @@ public class QuizAnswerGradingService {
                         attempt.getPointTransactionId()
                 )
                 : null;
+        MainChapterCompletionResult mainChapterCompletion =
+                attempt.getStatus() == QuizAttemptStatus.GRADED
+                        ? completeMainChapter(
+                                attempt,
+                                requireSubmittedAt(attempt)
+                        )
+                        : null;
         return result(
                 attempt,
                 answer,
                 snapshot,
                 selectedKey,
                 answeredCount,
-                reward
+                reward,
+                mainChapterCompletion
         );
     }
 
@@ -189,7 +208,8 @@ public class QuizAnswerGradingService {
             QuestionSnapshot snapshot,
             String selectedKey,
             int answeredCount,
-            QuizRewardResult reward
+            QuizRewardResult reward,
+            MainChapterCompletionResult mainChapterCompletion
     ) {
         if (answer.getCorrect() == null) {
             throw new ApiException(ErrorCode.INTERNAL_ERROR);
@@ -212,10 +232,54 @@ public class QuizAnswerGradingService {
                 completed ? attempt.getCorrectCount() : null,
                 completed ? attempt.getScore() : null,
                 reward,
-                completed && attempt.getQuizType() == org.firstfolio.quiz.domain.QuizType.SUB_CHAPTER
-                        ? "NEXT_SUB_CHAPTER"
-                        : null
+                mainChapterCompletion,
+                nextAction(attempt, mainChapterCompletion)
         );
+    }
+
+    private MainChapterCompletionResult completeMainChapter(
+            QuizAttempt attempt,
+            LocalDateTime completedAt
+    ) {
+        if (attempt.getQuizType() != QuizType.MAIN_CHAPTER) {
+            return null;
+        }
+        if (attempt.getMainChapterId() == null) {
+            throw new ApiException(ErrorCode.INTERNAL_ERROR);
+        }
+        return mainChapterCompletionService.complete(
+                attempt.getUserId(),
+                attempt.getMainChapterId(),
+                completedAt
+        );
+    }
+
+    private LocalDateTime requireSubmittedAt(QuizAttempt attempt) {
+        if (attempt.getSubmittedAt() == null) {
+            throw new ApiException(ErrorCode.INTERNAL_ERROR);
+        }
+        return attempt.getSubmittedAt();
+    }
+
+    private String nextAction(
+            QuizAttempt attempt,
+            MainChapterCompletionResult mainChapterCompletion
+    ) {
+        if (attempt.getStatus() != QuizAttemptStatus.GRADED) {
+            return null;
+        }
+        if (attempt.getQuizType() == QuizType.SUB_CHAPTER) {
+            return "NEXT_SUB_CHAPTER";
+        }
+        if (attempt.getQuizType() == QuizType.MAIN_CHAPTER) {
+            if (mainChapterCompletion == null) {
+                throw new ApiException(ErrorCode.INTERNAL_ERROR);
+            }
+            return mainChapterCompletion.chapterType() == ChapterType.FOUNDATION
+                    ? "PORTFOLIO_SETUP"
+                    : "NEXT_MAIN_CHAPTER";
+        }
+        throw new ApiException(ErrorCode.INTERNAL_ERROR);
     }
 
     private int answeredCount(QuizAttempt attempt) {

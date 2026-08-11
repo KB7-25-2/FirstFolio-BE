@@ -33,7 +33,8 @@ public class QuizAnswerController {
             description = "응시에 고정된 문항 스냅샷으로 단일 답안을 채점하고 정답과 해설을 반환합니다. "
                     + "동일 답안 재요청은 응시 상태와 관계없이 기존 결과를 반환하며 답안 순서는 강제하지 않습니다. "
                     + "마지막 미응답 문항이면 응시 결과를 확정하고 최초 응시에 한해 정답 수 기반 포인트를 "
-                    + "같은 트랜잭션에서 지급합니다.",
+                    + "같은 트랜잭션에서 지급합니다. 대단원 퀴즈는 별도 합격 점수 없이 모든 문항에 "
+                    + "답하면 대단원 완료까지 함께 처리합니다.",
             responses = {
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(
                             responseCode = "200",

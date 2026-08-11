@@ -26,5 +26,9 @@ public interface QuizQuestionMapper {
             @Param("questionIds") List<Long> questionIds
     );
 
+    List<QuizQuestion> findLatestPublishedByMainChapterId(
+            @Param("mainChapterId") long mainChapterId
+    );
+
     int insert(QuizQuestion question);
 }

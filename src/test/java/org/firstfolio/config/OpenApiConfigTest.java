@@ -16,6 +16,8 @@ import org.firstfolio.portfolio.service.PortfolioResetService;
 import org.firstfolio.portfolio.service.TradeService;
 import org.firstfolio.quiz.controller.QuizAttemptController;
 import org.firstfolio.quiz.controller.QuizAnswerController;
+import org.firstfolio.quiz.controller.MainChapterQuizAttemptController;
+import org.firstfolio.quiz.service.MainChapterQuizAttemptStartService;
 import org.firstfolio.quiz.service.QuizAnswerGradingService;
 import org.firstfolio.quiz.service.QuizAttemptStartService;
 import org.firstfolio.simulation.controller.InternalProductPriceController;
@@ -156,6 +158,12 @@ class OpenApiConfigTest {
                         "$.paths['/api/learning/sub-chapters/{subChapterId}/quiz-attempts'].post.responses['403'].content['application/json'].schema['$ref']"
                 ).value("#/components/schemas/ErrorResponse"))
                 .andExpect(jsonPath(
+                        "$.paths['/api/learning/main-chapters/{mainChapterId}/quiz-attempts'].post.responses['201'].content['application/json'].schema['$ref']"
+                ).value("#/components/schemas/QuizAttemptStartApiResponse"))
+                .andExpect(jsonPath(
+                        "$.paths['/api/learning/main-chapters/{mainChapterId}/quiz-attempts'].post.responses['403'].description"
+                ).value(org.hamcrest.Matchers.containsString("SUB_CHAPTERS_INCOMPLETE")))
+                .andExpect(jsonPath(
                         "$.paths['/api/learning/quiz-attempts/{attemptId}/answers/{questionId}'].put.responses['200'].content['application/json'].schema['$ref']"
                 ).value("#/components/schemas/QuizAnswerGradingApiResponse"))
                 .andExpect(jsonPath(
@@ -231,6 +239,13 @@ class OpenApiConfigTest {
         @Bean
         QuizAttemptController quizAttemptController() {
             return new QuizAttemptController(mock(QuizAttemptStartService.class));
+        }
+
+        @Bean
+        MainChapterQuizAttemptController mainChapterQuizAttemptController() {
+            return new MainChapterQuizAttemptController(
+                    mock(MainChapterQuizAttemptStartService.class)
+            );
         }
 
         @Bean

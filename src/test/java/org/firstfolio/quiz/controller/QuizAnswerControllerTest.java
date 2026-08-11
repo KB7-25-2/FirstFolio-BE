@@ -1,5 +1,6 @@
 package org.firstfolio.quiz.controller;
 
+import org.firstfolio.curriculum.domain.ChapterType;
 import org.firstfolio.auth.domain.AuthenticatedUser;
 import org.firstfolio.auth.web.AuthenticationRequestAttributes;
 import org.firstfolio.auth.web.CurrentUserArgumentResolver;
@@ -7,6 +8,8 @@ import org.firstfolio.common.json.ApiObjectMapperFactory;
 import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.CommonExceptionAdvice;
 import org.firstfolio.exception.ErrorCode;
+import org.firstfolio.learning.domain.MainChapterCompletionResult;
+import org.firstfolio.portfolio.service.InitialGrantResult;
 import org.firstfolio.quiz.domain.QuizAnswerGradingResult;
 import org.firstfolio.quiz.domain.QuizAttemptStatus;
 import org.firstfolio.quiz.domain.QuizGenerationType;
@@ -20,6 +23,8 @@ import org.springframework.http.converter.json.MappingJackson2HttpMessageConvert
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import java.math.BigDecimal;
 
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -83,6 +88,8 @@ class QuizAnswerControllerTest {
                 .andExpect(jsonPath("$.data.attempt.correct_count").doesNotExist())
                 .andExpect(jsonPath("$.data.attempt.score").doesNotExist())
                 .andExpect(jsonPath("$.data.reward").doesNotExist())
+                .andExpect(jsonPath("$.data.main_chapter_completed").doesNotExist())
+                .andExpect(jsonPath("$.data.foundation_grant").doesNotExist())
                 .andExpect(jsonPath("$.data.next_action").doesNotExist());
 
         verify(service).grade(USER_ID, ATTEMPT_ID, QUESTION_ID, "B");
@@ -146,6 +153,8 @@ class QuizAnswerControllerTest {
                 .andExpect(jsonPath("$.data.reward.points").value(200))
                 .andExpect(jsonPath("$.data.reward.point_transaction_id")
                         .value(7001))
+                .andExpect(jsonPath("$.data.main_chapter_completed")
+                        .value(false))
                 .andExpect(jsonPath("$.data.next_action")
                         .value("NEXT_SUB_CHAPTER"));
     }
@@ -162,6 +171,26 @@ class QuizAnswerControllerTest {
         verify(service, never()).grade(anyLong(), anyLong(), anyLong(), isNull());
     }
 
+    @Test
+    void returnsFoundationCompletionAndInitialGrant() throws Exception {
+        when(service.grade(USER_ID, ATTEMPT_ID, QUESTION_ID, "C"))
+                .thenReturn(completedFoundationResult());
+
+        mockMvc.perform(authenticated(put(
+                        "/api/learning/quiz-attempts/3001/answers/1001"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"answer\":{\"key\":\"C\"}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.main_chapter_completed")
+                        .value(true))
+                .andExpect(jsonPath("$.data.foundation_grant.granted")
+                        .value(true))
+                .andExpect(jsonPath("$.data.foundation_grant.portfolio_id")
+                        .value(501))
+                .andExpect(jsonPath("$.data.next_action")
+                        .value("PORTFOLIO_SETUP"));
+    }
+
     private QuizAnswerGradingResult result() {
         return new QuizAnswerGradingResult(
                 ATTEMPT_ID,
@@ -175,6 +204,7 @@ class QuizAnswerControllerTest {
                 1,
                 3,
                 false,
+                null,
                 null,
                 null,
                 null,
@@ -198,7 +228,37 @@ class QuizAnswerControllerTest {
                 2,
                 67,
                 new QuizRewardResult(91L, 200, 7001L),
+                null,
                 "NEXT_SUB_CHAPTER"
+        );
+    }
+
+    private QuizAnswerGradingResult completedFoundationResult() {
+        return new QuizAnswerGradingResult(
+                ATTEMPT_ID,
+                QUESTION_ID,
+                QuizGenerationType.HUMAN,
+                "C",
+                true,
+                "C",
+                "정기예금 해설",
+                QuizAttemptStatus.GRADED,
+                3,
+                3,
+                true,
+                2,
+                67,
+                new QuizRewardResult(91L, 200, 7001L),
+                new MainChapterCompletionResult(
+                        ChapterType.FOUNDATION,
+                        true,
+                        new InitialGrantResult(
+                                true,
+                                new BigDecimal("30000000.00"),
+                                501L
+                        )
+                ),
+                "PORTFOLIO_SETUP"
         );
     }
 

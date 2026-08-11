@@ -3,6 +3,7 @@ package org.firstfolio.quiz.dto.response;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.firstfolio.quiz.domain.QuizAnswerGradingResult;
+import org.firstfolio.quiz.domain.QuizAttemptStatus;
 import org.firstfolio.quiz.domain.QuizGenerationType;
 
 @Schema(description = "퀴즈 문항 즉시 채점 결과")
@@ -18,6 +19,12 @@ public record QuizAnswerGradingResponse(
         @JsonInclude(JsonInclude.Include.NON_NULL)
         @Schema(description = "마지막 문항 제출 시 포인트 지급 결과", nullable = true)
         QuizRewardResponse reward,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        @Schema(description = "대단원 퀴즈 완료 여부", nullable = true)
+        Boolean mainChapterCompleted,
+        @JsonInclude(JsonInclude.Include.NON_NULL)
+        @Schema(description = "기초 과정 완료 시 초기 모의투자금 지급 결과", nullable = true)
+        FoundationGrantResponse foundationGrant,
         @JsonInclude(JsonInclude.Include.NON_NULL)
         @Schema(description = "퀴즈 완료 후 다음 동작", example = "NEXT_SUB_CHAPTER", nullable = true)
         String nextAction
@@ -42,6 +49,15 @@ public record QuizAnswerGradingResponse(
                 result.reward() == null
                         ? null
                         : QuizRewardResponse.from(result.reward()),
+                result.attemptStatus() != QuizAttemptStatus.GRADED
+                        ? null
+                        : result.mainChapterCompletion() != null,
+                result.mainChapterCompletion() == null
+                                || result.mainChapterCompletion().foundationGrant() == null
+                        ? null
+                        : FoundationGrantResponse.from(
+                                result.mainChapterCompletion().foundationGrant()
+                        ),
                 result.nextAction()
         );
     }

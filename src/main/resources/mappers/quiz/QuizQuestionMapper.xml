@@ -111,6 +111,24 @@
         </foreach>
     </select>
 
+    <select id="findLatestPublishedByMainChapterId"
+            resultMap="questionResultMap">
+        SELECT <include refid="questionColumns" />
+        FROM quiz_questions question
+        WHERE question.usage_type = 'MAIN_CHAPTER'
+          AND question.main_chapter_id = #{mainChapterId}
+          AND question.status = 'PUBLISHED'
+          AND question.display_order IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1
+              FROM quiz_questions newer
+              WHERE newer.question_key = question.question_key
+                AND newer.status = 'PUBLISHED'
+                AND newer.version_no &gt; question.version_no
+          )
+        ORDER BY question.display_order, question.question_id
+    </select>
+
     <insert id="insert"
             parameterType="org.firstfolio.quiz.domain.QuizQuestion"
             useGeneratedKeys="true"

@@ -65,6 +65,7 @@ class QuizAttemptControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.attempt_id").value(3001))
                 .andExpect(jsonPath("$.data.quiz_type").value("SUB_CHAPTER"))
+                .andExpect(jsonPath("$.data.main_chapter_id").doesNotExist())
                 .andExpect(jsonPath("$.data.sub_chapter_id").value(101))
                 .andExpect(jsonPath("$.data.content_version_id").value(301))
                 .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"))

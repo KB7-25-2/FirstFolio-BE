@@ -49,6 +49,7 @@ public enum ErrorCode {
     ATTEMPT_ALREADY_GRADED(HttpStatus.CONFLICT, "이미 종료된 퀴즈 응시입니다."),
     ANSWER_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "이미 제출한 답안은 변경할 수 없습니다."),
     INVALID_SELECTED_CHOICE(HttpStatus.UNPROCESSABLE_ENTITY, "선택한 답안이 올바르지 않습니다."),
+    SUB_CHAPTERS_INCOMPLETE(HttpStatus.FORBIDDEN, "대단원의 모든 소단원 학습을 먼저 완료해야 합니다."),
 
     // 학습 진도
     CONTENT_VERSION_MISMATCH(HttpStatus.CONFLICT, "소단원과 콘텐츠 버전이 일치하지 않습니다."),

@@ -17,9 +17,19 @@ public interface QuizAttemptMapper {
             @Param("subChapterId") long subChapterId
     );
 
+    QuizAttempt findInProgressByUserIdAndMainChapterIdForUpdate(
+            @Param("userId") long userId,
+            @Param("mainChapterId") long mainChapterId
+    );
+
     Integer findMaxAttemptNoByUserIdAndSubChapterId(
             @Param("userId") long userId,
             @Param("subChapterId") long subChapterId
+    );
+
+    Integer findMaxAttemptNoByUserIdAndMainChapterId(
+            @Param("userId") long userId,
+            @Param("mainChapterId") long mainChapterId
     );
 
     List<QuizAnswer> findAnswersByAttemptId(
