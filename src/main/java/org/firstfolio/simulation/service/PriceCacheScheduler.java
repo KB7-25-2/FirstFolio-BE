@@ -16,6 +16,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -39,7 +40,9 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@code 403}으로 막히는데, 그 예외가 스케줄러 밖으로 나가면 반복 실행이 통째로 멈출 수 있다.
  * 한 번 실패해도 캐시에는 직전 값이 남아 있고 평가·거래는 계속된다.</p>
  *
- * <p>2초마다 도는 작업이라 <b>정상 경로는 로그를 남기지 않는다</b> — 하루 11,700줄이 된다.</p>
+ * <p>2초마다 도는 작업이라 <b>정상 경로는 로그를 남기지 않는다</b> — 하루 11,700줄이 된다.
+ * <b>실패도 장애당 한 번만 남기고 복구될 때 한 줄 더 남긴다.</b> 지금 상태가 궁금하면
+ * {@code GET /api/internal/product-prices/cache}로 캐시를 직접 들여다볼 수 있다.</p>
  */
 @Component
 public class PriceCacheScheduler {
@@ -60,6 +63,9 @@ public class PriceCacheScheduler {
 
     /** 종가 저장에 실패한 거래일(KST). 같은 날 경고를 한 번만 남기려는 것이다. */
     private final AtomicReference<LocalDate> closingFailedOn = new AtomicReference<>();
+
+    /** 연속 폴링 실패 횟수. 경고를 장애당 한 번만 남기려는 것이다. */
+    private final AtomicLong consecutiveFailures = new AtomicLong();
 
     /**
      * 폴링을 켤지 여부.
@@ -104,6 +110,8 @@ public class PriceCacheScheduler {
 
             if (tradingHours.isMarketOpen(now)) {
                 refresh(now);
+                reportRecovery();
+
                 return;
             }
 
@@ -113,7 +121,40 @@ public class PriceCacheScheduler {
             }
         } catch (Exception exception) {
             // 밖으로 내보내면 반복 실행이 멈출 수 있다. 직전 캐시로 계속 돈다.
-            log.warn("시세 폴링에 실패했습니다. 다음 주기에 다시 시도합니다.", exception);
+            reportFailure(exception);
+        }
+    }
+
+    /**
+     * 폴링 실패를 알린다. <b>연속 실패 중에는 첫 번째만 남긴다.</b>
+     *
+     * <p>2초 주기라 그냥 찍으면 정규장 내내 막혔을 때 <b>하루 11,700줄</b>이 스택트레이스와 함께
+     * 쌓인다. 실제로 토스 IP 화이트리스트가 풀려 4분 만에 120줄이 찍힌 적이 있다 (2026-08-10).</p>
+     *
+     * <p>같은 장애가 계속되는 동안 줄이 늘어나 봐야 알려주는 것이 없다. 대신 <b>복구될 때
+     * 한 줄 더 남겨</b> 장애 구간을 로그만으로 알 수 있게 한다. 현재 상태는
+     * {@code GET /api/internal/product-prices/cache}로 언제든 확인할 수 있다.</p>
+     */
+    private void reportFailure(Exception exception) {
+        if (consecutiveFailures.getAndIncrement() == 0) {
+            log.warn(
+                    "시세 폴링에 실패했습니다. 다음 주기에 다시 시도하며, 복구될 때까지 이 경고를 반복하지 않습니다.",
+                    exception
+            );
+        }
+    }
+
+    /**
+     * 실패하다 성공했으면 복구를 알린다.
+     *
+     * <p><b>실제로 시도해서 성공했을 때만 부른다.</b> 장외에는 아무것도 하지 않으므로
+     * 마감 시각에 "복구됐다"고 잘못 알리지 않는다.</p>
+     */
+    private void reportRecovery() {
+        long failures = consecutiveFailures.getAndSet(0);
+
+        if (failures > 0) {
+            log.info("시세 폴링이 복구되었습니다. 연속 실패 {}회", failures);
         }
     }
 

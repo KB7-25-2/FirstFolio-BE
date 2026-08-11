@@ -1,5 +1,11 @@
 package org.firstfolio.simulation.service;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
+import org.apache.logging.log4j.core.config.Property;
 import org.firstfolio.simulation.client.toss.TossInvestClient;
 import org.firstfolio.simulation.client.toss.TossPricesResponse;
 import org.firstfolio.simulation.domain.AssetType;
@@ -17,11 +23,14 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
@@ -442,5 +451,133 @@ class PriceCacheSchedulerTest {
         scheduler.pollDuringSession();   // 확인 통과 후 저장
 
         verify(priceRefreshService).refresh(utcOf(AFTER_CLOSE), null);
+    }
+
+    // ------------------------------------------------------------- 실패 로그 양
+
+    /**
+     * 이 클래스의 로그를 가로채는 임시 appender.
+     *
+     * <p>바꾸려는 것이 <b>로그 양</b>이라 카운터 같은 대리 지표가 아니라 실제로 찍힌 줄을 센다.</p>
+     */
+    private static final class CapturingAppender extends AbstractAppender {
+
+        private final List<LogEvent> events = new CopyOnWriteArrayList<>();
+
+        private CapturingAppender() {
+            super("priceCacheSchedulerTest", null, null, true, Property.EMPTY_ARRAY);
+        }
+
+        @Override
+        public void append(LogEvent event) {
+            events.add(event.toImmutable());
+        }
+
+        long countAtLeast(Level level) {
+            return events.stream().filter(event -> event.getLevel().isMoreSpecificThan(level)).count();
+        }
+
+        List<String> messagesAt(Level level) {
+            return events.stream()
+                    .filter(event -> event.getLevel().equals(level))
+                    .map(event -> event.getMessage().getFormattedMessage())
+                    .collect(Collectors.toList());
+        }
+    }
+
+    /** 로그를 잡아 둔 채로 작업을 실행한다. */
+    private CapturingAppender captureLogs(Runnable work) {
+        Logger logger = (Logger) LogManager.getLogger(PriceCacheScheduler.class);
+        CapturingAppender appender = new CapturingAppender();
+
+        appender.start();
+        logger.addAppender(appender);
+
+        try {
+            work.run();
+        } finally {
+            logger.removeAppender(appender);
+            appender.stop();
+        }
+
+        return appender;
+    }
+
+    @Test
+    @DisplayName("연속 실패해도 경고는 한 번만 남긴다 — 2초 주기면 하루 11,700줄이 된다")
+    void warnsOncePerOutage() {
+        when(tossClient.fetchPrices(anyList()))
+                .thenThrow(new IllegalStateException("403 access_denied"));
+        target(STOCK_ID, AssetType.STOCK, "005930");
+
+        PriceCacheScheduler scheduler = schedulerAt(DURING_SESSION);
+
+        CapturingAppender logs = captureLogs(() -> {
+            for (int i = 0; i < 50; i++) {
+                scheduler.pollDuringSession();
+            }
+        });
+
+        assertEquals(1, logs.countAtLeast(Level.WARN), "50번 실패해도 경고는 한 줄이어야 합니다.");
+    }
+
+    @Test
+    @DisplayName("복구되면 알린다 — 장애 구간을 로그만으로 알 수 있어야 한다")
+    void reportsRecovery() {
+        target(STOCK_ID, AssetType.STOCK, "005930");
+        quote("005930", "241500");
+        when(tossClient.fetchPrices(anyList()))
+                .thenThrow(new IllegalStateException("일시 장애"))
+                .thenThrow(new IllegalStateException("일시 장애"))
+                .thenReturn(quotes);
+
+        PriceCacheScheduler scheduler = schedulerAt(DURING_SESSION);
+
+        CapturingAppender logs = captureLogs(() -> {
+            scheduler.pollDuringSession();
+            scheduler.pollDuringSession();
+            scheduler.pollDuringSession();   // 복구
+            scheduler.pollDuringSession();   // 이미 정상 — 더 남기지 않는다
+        });
+
+        assertEquals(1, logs.messagesAt(Level.WARN).size());
+        assertEquals(1, logs.messagesAt(Level.INFO).size(), "복구 알림은 한 번만이어야 합니다.");
+        assertTrue(logs.messagesAt(Level.INFO).get(0).contains("연속 실패 2회"));
+    }
+
+    @Test
+    @DisplayName("복구 뒤 다시 실패하면 또 경고한다 — 새 장애는 새 경고다")
+    void warnsAgainAfterRecovery() {
+        target(STOCK_ID, AssetType.STOCK, "005930");
+        quote("005930", "241500");
+        when(tossClient.fetchPrices(anyList()))
+                .thenThrow(new IllegalStateException("1차 장애"))
+                .thenReturn(quotes)
+                .thenThrow(new IllegalStateException("2차 장애"));
+
+        PriceCacheScheduler scheduler = schedulerAt(DURING_SESSION);
+
+        CapturingAppender logs = captureLogs(() -> {
+            scheduler.pollDuringSession();
+            scheduler.pollDuringSession();
+            scheduler.pollDuringSession();
+        });
+
+        assertEquals(2, logs.messagesAt(Level.WARN).size());
+    }
+
+    @Test
+    @DisplayName("장외에는 복구로 치지 않는다 — 시도조차 안 했다")
+    void doesNotClaimRecoveryOutsideSession() {
+        target(STOCK_ID, AssetType.STOCK, "005930");
+        when(tossClient.fetchPrices(anyList()))
+                .thenThrow(new IllegalStateException("장애"));
+
+        CapturingAppender logs = captureLogs(() -> {
+            schedulerAt(DURING_SESSION).pollDuringSession();   // 실패
+            schedulerAt(WEEKEND).pollDuringSession();          // 아무것도 안 함
+        });
+
+        assertEquals(0, logs.messagesAt(Level.INFO).size(), "시도도 안 하고 복구를 알리면 안 됩니다.");
     }
 }
