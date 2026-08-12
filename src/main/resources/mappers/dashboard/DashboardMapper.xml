@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.dashboard.mapper.DashboardMapper">
+
+    <!--
+        대시보드 화면 표시용이라 유형과 예정 시각만 읽는다. portfolio_transactions의
+        나머지 컬럼(금액, 상태 등)은 이 화면에 필요 없어 SELECT하지 않는다.
+    -->
+    <resultMap id="upcomingEventResult" type="org.firstfolio.portfolio.domain.PortfolioTransaction">
+        <result property="transactionType" column="transaction_type"/>
+        <result property="scheduledAt" column="scheduled_at"/>
+    </resultMap>
+
+    <select id="findUpcomingEvents" resultMap="upcomingEventResult">
+        SELECT transaction_type, scheduled_at
+        FROM portfolio_transactions
+        WHERE portfolio_id = #{portfolioId}
+          AND status = 'SCHEDULED'
+          AND scheduled_at &gt;= NOW()
+        ORDER BY scheduled_at
+        LIMIT #{limit}
+    </select>
+
+</mapper>

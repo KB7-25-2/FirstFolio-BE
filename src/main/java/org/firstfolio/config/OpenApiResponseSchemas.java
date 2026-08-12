@@ -7,6 +7,7 @@ import org.firstfolio.admin.dto.response.ProductImportResponse;
 import org.firstfolio.auth.dto.response.LoginResponse;
 import org.firstfolio.auth.dto.response.SignupResponse;
 import org.firstfolio.content.dto.response.ContentVersionCreateResponse;
+import org.firstfolio.dashboard.dto.response.DashboardResponse;
 import org.firstfolio.content.dto.response.ContentVersionListResponse;
 import org.firstfolio.content.dto.response.ContentVersionPublishResponse;
 import org.firstfolio.curriculum.dto.response.CurriculumConfirmResponse;
@@ -178,4 +179,7 @@ public final class OpenApiResponseSchemas {
 
     @Schema(name = "AdminProductApiResponse")
     public record AdminProduct(AdminProductResponse data) { }
+
+    @Schema(name = "DashboardApiResponse")
+    public record Dashboard(DashboardResponse data) { }
 }
