@@ -9,9 +9,10 @@ import org.firstfolio.auth.dto.response.SignupResponse;
 import org.firstfolio.content.dto.response.ContentVersionCreateResponse;
 import org.firstfolio.content.dto.response.ContentVersionListResponse;
 import org.firstfolio.content.dto.response.ContentVersionPublishResponse;
-import org.firstfolio.curriculum.dto.response.MainChapterCreateResponse;
+import org.firstfolio.curriculum.dto.response.CurriculumConfirmResponse;
 import org.firstfolio.curriculum.dto.response.CurriculumDraftEditResponse;
 import org.firstfolio.curriculum.dto.response.CurriculumDraftResponse;
+import org.firstfolio.curriculum.dto.response.MainChapterCreateResponse;
 import org.firstfolio.curriculum.dto.response.MainChapterListResponse;
 import org.firstfolio.curriculum.dto.response.MainChapterPatchResponse;
 import org.firstfolio.curriculum.dto.response.SubChapterCreateResponse;
@@ -107,6 +108,9 @@ public final class OpenApiResponseSchemas {
 
     @Schema(name = "CurriculumDraftEditApiResponse")
     public record CurriculumDraftEdit(CurriculumDraftEditResponse data) { }
+
+    @Schema(name = "CurriculumConfirmApiResponse")
+    public record CurriculumConfirm(CurriculumConfirmResponse data) { }
 
     @Schema(name = "ContentVersionListApiResponse")
     public record ContentVersionList(ContentVersionListResponse data) { }

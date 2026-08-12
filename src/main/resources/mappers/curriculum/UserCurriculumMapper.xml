@@ -17,6 +17,13 @@
         <result property="completedAt" column="completed_at" />
     </resultMap>
 
+    <select id="findUserIdForUpdate" resultType="java.lang.Long">
+        SELECT user_id
+        FROM users
+        WHERE user_id = #{userId}
+        FOR UPDATE
+    </select>
+
     <select id="findActiveByUserId"
             resultMap="userCurriculumItemResultMap">
         SELECT
@@ -33,5 +40,28 @@
           AND status = 'ACTIVE'
         ORDER BY display_order, curriculum_item_id
     </select>
+
+    <insert id="insertAll">
+        INSERT INTO user_curriculum_items (
+            user_id,
+            main_chapter_id,
+            display_order,
+            source_type,
+            status,
+            confirmed_at,
+            completed_at
+        ) VALUES
+        <foreach collection="items" item="item" separator=",">
+            (
+                #{userId},
+                #{item.mainChapterId},
+                #{item.displayOrder},
+                #{item.sourceType},
+                'ACTIVE',
+                #{confirmedAt},
+                NULL
+            )
+        </foreach>
+    </insert>
 
 </mapper>
