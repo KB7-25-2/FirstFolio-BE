@@ -166,6 +166,53 @@ class LevelTestSubmitServiceTest {
     }
 
     @Test
+    void findsStoredGradedResultForCurriculumComposition() {
+        QuizAttempt attempt = attempt(QuizAttemptStatus.GRADED, 2);
+        attempt.setCorrectCount(1);
+        attempt.setScore(50);
+        attempt.setSubmittedAt(NOW.minusMinutes(10));
+        when(quizAttemptMapper.findLevelTestByUserId(USER_ID))
+                .thenReturn(attempt);
+        when(quizAttemptMapper.findAnswersByAttemptId(ATTEMPT_ID))
+                .thenReturn(List.of(
+                        answer(1001L, 1, 2L,
+                                AssetType.DEPOSIT_SAVINGS, "B", true),
+                        answer(1002L, 2, 2L,
+                                AssetType.DEPOSIT_SAVINGS, "A", false)
+                ));
+
+        LevelTestSubmitResult result = service.findResult(USER_ID);
+
+        assertEquals(QuizAttemptStatus.GRADED, result.status());
+        assertEquals(1, result.chapterResults().size());
+        assertFalse(result.chapterResults().get(0).allCorrect());
+        verify(quizAttemptMapper, never()).findByIdForUpdate(anyLong());
+        verify(quizAttemptMapper, never())
+                .findAnswersByAttemptIdForUpdate(anyLong());
+    }
+
+    @Test
+    void requiresGradedLevelTestForResultQuery() {
+        when(quizAttemptMapper.findLevelTestByUserId(USER_ID))
+                .thenReturn(null);
+        ApiException missing = assertThrows(
+                ApiException.class,
+                () -> service.findResult(USER_ID)
+        );
+        assertEquals(ErrorCode.LEVEL_TEST_REQUIRED, missing.getErrorCode());
+
+        when(quizAttemptMapper.findLevelTestByUserId(USER_ID))
+                .thenReturn(attempt(QuizAttemptStatus.IN_PROGRESS, 1));
+        ApiException inProgress = assertThrows(
+                ApiException.class,
+                () -> service.findResult(USER_ID)
+        );
+        assertEquals(ErrorCode.LEVEL_TEST_REQUIRED,
+                inProgress.getErrorCode());
+        verify(quizAttemptMapper, never()).findAnswersByAttemptId(anyLong());
+    }
+
+    @Test
     void rejectsMissingForeignOrNonLevelTestAttempt() {
         when(quizAttemptMapper.findByIdForUpdate(ATTEMPT_ID))
                 .thenReturn(null);

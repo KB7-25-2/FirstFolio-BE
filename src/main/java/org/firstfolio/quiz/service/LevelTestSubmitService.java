@@ -93,6 +93,19 @@ public class LevelTestSubmitService {
         return result(attempt, questionResults);
     }
 
+    @Transactional(readOnly = true)
+    public LevelTestSubmitResult findResult(long userId) {
+        QuizAttempt attempt = quizAttemptMapper.findLevelTestByUserId(userId);
+        if (attempt == null || attempt.getStatus() != QuizAttemptStatus.GRADED) {
+            throw new ApiException(ErrorCode.LEVEL_TEST_REQUIRED);
+        }
+        List<QuizAnswer> answers = quizAttemptMapper.findAnswersByAttemptId(
+                attempt.getAttemptId()
+        );
+        validateAssignedAnswers(attempt, answers);
+        return restore(attempt, answers);
+    }
+
     private LevelTestSubmitResult restore(
             QuizAttempt attempt,
             List<QuizAnswer> answers

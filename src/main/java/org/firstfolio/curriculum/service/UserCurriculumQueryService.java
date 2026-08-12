@@ -56,7 +56,7 @@ public class UserCurriculumQueryService {
     ) {
         return first.getMainChapterId() == foundation.getMainChapterId()
                 && first.getDisplayOrder() == 1
-                && first.getSourceType() == CurriculumSourceType.REQUIRED
+                && first.getSourceType() == CurriculumSourceType.FOUNDATION
                 && first.getStatus() == CurriculumItemStatus.ACTIVE;
     }
 }

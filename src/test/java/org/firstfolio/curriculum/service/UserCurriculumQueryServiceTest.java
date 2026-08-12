@@ -53,7 +53,7 @@ class UserCurriculumQueryServiceTest {
         UserCurriculumItem required = item(
                 1L,
                 1,
-                CurriculumSourceType.REQUIRED
+                CurriculumSourceType.FOUNDATION
         );
         UserCurriculumItem selected = item(
                 2L,
@@ -74,7 +74,11 @@ class UserCurriculumQueryServiceTest {
     @Test
     void rejectsCurriculumWithoutRequiredFoundationFirst() {
         when(userCurriculumMapper.findActiveByUserId(11L))
-                .thenReturn(List.of(item(2L, 1, CurriculumSourceType.CART)));
+                .thenReturn(List.of(item(
+                        2L,
+                        1,
+                        CurriculumSourceType.USER_ADDED
+                )));
         when(mainChapterMapper.findAll(ChapterType.FOUNDATION, true))
                 .thenReturn(List.of(foundation(1L)));
 
