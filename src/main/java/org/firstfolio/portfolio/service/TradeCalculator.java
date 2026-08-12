@@ -29,6 +29,8 @@ public class TradeCalculator {
     private static final int QUANTITY_SCALE = 6;
     private static final int PRICE_SCALE = 4;
 
+    private static final BigDecimal ZERO_MONEY = new BigDecimal("0.00");
+
     /**
      * 매수형 매수 — 금액을 수량으로 환산한다.
      *
@@ -151,18 +153,25 @@ public class TradeCalculator {
         BigDecimal feeRate = appliedRate(assetType, policy.getBuyFeeRate());
         BigDecimal fee = cost(executedAmount, feeRate);
 
+        // 증권거래세는 매도에만 붙는다 (v3 3.3절).
         return new TradeCosts(
                 fee,
+                ZERO_MONEY,
                 money(executedAmount.add(fee)),
                 feeRate,
+                BigDecimal.ZERO,
                 policy.getPolicyVersion()
         );
     }
 
     /**
-     * 매도에 드는 비용 (v3 3.3절). 대금에서 <b>빼고</b> 현금에 넣는다.
+     * 매도에 드는 비용 (v3 3.3절). 대금에서 <b>수수료와 증권거래세를 빼고</b> 현금에 넣는다.
      *
-     * <p>증권거래세는 아직 붙지 않는다 — 매도에만 적용되는 별도 항목이고 이월 항목 #76이다.</p>
+     * <p>증권거래세 0.20%는 거래세+농특세 합산(코스피)과 거래세 단독(코스닥)이 같은 값이 되어
+     * <b>시장 구분 없이 단일 세율</b>이다. <b>ETF에도 적용</b>한다 — 현실과는 다르지만 D17에서
+     * 의도한 단순화로 확정했다.</p>
+     *
+     * <p>둘을 합쳐도 0.215%라 <b>순현금이 음수가 될 수 없다.</b></p>
      */
     public TradeCosts costsForSell(
             AssetType assetType,
@@ -170,12 +179,16 @@ public class TradeCalculator {
             TradePolicy policy
     ) {
         BigDecimal feeRate = appliedRate(assetType, policy.getSellFeeRate());
+        BigDecimal taxRate = appliedRate(assetType, policy.getSecuritiesTransactionTaxRate());
         BigDecimal fee = cost(executedAmount, feeRate);
+        BigDecimal tax = cost(executedAmount, taxRate);
 
         return new TradeCosts(
                 fee,
-                money(executedAmount.subtract(fee)),
+                tax,
+                money(executedAmount.subtract(fee).subtract(tax)),
                 feeRate,
+                taxRate,
                 policy.getPolicyVersion()
         );
     }

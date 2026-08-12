@@ -588,15 +588,15 @@ class TradeServiceTest {
     }
 
     @Test
-    @DisplayName("매도는 대금에서 수수료를 빼고 현금에 넣는다")
-    void deductsSellFeeFromProceeds() {
+    @DisplayName("매도는 대금에서 수수료와 증권거래세를 빼고 현금에 넣는다")
+    void deductsSellCostsFromProceeds() {
         givenHolding(STOCK_ID, "8.000000", "1932000.00", HoldingStatus.ACTIVE);
         cash = new BigDecimal("0.00");
 
         sell(STOCK_ID, "8.000000");
 
-        // 1,932,000 − 289.80
-        assertEquals(new BigDecimal("1931710.20"), cash);
+        // 1,932,000 − 289.80(수수료) − 3,864.00(거래세)
+        assertEquals(new BigDecimal("1927846.20"), cash);
     }
 
     @Test
@@ -675,7 +675,7 @@ class TradeServiceTest {
     }
 
     @Test
-    @DisplayName("매도 응답의 현금 증감은 대금에서 수수료를 뺀 값이다")
+    @DisplayName("매도 응답의 현금 증감은 대금에서 수수료와 거래세를 뺀 값이다")
     void returnsNetProceedsOnSell() {
         givenHolding(STOCK_ID, "8.000000", "1932000.00", HoldingStatus.ACTIVE);
 
@@ -683,7 +683,30 @@ class TradeServiceTest {
 
         assertEquals(new BigDecimal("1932000.00"), result.getAmount());
         assertEquals(new BigDecimal("289.80"), result.getFeeAmount());
-        assertEquals(new BigDecimal("1931710.20"), result.getNetCashAmount());
+        assertEquals(new BigDecimal("1927846.20"), result.getNetCashAmount());
+    }
+
+    @Test
+    @DisplayName("매도 이력에 증권거래세 금액과 적용 세율을 남긴다")
+    void recordsTransactionTaxBasisInDetail() {
+        givenHolding(STOCK_ID, "8.000000", "1932000.00", HoldingStatus.ACTIVE);
+
+        sell(STOCK_ID, "8.000000");
+
+        String detail = stored.get("sell-" + KEY).getDetailJson();
+
+        assertEquals(true, detail.contains("\"tax_amount\":\"3864.00\""), detail);
+        assertEquals(true, detail.contains("\"tax_rate\":\"0.0020\""), detail);
+    }
+
+    @Test
+    @DisplayName("매수 이력에는 거래세가 0으로 남는다")
+    void recordsZeroTaxOnBuy() {
+        buy(STOCK_ID, "5000000.00");
+
+        String detail = stored.get(KEY).getDetailJson();
+
+        assertEquals(true, detail.contains("\"tax_amount\":\"0.00\""), detail);
     }
 
     @Test

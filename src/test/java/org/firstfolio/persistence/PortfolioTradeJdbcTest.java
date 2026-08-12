@@ -123,8 +123,8 @@ class PortfolioTradeJdbcTest {
             fixture.trade.trade(fixture.userId, sell(stockId, "50.000000"));
 
             assertEquals("SOLD", holdingStatus(connection, firstHoldingId));
-            // 사고팔면 수수료가 두 번 나간다 — 원금이 그대로 돌아오지 않는다.
-            assertEquals("29998500.00", cashOf(connection, fixture.portfolioId));
+            // 매수 수수료 750 + 매도 수수료 750 + 증권거래세 10,000 = 11,500원이 나갔다.
+            assertEquals("29988500.00", cashOf(connection, fixture.portfolioId));
 
             // 다시 산다 — 새로 INSERT하면 uq_portfolio_holdings_product에 걸린다.
             TradeResult rebought =
@@ -296,6 +296,34 @@ class PortfolioTradeJdbcTest {
                                     + " ORDER BY version_no DESC LIMIT 1", 1),
                     detailValue(connection, transactionId, "policy_version")
             );
+        });
+    }
+
+    @Test
+    @DisplayName("매도에는 증권거래세가 붙고 매수에는 붙지 않는다")
+    void chargesTransactionTaxOnSellOnly() throws Exception {
+        withRollback((context, connection) -> {
+            Fixture fixture = givenPortfolio(context, connection, "30000000.00");
+            long stockId = givenPricedStock(connection);
+
+            TradeResult bought =
+                    fixture.trade.trade(fixture.userId, buy(stockId, "5000000.00"));
+
+            assertEquals("0.00",
+                    detailValue(connection, bought.getPortfolioTransactionId(), "tax_amount"),
+                    "매수에는 증권거래세가 붙지 않습니다.");
+
+            TradeResult sold =
+                    fixture.trade.trade(fixture.userId, sell(stockId, "50.000000"));
+            long soldId = sold.getPortfolioTransactionId();
+
+            // 5,000,000 × 0.0020
+            assertEquals("10000.00", detailValue(connection, soldId, "tax_amount"));
+            assertEquals("0.0020", detailValue(connection, soldId, "tax_rate"));
+            // 5,000,000 − 750(수수료) − 10,000(거래세)
+            assertEquals("4989250.00", detailValue(connection, soldId, "net_cash_amount"));
+            assertEquals("5000000.00", detailValue(connection, soldId, "executed_amount"),
+                    "이력의 체결액에는 비용이 섞이면 안 됩니다.");
         });
     }
 

@@ -443,6 +443,8 @@ public class TradeService {
         detail.put("executed_amount", amounts.getExecutedAmount().toPlainString());
         detail.put("fee_rate", costs.getFeeRate().toPlainString());
         detail.put("fee_amount", costs.getFeeAmount().toPlainString());
+        detail.put("tax_rate", costs.getTaxRate().toPlainString());
+        detail.put("tax_amount", costs.getTaxAmount().toPlainString());
         detail.put("net_cash_amount", costs.getNetCashAmount().toPlainString());
         detail.put("policy_version", costs.getPolicyVersion());
 
