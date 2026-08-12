@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.curriculum.mapper.UserCurriculumMapper">
+
+    <resultMap id="userCurriculumItemResultMap"
+               type="org.firstfolio.curriculum.domain.UserCurriculumItem">
+        <id property="curriculumItemId" column="curriculum_item_id" />
+        <result property="userId" column="user_id" />
+        <result property="mainChapterId" column="main_chapter_id" />
+        <result property="displayOrder" column="display_order" />
+        <result property="sourceType" column="source_type" />
+        <result property="status" column="status" />
+        <result property="confirmedAt" column="confirmed_at" />
+        <result property="completedAt" column="completed_at" />
+    </resultMap>
+
+    <resultMap id="curriculumOverviewItemResultMap"
+               type="org.firstfolio.curriculum.domain.CurriculumOverviewItem">
+        <constructor>
+            <arg column="curriculum_item_id" javaType="long" />
+            <arg column="main_chapter_id" javaType="long" />
+            <arg column="title" javaType="java.lang.String" />
+            <arg column="chapter_type"
+                 javaType="org.firstfolio.curriculum.domain.ChapterType" />
+            <arg column="display_order" javaType="int" />
+            <arg column="source_type"
+                 javaType="org.firstfolio.curriculum.domain.CurriculumSourceType" />
+            <arg column="status"
+                 javaType="org.firstfolio.curriculum.domain.CurriculumItemStatus" />
+            <arg column="completed_at" javaType="java.time.LocalDateTime" />
+            <arg column="progress_percent" javaType="int" />
+        </constructor>
+    </resultMap>
+
+    <select id="findUserIdForUpdate" resultType="java.lang.Long">
+        SELECT user_id
+        FROM users
+        WHERE user_id = #{userId}
+        FOR UPDATE
+    </select>
+
+    <select id="findOverviewByUserId"
+            resultMap="curriculumOverviewItemResultMap">
+        SELECT
+            curriculum.curriculum_item_id,
+            curriculum.main_chapter_id,
+            chapter.title,
+            chapter.chapter_type,
+            curriculum.display_order,
+            curriculum.source_type,
+            curriculum.status,
+            curriculum.completed_at,
+            CASE
+                WHEN curriculum.completed_at IS NOT NULL THEN 100
+                WHEN NOT EXISTS (
+                    SELECT 1
+                    FROM sub_chapters active_sub
+                    WHERE active_sub.main_chapter_id = curriculum.main_chapter_id
+                      AND active_sub.is_active = TRUE
+                ) THEN 0
+                ELSE CAST(FLOOR(
+                    100.0 * (
+                        SELECT COUNT(*)
+                        FROM sub_chapters completed_sub
+                        INNER JOIN user_learning_progress progress
+                            ON progress.sub_chapter_id = completed_sub.sub_chapter_id
+                           AND progress.user_id = curriculum.user_id
+                           AND progress.status = 'COMPLETED'
+                        WHERE completed_sub.main_chapter_id = curriculum.main_chapter_id
+                          AND completed_sub.is_active = TRUE
+                    ) / (
+                        SELECT COUNT(*)
+                        FROM sub_chapters active_sub
+                        WHERE active_sub.main_chapter_id = curriculum.main_chapter_id
+                          AND active_sub.is_active = TRUE
+                    )
+                ) AS SIGNED)
+            END AS progress_percent
+        FROM user_curriculum_items curriculum
+        INNER JOIN main_chapters chapter
+            ON chapter.main_chapter_id = curriculum.main_chapter_id
+        WHERE curriculum.user_id = #{userId}
+          AND curriculum.status = 'ACTIVE'
+        ORDER BY curriculum.display_order, curriculum.curriculum_item_id
+    </select>
+
+    <select id="findActiveByUserId"
+            resultMap="userCurriculumItemResultMap">
+        SELECT
+            curriculum_item_id,
+            user_id,
+            main_chapter_id,
+            display_order,
+            source_type,
+            status,
+            confirmed_at,
+            completed_at
+        FROM user_curriculum_items
+        WHERE user_id = #{userId}
+          AND status = 'ACTIVE'
+        ORDER BY display_order, curriculum_item_id
+    </select>
+
+    <insert id="insertAll">
+        INSERT INTO user_curriculum_items (
+            user_id,
+            main_chapter_id,
+            display_order,
+            source_type,
+            status,
+            confirmed_at,
+            completed_at
+        ) VALUES
+        <foreach collection="items" item="item" separator=",">
+            (
+                #{userId},
+                #{item.mainChapterId},
+                #{item.displayOrder},
+                #{item.sourceType},
+                'ACTIVE',
+                #{confirmedAt},
+                NULL
+            )
+        </foreach>
+    </insert>
+
+</mapper>

@@ -4,8 +4,11 @@ import org.firstfolio.common.json.ApiObjectMapperFactory;
 import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.CommonExceptionAdvice;
 import org.firstfolio.exception.ErrorCode;
+import org.firstfolio.simulation.domain.ProductPrice;
+import org.firstfolio.simulation.service.PriceCache;
 import org.firstfolio.simulation.service.PriceRefreshResult;
 import org.firstfolio.simulation.service.PriceRefreshService;
+import org.firstfolio.simulation.service.TradingHours;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,7 +19,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.filter.CharacterEncodingFilter;
 
+import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,6 +31,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -39,15 +46,25 @@ class InternalProductPriceControllerTest {
 
     private static final LocalDateTime REFERENCE_AT = LocalDateTime.of(2026, 7, 29, 3, 15, 0);
 
+    /** 2026-08-11(화) 12:00 KST = 03:00 UTC — 장중. */
+    private static final LocalDateTime DURING_SESSION = LocalDateTime.of(2026, 8, 11, 3, 0);
+
     private PriceRefreshService priceRefreshService;
+    private PriceCache priceCache;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         priceRefreshService = mock(PriceRefreshService.class);
+        priceCache = new PriceCache();
 
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new InternalProductPriceController(priceRefreshService))
+                .standaloneSetup(new InternalProductPriceController(
+                        priceRefreshService,
+                        priceCache,
+                        new TradingHours(),
+                        Clock.fixed(DURING_SESSION.toInstant(ZoneOffset.UTC), ZoneOffset.UTC)
+                ))
                 .setControllerAdvice(new CommonExceptionAdvice())
                 .setMessageConverters(
                         new MappingJackson2HttpMessageConverter(ApiObjectMapperFactory.create())
@@ -137,5 +154,55 @@ class InternalProductPriceControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"reference_at\":\"2026-07-29T03:15:00Z\",\"interval\":60}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    // ------------------------------------------------------------- 캐시 상태
+
+    private void cached(long productId, String price, LocalDateTime referenceAt) {
+        ProductPrice row = new ProductPrice();
+
+        row.setProductId(productId);
+        row.setPrice(new BigDecimal(price));
+        row.setReferenceAt(referenceAt);
+
+        priceCache.put(row);
+    }
+
+    @Test
+    @DisplayName("캐시에 든 항목과 기준 시각 범위를 준다")
+    void reportsCacheContents() throws Exception {
+        cached(87L, "231500.0000", DURING_SESSION);
+        cached(88L, "72300.0000", DURING_SESSION.minusSeconds(4));
+
+        mockMvc.perform(get("/api/internal/product-prices/cache"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cached_count").value(2))
+                .andExpect(jsonPath("$.data.market_open").value(true))
+                .andExpect(jsonPath("$.data.oldest_reference_at").value("2026-08-11T02:59:56Z"))
+                .andExpect(jsonPath("$.data.newest_reference_at").value("2026-08-11T03:00:00Z"))
+                .andExpect(jsonPath("$.data.items[0].product_id").value(87))
+                .andExpect(jsonPath("$.data.items[0].price").value("231500.0000"));
+    }
+
+    @Test
+    @DisplayName("캐시가 비어도 오류가 아니다 — 재시작 직후·장외의 정상 상태다")
+    void reportsEmptyCacheWithoutError() throws Exception {
+        mockMvc.perform(get("/api/internal/product-prices/cache"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cached_count").value(0))
+                .andExpect(jsonPath("$.data.oldest_reference_at").value((Object) null))
+                .andExpect(jsonPath("$.data.newest_reference_at").value((Object) null));
+    }
+
+    @Test
+    @DisplayName("조회가 캐시를 건드리지 않는다 — 점검이 상태를 바꾸면 안 된다")
+    void doesNotMutateCache() throws Exception {
+        cached(87L, "231500.0000", DURING_SESSION);
+
+        mockMvc.perform(get("/api/internal/product-prices/cache")).andExpect(status().isOk());
+        mockMvc.perform(get("/api/internal/product-prices/cache")).andExpect(status().isOk());
+
+        assertEquals(1, priceCache.size());
+        assertEquals(new BigDecimal("231500.0000"), priceCache.find(87L).getPrice());
     }
 }

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.policy.mapper.SystemPolicyMapper">
+
+    <!-- is_active(컬럼)와 active(프로퍼티) 이름이 달라 자동 매핑에 기대지 않고 명시한다. -->
+    <resultMap id="systemPolicyResult" type="org.firstfolio.policy.domain.SystemPolicy">
+        <id property="policyId" column="policy_id"/>
+        <result property="policyKey" column="policy_key"/>
+        <result property="versionNo" column="version_no"/>
+        <result property="configJson" column="config_json"/>
+        <result property="effectiveFrom" column="effective_from"/>
+        <result property="effectiveTo" column="effective_to"/>
+        <result property="active" column="is_active"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <!--
+        idx_system_policies_active_period (policy_key, is_active, effective_from, effective_to)를 탄다.
+
+        effective_to IS NULL은 "아직 끝나지 않은 정책"이다. 이 조건을 빠뜨리면 종료 없는 정책이
+        전부 걸러져 아무것도 안 나온다.
+    -->
+    <select id="findActive" resultMap="systemPolicyResult">
+        SELECT policy_id,
+               policy_key,
+               version_no,
+               config_json,
+               effective_from,
+               effective_to,
+               is_active,
+               created_by,
+               created_at
+        FROM system_policies
+        WHERE policy_key = #{policyKey}
+          AND is_active = TRUE
+          AND effective_from &lt;= #{at}
+          AND (effective_to IS NULL OR effective_to &gt; #{at})
+        ORDER BY version_no DESC
+        LIMIT 1
+    </select>
+
+</mapper>

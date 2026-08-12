@@ -7,6 +7,8 @@ import org.firstfolio.portfolio.domain.Portfolio;
 import org.firstfolio.portfolio.domain.PortfolioHolding;
 import org.firstfolio.portfolio.domain.PortfolioStatus;
 import org.firstfolio.portfolio.domain.PortfolioTransaction;
+import org.firstfolio.portfolio.domain.TradePolicy;
+import org.firstfolio.portfolio.domain.TransactionStatus;
 import org.firstfolio.portfolio.domain.TransactionType;
 import org.firstfolio.portfolio.mapper.PortfolioHoldingMapper;
 import org.firstfolio.portfolio.mapper.PortfolioMapper;
@@ -16,6 +18,7 @@ import org.firstfolio.simulation.domain.FinancialProduct;
 import org.firstfolio.simulation.domain.ProductPrice;
 import org.firstfolio.simulation.mapper.FinancialProductMapper;
 import org.firstfolio.simulation.service.CurrentPriceReader;
+import org.firstfolio.simulation.service.TradingHours;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -35,6 +38,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -52,6 +56,7 @@ class TradeServiceTest {
     private FinancialProductMapper productMapper;
     private CurrentPriceReader priceReader;
     private AssetEventScheduler eventScheduler;
+    private TradePolicyProvider tradePolicyProvider;
     private TradeService service;
 
     private final Map<String, PortfolioTransaction> stored = new HashMap<>();
@@ -74,10 +79,14 @@ class TradeServiceTest {
         productMapper = mock(FinancialProductMapper.class);
         priceReader = mock(CurrentPriceReader.class);
         eventScheduler = mock(AssetEventScheduler.class);
+        tradePolicyProvider = mock(TradePolicyProvider.class);
+
+        when(tradePolicyProvider.findAt(any())).thenReturn(tradePolicy(1));
 
         service = new TradeService(
                 portfolioMapper, holdingMapper, transactionMapper, productMapper,
-                priceReader, new TradeCalculator(), alwaysOpen, eventScheduler
+                priceReader, new TradeCalculator(), alwaysOpen, eventScheduler,
+                tradePolicyProvider
         );
 
         stored.clear();
@@ -153,6 +162,18 @@ class TradeServiceTest {
         return product;
     }
 
+    /** v3 3.3절 확정 요율. 수수료 0.015%. */
+    private static TradePolicy tradePolicy(Integer versionNo) {
+        return new TradePolicy(
+                new BigDecimal("0.00015"),
+                new BigDecimal("0.00015"),
+                new BigDecimal("0.0020"),
+                new BigDecimal("0.154"),
+                new BigDecimal("0.154"),
+                versionNo
+        );
+    }
+
     private static ProductPrice price(String value) {
         ProductPrice price = new ProductPrice();
 
@@ -195,8 +216,9 @@ class TradeServiceTest {
         assertEquals(new BigDecimal("5000000.00"), result.getRequestedAmount());
         assertEquals(new BigDecimal("4830000.00"), result.getAmount());
         assertEquals(new BigDecimal("20.000000"), result.getQuantity());
-        assertEquals(new BigDecimal("25170000.00"), result.getCashBalance(),
-                "체결액만 빠지고 차액 17만원은 현금에 남아야 합니다.");
+        // 30,000,000 − 4,830,000(체결) − 724.50(수수료)
+        assertEquals(new BigDecimal("25169275.50"), result.getCashBalance(),
+                "체결액과 수수료만 빠지고 차액 17만원은 현금에 남아야 합니다.");
     }
 
     @Test
@@ -418,10 +440,25 @@ class TradeServiceTest {
 
         ArgumentCaptor<BigDecimal> principal = ArgumentCaptor.forClass(BigDecimal.class);
 
-        verify(eventScheduler).schedule(any(), any(), any(), principal.capture(), any());
+        verify(eventScheduler).schedule(any(), any(), any(), principal.capture(), any(), any());
 
         assertEquals(new BigDecimal("10000000.00"), principal.getValue(),
                 "가입형은 요청 금액이 그대로 원금입니다.");
+    }
+
+    @Test
+    @DisplayName("일정 생성에 거래가 읽은 정책을 그대로 넘긴다 — 같은 트랜잭션에서 버전이 갈리면 안 된다")
+    void passesTheSamePolicyToEventScheduler() {
+        buy(DEPOSIT_ID, "10000000.00");
+
+        ArgumentCaptor<TradePolicy> policy = ArgumentCaptor.forClass(TradePolicy.class);
+
+        verify(eventScheduler).schedule(any(), any(), any(), any(), any(), policy.capture());
+
+        assertEquals(new BigDecimal("0.154"), policy.getValue().getInterestIncomeTaxRate());
+        assertEquals(1, policy.getValue().getPolicyVersion());
+        // 거래당 한 번만 읽으므로 이력의 수수료와 예정 이벤트의 세금이 같은 버전을 쓴다.
+        verify(tradePolicyProvider, times(1)).findAt(any());
     }
 
     @Test
@@ -431,7 +468,7 @@ class TradeServiceTest {
         sell(DEPOSIT_ID, null);
 
         // 매수에서 한 번만 불렸어야 한다.
-        verify(eventScheduler).schedule(any(), any(), any(), any(), any());
+        verify(eventScheduler).schedule(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -466,7 +503,8 @@ class TradeServiceTest {
                         return false;
                     }
                 },
-                eventScheduler
+                eventScheduler,
+                tradePolicyProvider
         );
 
         ApiException exception = assertThrows(ApiException.class, () -> closed.trade(
@@ -509,7 +547,8 @@ class TradeServiceTest {
         assertEquals(first.getAmount(), again.getAmount());
         assertEquals(first.getRequestedAmount(), again.getRequestedAmount());
         assertEquals(1, stored.size(), "거래가 하나만 기록돼야 합니다.");
-        assertEquals(new BigDecimal("25170000.00"), cash, "현금이 두 번 빠지면 안 됩니다.");
+        assertEquals(new BigDecimal("25169275.50"), cash,
+                "현금이 두 번 빠지면 안 됩니다 — 수수료도 마찬가지다.");
     }
 
     @Test
@@ -542,5 +581,214 @@ class TradeServiceTest {
         assertEquals("COMPLETED", record.getStatus().name());
         assertNotNull(record.getDetailJson());
         assertEquals(true, record.getDetailJson().contains("\"requested_amount\":\"5000000.00\""));
+    }
+
+    // ------------------------------------------------------------- 수수료
+
+    @Test
+    @DisplayName("매수는 체결액에 더해 수수료까지 현금에서 뺀다")
+    void chargesBuyFeeOnTopOfExecutedAmount() {
+        buy(STOCK_ID, "5000000.00");
+
+        // 4,830,000 × 0.00015 = 724.50
+        assertEquals(new BigDecimal("25169275.50"), cash);
+    }
+
+    @Test
+    @DisplayName("보유 원금에는 수수료가 들어가지 않는다 — 비용이지 매입원가가 아니다")
+    void keepsFeeOutOfPrincipal() {
+        buy(STOCK_ID, "5000000.00");
+
+        assertEquals(new BigDecimal("4830000.00"), currentHolding.getPrincipalAmount());
+    }
+
+    @Test
+    @DisplayName("매도는 대금에서 수수료와 증권거래세를 빼고 현금에 넣는다")
+    void deductsSellCostsFromProceeds() {
+        givenHolding(STOCK_ID, "8.000000", "1932000.00", HoldingStatus.ACTIVE);
+        cash = new BigDecimal("0.00");
+
+        sell(STOCK_ID, "8.000000");
+
+        // 1,932,000 − 289.80(수수료) − 3,864.00(거래세)
+        assertEquals(new BigDecimal("1927846.20"), cash);
+    }
+
+    @Test
+    @DisplayName("잔액을 전부 넣는 매수는 수수료만큼 모자라 거부된다")
+    void rejectsBuyWhenCashCoversOnlyTheExecutedAmount() {
+        // 20주 체결액과 정확히 같은 현금. 수수료 724.50원이 모자란다.
+        cash = new BigDecimal("4830000.00");
+
+        ApiException exception = assertThrows(
+                ApiException.class, () -> buy(STOCK_ID, "4830000.00"));
+
+        assertEquals(ErrorCode.INSUFFICIENT_SIMULATION_CASH, exception.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("수수료까지 낼 현금이 있으면 같은 요청이 체결된다 — 경계가 정확히 수수료다")
+    void acceptsSameBuyWhenCashAlsoCoversTheFee() {
+        cash = new BigDecimal("4830724.50");
+
+        TradeResult result = buy(STOCK_ID, "4830000.00");
+
+        assertEquals(new BigDecimal("4830000.00"), result.getAmount());
+        assertEquals(new BigDecimal("0.00"), cash, "수수료까지 정확히 다 쓴다.");
+    }
+
+    @Test
+    @DisplayName("가입형은 수수료가 없어 현금 차감이 원금과 정확히 같다")
+    void chargesNoFeeOnSubscription() {
+        buy(DEPOSIT_ID, "10000000.00");
+
+        assertEquals(new BigDecimal("20000000.00"), cash);
+    }
+
+    @Test
+    @DisplayName("이력에 수수료 금액과 적용 요율·정책 버전을 남긴다")
+    void recordsFeeBasisInDetail() {
+        buy(STOCK_ID, "5000000.00");
+
+        String detail = stored.get(KEY).getDetailJson();
+
+        assertEquals(true, detail.contains("\"fee_amount\":\"724.50\""), detail);
+        assertEquals(true, detail.contains("\"fee_rate\":\"0.00015\""), detail);
+        assertEquals(true, detail.contains("\"net_cash_amount\":\"4830724.50\""), detail);
+        assertEquals(true, detail.contains("\"policy_version\":1"), detail);
+    }
+
+    @Test
+    @DisplayName("설정 기본값으로 계산하면 정책 버전이 null로 남는다")
+    void recordsNullPolicyVersionWhenFellBackToDefaults() {
+        when(tradePolicyProvider.findAt(any())).thenReturn(tradePolicy(null));
+
+        buy(STOCK_ID, "5000000.00");
+
+        String detail = stored.get(KEY).getDetailJson();
+
+        assertEquals(true, detail.contains("\"policy_version\":null"), detail);
+    }
+
+    @Test
+    @DisplayName("요율은 거래 한 건에 한 번만 읽는다 — 같은 거래에서 버전이 갈리면 안 된다")
+    void readsPolicyOncePerTrade() {
+        buy(STOCK_ID, "5000000.00");
+
+        verify(tradePolicyProvider, times(1)).findAt(any());
+    }
+
+    @Test
+    @DisplayName("응답에 수수료와 실제 현금 증감을 함께 돌려준다")
+    void returnsFeeAndNetCashInResult() {
+        TradeResult result = buy(STOCK_ID, "5000000.00");
+
+        assertEquals(new BigDecimal("4830000.00"), result.getAmount(), "체결액");
+        assertEquals(new BigDecimal("724.50"), result.getFeeAmount());
+        assertEquals(new BigDecimal("4830724.50"), result.getNetCashAmount(),
+                "화면이 '얼마 나갔는지'로 보여줄 값입니다.");
+    }
+
+    @Test
+    @DisplayName("매도 응답의 현금 증감은 대금에서 수수료와 거래세를 뺀 값이다")
+    void returnsNetProceedsOnSell() {
+        givenHolding(STOCK_ID, "8.000000", "1932000.00", HoldingStatus.ACTIVE);
+
+        TradeResult result = sell(STOCK_ID, "8.000000");
+
+        assertEquals(new BigDecimal("1932000.00"), result.getAmount());
+        assertEquals(new BigDecimal("289.80"), result.getFeeAmount());
+        assertEquals(new BigDecimal("3864.00"), result.getTaxAmount());
+        assertEquals(new BigDecimal("1927846.20"), result.getNetCashAmount());
+    }
+
+    @Test
+    @DisplayName("매수 응답의 증권거래세는 0이다 — null이 아니다")
+    void returnsZeroTaxOnBuy() {
+        TradeResult result = buy(STOCK_ID, "5000000.00");
+
+        assertEquals(new BigDecimal("0.00"), result.getTaxAmount());
+    }
+
+    @Test
+    @DisplayName("매도 이력에 증권거래세 금액과 적용 세율을 남긴다")
+    void recordsTransactionTaxBasisInDetail() {
+        givenHolding(STOCK_ID, "8.000000", "1932000.00", HoldingStatus.ACTIVE);
+
+        sell(STOCK_ID, "8.000000");
+
+        String detail = stored.get("sell-" + KEY).getDetailJson();
+
+        assertEquals(true, detail.contains("\"tax_amount\":\"3864.00\""), detail);
+        assertEquals(true, detail.contains("\"tax_rate\":\"0.0020\""), detail);
+    }
+
+    @Test
+    @DisplayName("매수 이력에는 거래세가 0으로 남는다")
+    void recordsZeroTaxOnBuy() {
+        buy(STOCK_ID, "5000000.00");
+
+        String detail = stored.get(KEY).getDetailJson();
+
+        assertEquals(true, detail.contains("\"tax_amount\":\"0.00\""), detail);
+    }
+
+    @Test
+    @DisplayName("멱등 재요청은 이력에 남긴 수수료를 그대로 돌려준다 — 지금 요율로 다시 계산하지 않는다")
+    void replayRestoresRecordedFee() {
+        TradeResult first = buy(STOCK_ID, "5000000.00");
+
+        // 그 사이 요율이 바뀌어도 이미 체결된 거래의 값은 달라지면 안 된다.
+        when(tradePolicyProvider.findAt(any())).thenReturn(new TradePolicy(
+                new BigDecimal("0.005"), new BigDecimal("0.005"),
+                new BigDecimal("0.0020"), new BigDecimal("0.154"), new BigDecimal("0.154"), 2
+        ));
+
+        TradeResult again = buy(STOCK_ID, "5000000.00");
+
+        assertEquals(first.getFeeAmount(), again.getFeeAmount());
+        assertEquals(first.getNetCashAmount(), again.getNetCashAmount());
+        assertEquals(new BigDecimal("724.50"), again.getFeeAmount());
+    }
+
+    @Test
+    @DisplayName("매도 멱등 재요청도 이력에 남긴 증권거래세를 그대로 돌려준다")
+    void replayRestoresRecordedTax() {
+        givenHolding(STOCK_ID, "8.000000", "1932000.00", HoldingStatus.ACTIVE);
+
+        TradeResult first = sell(STOCK_ID, "8.000000");
+        TradeResult again = sell(STOCK_ID, "8.000000");
+
+        assertEquals(first.getTaxAmount(), again.getTaxAmount());
+        assertEquals(new BigDecimal("3864.00"), again.getTaxAmount());
+        assertEquals(new BigDecimal("1927846.20"), again.getNetCashAmount());
+    }
+
+    @Test
+    @DisplayName("수수료 도입 전에 쌓인 이력을 다시 요청해도 깨지지 않는다")
+    void replaysLegacyRecordWithoutFeeKeys() {
+        PortfolioTransaction legacy = new PortfolioTransaction();
+
+        legacy.setPortfolioTransactionId(7000L);
+        legacy.setPortfolioId(PORTFOLIO_ID);
+        legacy.setProductId(STOCK_ID);
+        legacy.setTransactionType(TransactionType.BUY);
+        legacy.setAmount(new BigDecimal("4830000.00"));
+        legacy.setStatus(TransactionStatus.COMPLETED);
+        legacy.setIdempotencyKey(KEY);
+        legacy.setDetailJson("{\"request\":{\"transaction_type\":\"BUY\",\"product_id\":87,"
+                + "\"amount\":\"5000000.00\",\"quantity\":null},"
+                + "\"requested_amount\":\"5000000.00\",\"executed_amount\":\"4830000.00\"}");
+
+        stored.put(KEY, legacy);
+
+        TradeResult result = buy(STOCK_ID, "5000000.00");
+
+        assertEquals(new BigDecimal("0.00"), result.getFeeAmount(),
+                "그때 거래는 실제로 수수료가 0이었습니다.");
+        assertEquals(new BigDecimal("0.00"), result.getTaxAmount(),
+                "거래세도 마찬가지입니다.");
+        assertEquals(new BigDecimal("4830000.00"), result.getNetCashAmount(),
+                "그때는 현금 증감이 곧 체결액이었습니다.");
     }
 }

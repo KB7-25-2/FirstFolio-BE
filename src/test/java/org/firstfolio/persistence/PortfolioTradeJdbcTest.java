@@ -12,12 +12,13 @@ import org.firstfolio.portfolio.service.AssetEventScheduler;
 import org.firstfolio.portfolio.service.PortfolioQueryService;
 import org.firstfolio.portfolio.service.TradeCalculator;
 import org.firstfolio.portfolio.service.TradeCommand;
+import org.firstfolio.portfolio.service.TradePolicyProvider;
 import org.firstfolio.portfolio.service.TradeResult;
 import org.firstfolio.portfolio.service.TradeService;
-import org.firstfolio.portfolio.service.TradingHours;
 import org.firstfolio.simulation.domain.AssetType;
 import org.firstfolio.simulation.mapper.FinancialProductMapper;
 import org.firstfolio.simulation.service.CurrentPriceReader;
+import org.firstfolio.simulation.service.TradingHours;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,7 @@ import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import javax.sql.DataSource;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -85,9 +87,10 @@ class PortfolioTradeJdbcTest {
             // 정수 주수 내림 — 50주(500만) 딱 맞아떨어진다.
             assertEquals(new BigDecimal("50.000000"), result.getQuantity());
             assertEquals(new BigDecimal("5000000.00"), result.getAmount());
-            assertEquals(new BigDecimal("25000000.00"), result.getCashBalance());
+            // 30,000,000 − 5,000,000(체결) − 750.00(수수료 0.015%)
+            assertEquals(new BigDecimal("24999250.00"), result.getCashBalance());
 
-            assertEquals("25000000.00", cashOf(connection, fixture.portfolioId));
+            assertEquals("24999250.00", cashOf(connection, fixture.portfolioId));
             assertEquals(1, holdingCount(connection, fixture.portfolioId));
             assertEquals(1, transactionCount(connection, fixture.portfolioId));
 
@@ -103,8 +106,8 @@ class PortfolioTradeJdbcTest {
             assertEquals(1, detail.getHoldings().size());
             assertEquals(new BigDecimal("50.000000"), detail.getHoldings().get(0).getQuantity());
             assertEquals("MARKET_PRICE", detail.getHoldings().get(0).getValuationBasis());
-            assertEquals(new BigDecimal("30000000.00"), detail.getSummary().getTotalAssets(),
-                    "산 직후에는 총자산이 그대로여야 합니다.");
+            assertEquals(new BigDecimal("29999250.00"), detail.getSummary().getTotalAssets(),
+                    "산 직후 총자산은 수수료만큼만 줄어야 합니다 — 수수료는 실제로 나간 비용이다.");
         });
     }
 
@@ -121,7 +124,8 @@ class PortfolioTradeJdbcTest {
             fixture.trade.trade(fixture.userId, sell(stockId, "50.000000"));
 
             assertEquals("SOLD", holdingStatus(connection, firstHoldingId));
-            assertEquals("30000000.00", cashOf(connection, fixture.portfolioId));
+            // 매수 수수료 750 + 매도 수수료 750 + 증권거래세 10,000 = 11,500원이 나갔다.
+            assertEquals("29988500.00", cashOf(connection, fixture.portfolioId));
 
             // 다시 산다 — 새로 INSERT하면 uq_portfolio_holdings_product에 걸린다.
             TradeResult rebought =
@@ -268,6 +272,119 @@ class PortfolioTradeJdbcTest {
         });
     }
 
+    @Test
+    @DisplayName("수수료는 저장된 TRADE 정책에서 읽고 근거를 이력에 남긴다")
+    void chargesFeeFromStoredPolicyAndRecordsBasis() throws Exception {
+        withRollback((context, connection) -> {
+            Fixture fixture = givenPortfolio(context, connection, "30000000.00");
+            long stockId = givenPricedStock(connection);
+
+            TradeResult result = fixture.trade.trade(fixture.userId, buy(stockId, "5000000.00"));
+            long transactionId = result.getPortfolioTransactionId();
+
+            // 5,000,000 × 0.00015
+            assertEquals("750.00", detailValue(connection, transactionId, "fee_amount"));
+            assertEquals("0.00015", detailValue(connection, transactionId, "fee_rate"));
+            assertEquals("5000750.00", detailValue(connection, transactionId, "net_cash_amount"));
+            assertEquals("5000000.00", detailValue(connection, transactionId, "executed_amount"),
+                    "이력의 체결액에는 수수료가 섞이면 안 됩니다.");
+
+            // 저장된 정책을 실제로 지났다는 증거. 기본값 폴백이었다면 null이다.
+            assertEquals(
+                    value(connection,
+                            "SELECT version_no FROM system_policies"
+                                    + " WHERE policy_key = 'TRADE' AND is_active = ?"
+                                    + " ORDER BY version_no DESC LIMIT 1", 1),
+                    detailValue(connection, transactionId, "policy_version")
+            );
+        });
+    }
+
+    @Test
+    @DisplayName("예정 이자는 저장된 정책의 이자소득세를 뗀 세후 금액으로 만들어진다")
+    void withholdsInterestIncomeTaxUsingStoredPolicy() throws Exception {
+        withRollback((context, connection) -> {
+            Fixture fixture = givenPortfolio(context, connection, "30000000.00");
+            long depositId = PortfolioFixtures.activeProductId(connection, "DEPOSIT_SAVINGS");
+
+            fixture.trade.trade(fixture.userId, buy(depositId, "10000000.00"));
+
+            long holdingId = holdingIdOf(connection, fixture.portfolioId, depositId);
+
+            BigDecimal net = new BigDecimal(scheduledAmount(connection, holdingId, "INTEREST"));
+            BigDecimal gross =
+                    new BigDecimal(scheduledDetail(connection, holdingId, "INTEREST", "gross_amount"));
+            BigDecimal tax =
+                    new BigDecimal(scheduledDetail(connection, holdingId, "INTEREST", "tax_amount"));
+
+            // 상품의 이율에 기대지 않고 관계로 검산한다 — 어떤 예·적금이 선택돼도 성립해야 한다.
+            assertEquals("0.154", scheduledDetail(connection, holdingId, "INTEREST", "tax_rate"));
+            assertEquals(0, gross.compareTo(net.add(tax)),
+                    "세전이 세후+세액과 어긋나면 1원이 사라진 것입니다.");
+            assertEquals(0, tax.compareTo(
+                            gross.multiply(new BigDecimal("0.154")).setScale(2, RoundingMode.HALF_UP)),
+                    "세액이 세전 × 15.4%가 아닙니다.");
+            assertTrue(net.compareTo(gross) < 0, "세금이 실제로 떼여야 합니다.");
+
+            // 원금 반환은 소득이 아니다.
+            assertEquals("0.00", scheduledDetail(connection, holdingId, "MATURITY", "tax_amount"));
+            assertEquals("10000000.00", scheduledAmount(connection, holdingId, "MATURITY"));
+
+            // 저장된 정책을 실제로 지났다는 증거. 기본값 폴백이었다면 null이다.
+            assertEquals(
+                    value(connection,
+                            "SELECT version_no FROM system_policies"
+                                    + " WHERE policy_key = 'TRADE' AND is_active = ?"
+                                    + " ORDER BY version_no DESC LIMIT 1", 1),
+                    scheduledDetail(connection, holdingId, "INTEREST", "policy_version")
+            );
+        });
+    }
+
+    @Test
+    @DisplayName("매도에는 증권거래세가 붙고 매수에는 붙지 않는다")
+    void chargesTransactionTaxOnSellOnly() throws Exception {
+        withRollback((context, connection) -> {
+            Fixture fixture = givenPortfolio(context, connection, "30000000.00");
+            long stockId = givenPricedStock(connection);
+
+            TradeResult bought =
+                    fixture.trade.trade(fixture.userId, buy(stockId, "5000000.00"));
+
+            assertEquals("0.00",
+                    detailValue(connection, bought.getPortfolioTransactionId(), "tax_amount"),
+                    "매수에는 증권거래세가 붙지 않습니다.");
+
+            TradeResult sold =
+                    fixture.trade.trade(fixture.userId, sell(stockId, "50.000000"));
+            long soldId = sold.getPortfolioTransactionId();
+
+            // 5,000,000 × 0.0020
+            assertEquals("10000.00", detailValue(connection, soldId, "tax_amount"));
+            assertEquals("0.0020", detailValue(connection, soldId, "tax_rate"));
+            // 5,000,000 − 750(수수료) − 10,000(거래세)
+            assertEquals("4989250.00", detailValue(connection, soldId, "net_cash_amount"));
+            assertEquals("5000000.00", detailValue(connection, soldId, "executed_amount"),
+                    "이력의 체결액에는 비용이 섞이면 안 됩니다.");
+        });
+    }
+
+    @Test
+    @DisplayName("가입형은 수수료가 없어 현금이 원금만큼만 준다")
+    void chargesNoFeeOnSubscriptionInDatabase() throws Exception {
+        withRollback((context, connection) -> {
+            Fixture fixture = givenPortfolio(context, connection, "30000000.00");
+            long depositId = PortfolioFixtures.activeProductId(connection, "DEPOSIT_SAVINGS");
+
+            TradeResult result =
+                    fixture.trade.trade(fixture.userId, buy(depositId, "10000000.00"));
+
+            assertEquals("20000000.00", cashOf(connection, fixture.portfolioId));
+            assertEquals("0.00",
+                    detailValue(connection, result.getPortfolioTransactionId(), "fee_amount"));
+        });
+    }
+
     // ------------------------------------------------------------------ 준비
 
     private static TradeCommand buy(long productId, String amount) {
@@ -301,7 +418,9 @@ class PortfolioTradeJdbcTest {
                 context.getBean(CurrentPriceReader.class),
                 new TradeCalculator(),
                 ALWAYS_OPEN,
-                context.getBean(AssetEventScheduler.class)
+                context.getBean(AssetEventScheduler.class),
+                // 실제 조회 경로를 지난다 — 저장된 TRADE 정책이 있으면 그것, 없으면 설정 기본값이다.
+                context.getBean(TradePolicyProvider.class)
         );
 
         return new Fixture(userId, portfolioId, trade, context.getBean(PortfolioQueryService.class));
@@ -377,6 +496,20 @@ class PortfolioTradeJdbcTest {
                 transactionId));
     }
 
+    /**
+     * {@code detail_json}에서 키 하나를 꺼낸다.
+     *
+     * <p>JSON 컬럼이라 MySQL이 공백·키 순서를 자기 방식으로 정규화한다. 문자열 포함 검사로 보면
+     * 형식이 조금만 달라져도 깨지므로 <b>DB에게 경로로 물어본다.</b></p>
+     */
+    private static String detailValue(Connection connection, long transactionId, String path)
+            throws Exception {
+        return value(connection,
+                "SELECT detail_json ->> '$." + path + "'"
+                        + " FROM portfolio_transactions WHERE portfolio_transaction_id = ?",
+                transactionId);
+    }
+
     private static int scheduledCount(Connection connection, long holdingId) throws Exception {
         return statusCount(connection, holdingId, "SCHEDULED");
     }
@@ -402,6 +535,28 @@ class PortfolioTradeJdbcTest {
             throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT amount FROM portfolio_transactions"
+                        + " WHERE holding_id = ? AND transaction_type = ? AND status = 'SCHEDULED'"
+        )) {
+            statement.setLong(1, holdingId);
+            statement.setString(2, type);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                assertTrue(resultSet.next(), type + " 예정 이벤트가 있어야 합니다.");
+
+                return resultSet.getString(1);
+            }
+        }
+    }
+
+    /** 예정 이벤트의 {@code detail_json}에서 키 하나를 꺼낸다. */
+    private static String scheduledDetail(
+            Connection connection,
+            long holdingId,
+            String type,
+            String path
+    ) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT detail_json ->> '$." + path + "' FROM portfolio_transactions"
                         + " WHERE holding_id = ? AND transaction_type = ? AND status = 'SCHEDULED'"
         )) {
             statement.setLong(1, holdingId);

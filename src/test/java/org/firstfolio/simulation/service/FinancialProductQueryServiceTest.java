@@ -36,7 +36,10 @@ class FinancialProductQueryServiceTest {
         mapper = mock(FinancialProductMapper.class);
         service = new FinancialProductQueryService(
                 mapper,
-                mock(org.firstfolio.simulation.mapper.ProductPriceMapper.class),
+                new CurrentPriceReader(
+                        new PriceCache(),
+                        mock(org.firstfolio.simulation.mapper.ProductPriceMapper.class)
+                ),
                 new TermsJsonCodec()
         );
     }

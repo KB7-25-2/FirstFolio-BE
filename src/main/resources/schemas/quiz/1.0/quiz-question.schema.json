@@ -1,0 +1,484 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://firstfolio.org/schemas/quiz/1.0/quiz-question.schema.json",
+  "title": "FirstFolio quiz question schema 1.0",
+  "type": "object",
+  "required": [
+    "question_key",
+    "usage_type",
+    "main_chapter_id",
+    "sub_chapter_id",
+    "question_type",
+    "difficulty",
+    "prompt",
+    "scenario_json",
+    "options_json",
+    "correct_answer_json",
+    "explanation",
+    "generation_type",
+    "source_refs_json"
+  ],
+  "properties": {
+    "question_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "\\S"
+    },
+    "usage_type": {
+      "enum": [
+        "LEVEL_TEST",
+        "SUB_CHAPTER",
+        "MAIN_CHAPTER",
+        "DAILY_GENERAL",
+        "DAILY_NEWS"
+      ]
+    },
+    "main_chapter_id": {
+      "$ref": "#/$defs/nullablePositiveId"
+    },
+    "sub_chapter_id": {
+      "$ref": "#/$defs/nullablePositiveId"
+    },
+    "question_type": {
+      "enum": [
+        "SINGLE_CHOICE",
+        "TRUE_FALSE",
+        "SCENARIO"
+      ]
+    },
+    "difficulty": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "EASY",
+        "MEDIUM",
+        "HARD",
+        null
+      ]
+    },
+    "prompt": {
+      "$ref": "#/$defs/nonBlankText"
+    },
+    "scenario_json": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/scenario"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "options_json": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "$ref": "#/$defs/option"
+      }
+    },
+    "correct_answer_json": {
+      "$ref": "#/$defs/correctAnswer"
+    },
+    "explanation": {
+      "$ref": "#/$defs/nonBlankText"
+    },
+    "generation_type": {
+      "enum": [
+        "HUMAN",
+        "AI"
+      ]
+    },
+    "source_refs_json": {
+      "oneOf": [
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/sourceRef"
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "usage_type": {
+            "const": "SUB_CHAPTER"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "sub_chapter_id": {
+            "$ref": "#/$defs/positiveId"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "usage_type": {
+            "enum": [
+              "LEVEL_TEST",
+              "MAIN_CHAPTER"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "main_chapter_id": {
+            "$ref": "#/$defs/positiveId"
+          },
+          "sub_chapter_id": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "question_type": {
+            "const": "SCENARIO"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "scenario_json": {
+            "$ref": "#/$defs/scenario"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "scenario_json": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "question_type": {
+            "const": "TRUE_FALSE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "options_json": {
+            "minItems": 2,
+            "maxItems": 2,
+            "allOf": [
+              {
+                "contains": {
+                  "properties": {
+                    "key": {
+                      "const": "O"
+                    }
+                  },
+                  "required": [
+                    "key"
+                  ]
+                },
+                "minContains": 1,
+                "maxContains": 1
+              },
+              {
+                "contains": {
+                  "properties": {
+                    "key": {
+                      "const": "X"
+                    }
+                  },
+                  "required": [
+                    "key"
+                  ]
+                },
+                "minContains": 1,
+                "maxContains": 1
+              }
+            ]
+          },
+          "correct_answer_json": {
+            "properties": {
+              "key": {
+                "enum": [
+                  "O",
+                  "X"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "generation_type": {
+            "const": "AI"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "source_refs_json": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/$defs/sourceRef"
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "source_refs_json": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "positiveId": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "nullablePositiveId": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/positiveId"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "nonBlankText": {
+      "type": "string",
+      "pattern": "\\S",
+      "not": {
+        "pattern": "<\\s*(?:/?\\s*[A-Za-z][^>]*|!--[\\s\\S]*--\\s*)>"
+      }
+    },
+    "nullableNonBlankText": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/nonBlankText"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "option": {
+      "type": "object",
+      "required": [
+        "key",
+        "label"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "\\S",
+          "maxLength": 50
+        },
+        "label": {
+          "$ref": "#/$defs/nonBlankText"
+        },
+        "description": {
+          "$ref": "#/$defs/nullableNonBlankText"
+        }
+      },
+      "additionalProperties": false
+    },
+    "correctAnswer": {
+      "type": "object",
+      "required": [
+        "key"
+      ],
+      "properties": {
+        "key": {
+          "type": "string",
+          "pattern": "\\S",
+          "maxLength": 50
+        }
+      },
+      "additionalProperties": false
+    },
+    "scenario": {
+      "type": "object",
+      "required": [
+        "title",
+        "narrative",
+        "persona",
+        "requirements",
+        "market",
+        "constraints"
+      ],
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/nonBlankText"
+        },
+        "narrative": {
+          "$ref": "#/$defs/nonBlankText"
+        },
+        "persona": {
+          "$ref": "#/$defs/persona"
+        },
+        "requirements": {
+          "$ref": "#/$defs/requirements"
+        },
+        "market": {
+          "$ref": "#/$defs/market"
+        },
+        "constraints": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/nonBlankText"
+          }
+        },
+        "paper_title": {
+          "$ref": "#/$defs/nullableNonBlankText"
+        }
+      },
+      "additionalProperties": false
+    },
+    "persona": {
+      "type": "object",
+      "required": [
+        "name",
+        "age",
+        "job"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/nonBlankText"
+        },
+        "age": {
+          "$ref": "#/$defs/nonBlankText"
+        },
+        "job": {
+          "$ref": "#/$defs/nonBlankText"
+        }
+      },
+      "additionalProperties": false
+    },
+    "requirements": {
+      "type": "object",
+      "required": [
+        "assets",
+        "risk",
+        "goal"
+      ],
+      "properties": {
+        "assets": {
+          "$ref": "#/$defs/nonBlankText"
+        },
+        "risk": {
+          "$ref": "#/$defs/nonBlankText"
+        },
+        "goal": {
+          "$ref": "#/$defs/nonBlankText"
+        }
+      },
+      "additionalProperties": false
+    },
+    "market": {
+      "type": "object",
+      "required": [
+        "title",
+        "reference_at",
+        "bullets"
+      ],
+      "properties": {
+        "title": {
+          "$ref": "#/$defs/nonBlankText"
+        },
+        "reference_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "bullets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/nonBlankText"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "sourceRef": {
+      "type": "object",
+      "required": [
+        "title",
+        "reference_at"
+      ],
+      "properties": {
+        "knowledge_content_id": {
+          "$ref": "#/$defs/nullablePositiveId"
+        },
+        "title": {
+          "$ref": "#/$defs/nonBlankText"
+        },
+        "publisher": {
+          "$ref": "#/$defs/nullableNonBlankText"
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "reference_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "knowledge_content_id"
+          ],
+          "properties": {
+            "knowledge_content_id": {
+              "$ref": "#/$defs/positiveId"
+            }
+          }
+        },
+        {
+          "required": [
+            "url"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

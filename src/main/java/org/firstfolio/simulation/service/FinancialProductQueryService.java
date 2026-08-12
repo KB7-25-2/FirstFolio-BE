@@ -10,7 +10,6 @@ import org.firstfolio.simulation.dto.response.ProductDetailResponse;
 import org.firstfolio.simulation.dto.response.ProductPageResponse;
 import org.firstfolio.simulation.dto.response.ProductSummaryResponse;
 import org.firstfolio.simulation.mapper.FinancialProductMapper;
-import org.firstfolio.simulation.mapper.ProductPriceMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,16 +30,16 @@ public class FinancialProductQueryService {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final FinancialProductMapper financialProductMapper;
-    private final ProductPriceMapper productPriceMapper;
+    private final CurrentPriceReader priceReader;
     private final TermsJsonCodec termsJsonCodec;
 
     public FinancialProductQueryService(
             FinancialProductMapper financialProductMapper,
-            ProductPriceMapper productPriceMapper,
+            CurrentPriceReader priceReader,
             TermsJsonCodec termsJsonCodec
     ) {
         this.financialProductMapper = financialProductMapper;
-        this.productPriceMapper = productPriceMapper;
+        this.priceReader = priceReader;
         this.termsJsonCodec = termsJsonCodec;
     }
 
@@ -72,8 +71,12 @@ public class FinancialProductQueryService {
             response.setRealTerms(termsJsonCodec.read(product.getRealTermsJson()));
         }
 
-        // 저장된 기준 가격이 있을 때만 채운다. 없으면 임의 값을 만들지 않고 생략한다.
-        ProductPrice latestPrice = productPriceMapper.findLatestByProductId(productId);
+        // 기준 가격이 있을 때만 채운다. 없으면 임의 값을 만들지 않고 생략한다.
+        //
+        // 체결가와 같은 자리(CurrentPriceReader)에서 읽는다. FE는 구매 모달을 열 때 이 값으로
+        // 예상 금액을 보여주므로, 여기만 저장된 종가를 읽으면 사용자가 본 가격과 실제 체결가가
+        // 갈라진다.
+        ProductPrice latestPrice = priceReader.read(productId);
 
         if (latestPrice != null) {
             response.setCurrentPrice(latestPrice.getPrice());

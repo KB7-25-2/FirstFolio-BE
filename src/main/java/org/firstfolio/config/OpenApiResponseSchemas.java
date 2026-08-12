@@ -7,8 +7,13 @@ import org.firstfolio.admin.dto.response.ProductImportResponse;
 import org.firstfolio.auth.dto.response.LoginResponse;
 import org.firstfolio.auth.dto.response.SignupResponse;
 import org.firstfolio.content.dto.response.ContentVersionCreateResponse;
+import org.firstfolio.dashboard.dto.response.DashboardResponse;
 import org.firstfolio.content.dto.response.ContentVersionListResponse;
 import org.firstfolio.content.dto.response.ContentVersionPublishResponse;
+import org.firstfolio.curriculum.dto.response.CurriculumConfirmResponse;
+import org.firstfolio.curriculum.dto.response.CurriculumDraftEditResponse;
+import org.firstfolio.curriculum.dto.response.CurriculumDraftResponse;
+import org.firstfolio.curriculum.dto.response.CurriculumOverviewResponse;
 import org.firstfolio.curriculum.dto.response.MainChapterCreateResponse;
 import org.firstfolio.curriculum.dto.response.MainChapterListResponse;
 import org.firstfolio.curriculum.dto.response.MainChapterPatchResponse;
@@ -16,12 +21,23 @@ import org.firstfolio.curriculum.dto.response.SubChapterCreateResponse;
 import org.firstfolio.curriculum.dto.response.SubChapterListResponse;
 import org.firstfolio.curriculum.dto.response.SubChapterPatchResponse;
 import org.firstfolio.learning.dto.response.LessonContentResponse;
+import org.firstfolio.learning.dto.response.LearningProgressResponse;
+import org.firstfolio.learning.dto.response.LearningProgressUpdateResponse;
+import org.firstfolio.learning.dto.response.LearningContinueResponse;
+import org.firstfolio.learning.dto.response.PublicMainChapterListResponse;
+import org.firstfolio.learning.dto.response.PublicSubChapterListResponse;
 import org.firstfolio.portfolio.dto.response.PortfolioDetailResponse;
 import org.firstfolio.portfolio.dto.response.PortfolioEventProcessResponse;
 import org.firstfolio.portfolio.dto.response.PortfolioEventRetryResponse;
 import org.firstfolio.portfolio.dto.response.PortfolioResetResponse;
 import org.firstfolio.portfolio.dto.response.PortfolioTransactionPageResponse;
 import org.firstfolio.portfolio.dto.response.TradeResponse;
+import org.firstfolio.quiz.dto.response.LevelTestAttemptStartResponse;
+import org.firstfolio.quiz.dto.response.LevelTestAnswerSaveResponse;
+import org.firstfolio.quiz.dto.response.LevelTestSubmitResponse;
+import org.firstfolio.quiz.dto.response.QuizAttemptStartResponse;
+import org.firstfolio.quiz.dto.response.QuizAnswerGradingResponse;
+import org.firstfolio.quiz.dto.response.QuizQuestionCreateResponse;
 import org.firstfolio.simulation.dto.response.PriceRefreshResponse;
 import org.firstfolio.simulation.dto.response.ProductDetailResponse;
 import org.firstfolio.simulation.dto.response.ProductPageResponse;
@@ -56,6 +72,21 @@ public final class OpenApiResponseSchemas {
     @Schema(name = "LessonContentApiResponse")
     public record LessonContent(LessonContentResponse data) { }
 
+    @Schema(name = "LearningProgressApiResponse")
+    public record LearningProgress(LearningProgressResponse data) { }
+
+    @Schema(name = "LearningProgressUpdateApiResponse")
+    public record LearningProgressUpdate(LearningProgressUpdateResponse data) { }
+
+    @Schema(name = "LearningContinueApiResponse")
+    public record LearningContinue(LearningContinueResponse data) { }
+
+    @Schema(name = "PublicMainChapterListApiResponse")
+    public record PublicMainChapterList(PublicMainChapterListResponse data) { }
+
+    @Schema(name = "PublicSubChapterListApiResponse")
+    public record PublicSubChapterList(PublicSubChapterListResponse data) { }
+
     @Schema(name = "MainChapterListApiResponse")
     public record MainChapterList(MainChapterListResponse data) { }
 
@@ -74,6 +105,18 @@ public final class OpenApiResponseSchemas {
     @Schema(name = "SubChapterPatchApiResponse")
     public record SubChapterPatch(SubChapterPatchResponse data) { }
 
+    @Schema(name = "CurriculumDraftApiResponse")
+    public record CurriculumDraft(CurriculumDraftResponse data) { }
+
+    @Schema(name = "CurriculumDraftEditApiResponse")
+    public record CurriculumDraftEdit(CurriculumDraftEditResponse data) { }
+
+    @Schema(name = "CurriculumConfirmApiResponse")
+    public record CurriculumConfirm(CurriculumConfirmResponse data) { }
+
+    @Schema(name = "CurriculumOverviewApiResponse")
+    public record CurriculumOverview(CurriculumOverviewResponse data) { }
+
     @Schema(name = "ContentVersionListApiResponse")
     public record ContentVersionList(ContentVersionListResponse data) { }
 
@@ -82,6 +125,24 @@ public final class OpenApiResponseSchemas {
 
     @Schema(name = "ContentVersionPublishApiResponse")
     public record ContentVersionPublish(ContentVersionPublishResponse data) { }
+
+    @Schema(name = "QuizQuestionCreateApiResponse")
+    public record QuizQuestionCreate(QuizQuestionCreateResponse data) { }
+
+    @Schema(name = "QuizAttemptStartApiResponse")
+    public record QuizAttemptStart(QuizAttemptStartResponse data) { }
+
+    @Schema(name = "LevelTestAttemptStartApiResponse")
+    public record LevelTestAttemptStart(LevelTestAttemptStartResponse data) { }
+
+    @Schema(name = "LevelTestAnswerSaveApiResponse")
+    public record LevelTestAnswerSave(LevelTestAnswerSaveResponse data) { }
+
+    @Schema(name = "LevelTestSubmitApiResponse")
+    public record LevelTestSubmit(LevelTestSubmitResponse data) { }
+
+    @Schema(name = "QuizAnswerGradingApiResponse")
+    public record QuizAnswerGrading(QuizAnswerGradingResponse data) { }
 
     @Schema(name = "PortfolioDetailApiResponse")
     public record PortfolioDetail(PortfolioDetailResponse data) { }
@@ -118,4 +179,7 @@ public final class OpenApiResponseSchemas {
 
     @Schema(name = "AdminProductApiResponse")
     public record AdminProduct(AdminProductResponse data) { }
+
+    @Schema(name = "DashboardApiResponse")
+    public record Dashboard(DashboardResponse data) { }
 }

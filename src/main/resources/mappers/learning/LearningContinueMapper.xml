@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.learning.mapper.LearningContinueMapper">
+
+    <resultMap id="learningContinueCandidateResultMap"
+               type="org.firstfolio.learning.domain.LearningContinueCandidate">
+        <id property="curriculumItemId" column="curriculum_item_id" />
+        <result property="mainChapterId" column="main_chapter_id" />
+        <result property="mainChapterActive" column="main_chapter_active" />
+        <result property="subChapterId" column="sub_chapter_id" />
+        <result property="subChapterActive" column="sub_chapter_active" />
+        <result property="currentContentVersionId" column="current_content_version_id" />
+        <result property="contentVersionId" column="content_version_id" />
+        <result property="lastPageId" column="last_page_id" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <select id="findLatestInProgress"
+            resultMap="learningContinueCandidateResultMap">
+        SELECT
+            curriculum.curriculum_item_id,
+            curriculum.main_chapter_id,
+            main.is_active AS main_chapter_active,
+            sub.sub_chapter_id,
+            sub.is_active AS sub_chapter_active,
+            sub.current_content_version_id,
+            progress.content_version_id,
+            progress.last_page_id,
+            progress.updated_at
+        FROM user_learning_progress progress
+        INNER JOIN sub_chapters sub
+            ON sub.sub_chapter_id = progress.sub_chapter_id
+        INNER JOIN main_chapters main
+            ON main.main_chapter_id = sub.main_chapter_id
+        INNER JOIN user_curriculum_items curriculum
+            ON curriculum.user_id = progress.user_id
+           AND curriculum.main_chapter_id = sub.main_chapter_id
+           AND curriculum.status = 'ACTIVE'
+           AND curriculum.completed_at IS NULL
+        WHERE progress.user_id = #{userId}
+          AND progress.status = 'IN_PROGRESS'
+        ORDER BY progress.updated_at DESC, progress.progress_id DESC
+        LIMIT 1
+    </select>
+
+</mapper>

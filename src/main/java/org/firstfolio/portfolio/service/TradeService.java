@@ -13,6 +13,8 @@ import org.firstfolio.portfolio.domain.Portfolio;
 import org.firstfolio.portfolio.domain.PortfolioHolding;
 import org.firstfolio.portfolio.domain.PortfolioTransaction;
 import org.firstfolio.portfolio.domain.TradeAmounts;
+import org.firstfolio.portfolio.domain.TradeCosts;
+import org.firstfolio.portfolio.domain.TradePolicy;
 import org.firstfolio.portfolio.domain.TransactionStatus;
 import org.firstfolio.portfolio.domain.TransactionType;
 import org.firstfolio.portfolio.mapper.PortfolioHoldingMapper;
@@ -23,6 +25,7 @@ import org.firstfolio.simulation.domain.FinancialProduct;
 import org.firstfolio.simulation.domain.ProductPrice;
 import org.firstfolio.simulation.mapper.FinancialProductMapper;
 import org.firstfolio.simulation.service.CurrentPriceReader;
+import org.firstfolio.simulation.service.TradingHours;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +52,15 @@ import java.time.ZoneOffset;
  *
  * <p>{@link PortfolioMapper#decreaseCash}가 {@code cash_balance >= amount} 조건을 SQL에 담고 있다.
  * 자바에서 계산해 덮어쓰면 같은 사용자의 동시 요청이 <b>보유 현금보다 많이 살 수 있다.</b></p>
+ *
+ * <h3>체결액과 현금 증감은 다르다</h3>
+ *
+ * <p>수수료·세금이 붙기 때문이다 (v3 3.3절). 현금에 넣고 빼는 값은 언제나
+ * {@link TradeCosts#getNetCashAmount()}이고, 이력의 {@code amount}와 보유 원금에는
+ * <b>체결액</b>이 들어간다 — 비용은 매입원가가 아니다.</p>
+ *
+ * <p>요율은 <b>거래 한 건에 한 번만</b> 읽는다. 매수·매도 경로에서 따로 읽으면 같은 트랜잭션
+ * 안에서 정책 버전이 갈릴 수 있다.</p>
  */
 @Service
 public class TradeService {
@@ -70,6 +82,7 @@ public class TradeService {
     private final TradeCalculator calculator;
     private final TradingHours tradingHours;
     private final AssetEventScheduler eventScheduler;
+    private final TradePolicyProvider tradePolicyProvider;
 
     public TradeService(
             PortfolioMapper portfolioMapper,
@@ -79,7 +92,8 @@ public class TradeService {
             CurrentPriceReader priceReader,
             TradeCalculator calculator,
             TradingHours tradingHours,
-            AssetEventScheduler eventScheduler
+            AssetEventScheduler eventScheduler,
+            TradePolicyProvider tradePolicyProvider
     ) {
         this.portfolioMapper = portfolioMapper;
         this.holdingMapper = holdingMapper;
@@ -89,6 +103,7 @@ public class TradeService {
         this.calculator = calculator;
         this.tradingHours = tradingHours;
         this.eventScheduler = eventScheduler;
+        this.tradePolicyProvider = tradePolicyProvider;
     }
 
     @Transactional
@@ -113,9 +128,14 @@ public class TradeService {
                 product.getProductId()
         );
 
-        TradeAmounts amounts = command.isBuy()
-                ? buy(portfolio, product, holding, command, now)
-                : sell(portfolio, product, holding, command, now);
+        // 요율은 거래당 한 번만 읽는다. 매수·매도 경로에서 따로 읽으면 버전이 갈릴 수 있다.
+        TradePolicy policy = tradePolicyProvider.findAt(now);
+
+        Executed executed = command.isBuy()
+                ? buy(portfolio, product, holding, command, now, policy)
+                : sell(portfolio, product, holding, command, now, policy);
+
+        TradeAmounts amounts = executed.amounts;
 
         // 갱신된 잔액을 다시 읽는다 — 차감을 DB가 했으므로 자바에 정확한 값이 없다.
         Portfolio updated = portfolioMapper.findById(portfolio.getPortfolioId());
@@ -123,35 +143,46 @@ public class TradeService {
                 portfolio.getPortfolioId(),
                 product.getProductId()
         );
-        PortfolioTransaction record = record(portfolio, product, stored, command, amounts, now);
+        PortfolioTransaction record =
+                record(portfolio, product, stored, command, amounts, executed.costs, now);
 
         if (command.isBuy()) {
             // 만기까지의 이자·만기 일정을 여기서 전부 만든다. 매수 이력이 있어야 event_key를
             // 유일하게 만들 수 있어 이력 기록 뒤에 부른다 (FUNC-041).
-            eventScheduler.schedule(product, stored, record, amounts.getExecutedAmount(), now);
+            eventScheduler.schedule(
+                    product, stored, record, amounts.getExecutedAmount(), now, policy);
         }
 
         log.info(
-                "거래 체결 userId={} type={} productId={} 요청={} 체결={} 잔액={}",
+                "거래 체결 userId={} type={} productId={} 요청={} 체결={} 수수료={} 현금증감={} 잔액={}",
                 userId,
                 command.getTransactionType(),
                 product.getProductId(),
                 amounts.getRequestedAmount(),
                 amounts.getExecutedAmount(),
+                executed.costs.getFeeAmount(),
+                executed.costs.getNetCashAmount(),
                 updated.getCashBalance()
         );
 
-        return toResult(record, amounts, updated.getCashBalance());
+        return toResult(record, amounts, executed.costs, updated.getCashBalance());
     }
 
     // ---------------------------------------------------------------- 매수
 
-    private TradeAmounts buy(
+    /**
+     * <b>수수료는 체결액 밖에서 더 나간다.</b> 그래서 잔액을 전부 넣는 요청은 수수료만큼 모자라
+     * 거부될 수 있다 — 잔액 판정은 여기서도 DB가 한다.
+     *
+     * <p>보유 원금에는 체결액만 넣는다. 수수료는 비용이지 매입원가가 아니다.</p>
+     */
+    private Executed buy(
             Portfolio portfolio,
             FinancialProduct product,
             PortfolioHolding holding,
             TradeCommand command,
-            LocalDateTime now
+            LocalDateTime now,
+            TradePolicy policy
     ) {
         requireAmount(command);
         requireNoQuantity(command);
@@ -160,10 +191,13 @@ public class TradeService {
                 ? buyPriceBased(product, command)
                 : buySubscription(holding, command);
 
-        decreaseCash(portfolio, amounts.getExecutedAmount(), now);
+        TradeCosts costs = calculator.costsForBuy(
+                product.getAssetType(), amounts.getExecutedAmount(), policy);
+
+        decreaseCash(portfolio, costs.getNetCashAmount(), now);
         upsertHoldingAfterBuy(portfolio, product, holding, amounts, now);
 
-        return amounts;
+        return new Executed(amounts, costs);
     }
 
     private TradeAmounts buyPriceBased(FinancialProduct product, TradeCommand command) {
@@ -242,12 +276,14 @@ public class TradeService {
 
     // ---------------------------------------------------------------- 매도
 
-    private TradeAmounts sell(
+    /** 매도 대금에서 수수료를 <b>빼고</b> 현금에 넣는다. */
+    private Executed sell(
             Portfolio portfolio,
             FinancialProduct product,
             PortfolioHolding holding,
             TradeCommand command,
-            LocalDateTime now
+            LocalDateTime now,
+            TradePolicy policy
     ) {
         requireNoAmount(command);
         PortfolioHolding owned = requireActiveHolding(holding);
@@ -257,14 +293,17 @@ public class TradeService {
                 ? sellPriceBased(product, owned, command)
                 : redeemSubscription(owned, command);
 
-        increaseCash(portfolio, amounts.getExecutedAmount(), now);
+        TradeCosts costs = calculator.costsForSell(
+                product.getAssetType(), amounts.getExecutedAmount(), policy);
+
+        increaseCash(portfolio, costs.getNetCashAmount(), now);
         reduceHolding(owned, amounts, priceBased, now);
 
         if (owned.getStatus() == HoldingStatus.SOLD) {
             cancelScheduledEvents(owned);
         }
 
-        return amounts;
+        return new Executed(amounts, costs);
     }
 
     /**
@@ -358,6 +397,7 @@ public class TradeService {
             PortfolioHolding stored,
             TradeCommand command,
             TradeAmounts amounts,
+            TradeCosts costs,
             LocalDateTime now
     ) {
         PortfolioTransaction transaction = new PortfolioTransaction();
@@ -373,7 +413,7 @@ public class TradeService {
         transaction.setStatus(TransactionStatus.COMPLETED);
         transaction.setProcessedAt(now);
         transaction.setIdempotencyKey(command.getIdempotencyKey());
-        transaction.setDetailJson(describe(command, amounts));
+        transaction.setDetailJson(describe(command, amounts, costs));
         transaction.setCreatedAt(now);
 
         transactionMapper.insert(transaction);
@@ -386,8 +426,12 @@ public class TradeService {
      *
      * <p>스냅샷이 있어야 <b>같은 키로 다른 내용이 왔을 때</b> 구분할 수 있다 (409).
      * 없으면 무엇을 요청했었는지 알 방법이 없어 전부 같은 요청으로 취급하게 된다.</p>
+     *
+     * <p>비용은 <b>금액과 요율을 함께</b> 남긴다. 요율은 {@code system_policies}로 관리되어 언제든
+     * 바뀌므로 금액만 남기면 나중에 검산할 수 없다. {@code policy_version}이 null이면 저장된 정책
+     * 없이 설정 기본값으로 계산했다는 뜻이고, 그 사실도 이력에 남아야 한다.</p>
      */
-    private static String describe(TradeCommand command, TradeAmounts amounts) {
+    private static String describe(TradeCommand command, TradeAmounts amounts, TradeCosts costs) {
         ObjectNode detail = OBJECT_MAPPER.createObjectNode();
         ObjectNode request = detail.putObject("request");
 
@@ -398,6 +442,12 @@ public class TradeService {
 
         detail.put("requested_amount", amounts.getRequestedAmount().toPlainString());
         detail.put("executed_amount", amounts.getExecutedAmount().toPlainString());
+        detail.put("fee_rate", costs.getFeeRate().toPlainString());
+        detail.put("fee_amount", costs.getFeeAmount().toPlainString());
+        detail.put("tax_rate", costs.getTaxRate().toPlainString());
+        detail.put("tax_amount", costs.getTaxAmount().toPlainString());
+        detail.put("net_cash_amount", costs.getNetCashAmount().toPlainString());
+        detail.put("policy_version", costs.getPolicyVersion());
 
         return detail.toString();
     }
@@ -409,6 +459,9 @@ public class TradeService {
      *
      * <p>내용이 같으면 그때 결과를 그대로 돌려주고, 다르면 {@code 409}다. 같은 키에 다른 거래를
      * 붙이면 <b>둘 중 하나가 조용히 사라진다.</b></p>
+     *
+     * <p>수수료도 <b>이력에 남긴 값을 그대로 복원</b>한다. 지금 요율로 다시 계산하면 그 사이 정책이
+     * 바뀌었을 때 같은 거래가 두 가지 값으로 보인다.</p>
      */
     private TradeResult replay(PortfolioTransaction done, TradeCommand command) {
         if (!sameRequest(done.getDetailJson(), command)) {
@@ -425,11 +478,37 @@ public class TradeService {
                 done.getProductId(),
                 requestedAmountOf(done),
                 done.getAmount(),
+                moneyOf(done, "fee_amount", ZERO_MONEY),
+                moneyOf(done, "tax_amount", ZERO_MONEY),
+                moneyOf(done, "net_cash_amount", done.getAmount()),
                 done.getQuantity(),
                 done.getUnitPrice(),
                 done.getStatus().name(),
                 portfolio == null ? null : portfolio.getCashBalance()
         );
+    }
+
+    /**
+     * 이력의 {@code detail_json}에서 금액 하나를 꺼낸다. <b>없으면 기본값</b>이다.
+     *
+     * <p>수수료를 도입하기 전에 쌓인 이력에는 이 키들이 없다. 그때 거래는 실제로 수수료가 0이었고
+     * 현금 증감이 곧 체결액이었으므로, 기본값이 그 사실을 그대로 나타낸다.</p>
+     */
+    private static BigDecimal moneyOf(PortfolioTransaction done, String field, BigDecimal fallback) {
+        JsonNode node = readDetail(done.getDetailJson()).get(field);
+
+        if (node == null || node.isNull()) {
+            return fallback;
+        }
+
+        try {
+            return new BigDecimal(node.asText());
+        } catch (NumberFormatException exception) {
+            log.warn("거래 이력의 {}를 읽지 못했습니다 transactionId={}",
+                    field, done.getPortfolioTransactionId(), exception);
+
+            return fallback;
+        }
     }
 
     private static boolean sameRequest(String detailJson, TradeCommand command) {
@@ -574,6 +653,7 @@ public class TradeService {
     private static TradeResult toResult(
             PortfolioTransaction record,
             TradeAmounts amounts,
+            TradeCosts costs,
             BigDecimal cashBalance
     ) {
         return new TradeResult(
@@ -582,6 +662,9 @@ public class TradeService {
                 record.getProductId(),
                 amounts.getRequestedAmount(),
                 amounts.getExecutedAmount(),
+                costs.getFeeAmount(),
+                costs.getTaxAmount(),
+                costs.getNetCashAmount(),
                 amounts.getQuantity(),
                 amounts.getUnitPrice(),
                 record.getStatus().name(),
@@ -603,5 +686,23 @@ public class TradeService {
         }
 
         return !node.isNull() && value.compareTo(new BigDecimal(node.asText())) == 0;
+    }
+
+    /**
+     * 체결 수치와 비용을 함께 돌려주기 위한 묶음.
+     *
+     * <p>매수·매도 경로가 현금을 직접 움직이므로 비용도 그 안에서 계산된다. 그런데 이력을 남기는 쪽은
+     * 바깥이라 둘 다 필요하다. {@code TradeService} 밖으로 나가지 않는 내부 사정이라 별도 타입으로
+     * 만들지 않는다.</p>
+     */
+    private static final class Executed {
+
+        private final TradeAmounts amounts;
+        private final TradeCosts costs;
+
+        private Executed(TradeAmounts amounts, TradeCosts costs) {
+            this.amounts = amounts;
+            this.costs = costs;
+        }
     }
 }

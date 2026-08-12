@@ -5,6 +5,30 @@
 
 <mapper namespace="org.firstfolio.quiz.mapper.QuizQuestionMapper">
 
+    <resultMap id="questionResultMap"
+               type="org.firstfolio.quiz.domain.QuizQuestion">
+        <id property="questionId" column="question_id" />
+        <result property="questionKey" column="question_key" />
+        <result property="versionNo" column="version_no" />
+        <result property="usageType" column="usage_type" />
+        <result property="mainChapterId" column="main_chapter_id" />
+        <result property="subChapterId" column="sub_chapter_id" />
+        <result property="displayOrder" column="display_order" />
+        <result property="questionType" column="question_type" />
+        <result property="difficulty" column="difficulty" />
+        <result property="prompt" column="prompt" />
+        <result property="scenarioJson" column="scenario_json" />
+        <result property="optionsJson" column="options_json" />
+        <result property="correctAnswerJson" column="correct_answer_json" />
+        <result property="explanation" column="explanation" />
+        <result property="generationType" column="generation_type" />
+        <result property="sourceRefsJson" column="source_refs_json" />
+        <result property="status" column="status" />
+        <result property="createdBy" column="created_by" />
+        <result property="publishedAt" column="published_at" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
     <resultMap id="questionReferenceResultMap"
                type="org.firstfolio.quiz.domain.QuizQuestionReference">
         <id property="questionId" column="question_id" />
@@ -12,6 +36,51 @@
         <result property="subChapterId" column="sub_chapter_id" />
         <result property="status" column="status" />
     </resultMap>
+
+    <sql id="questionColumns">
+        question_id,
+        question_key,
+        version_no,
+        usage_type,
+        main_chapter_id,
+        sub_chapter_id,
+        display_order,
+        question_type,
+        difficulty,
+        prompt,
+        scenario_json,
+        options_json,
+        correct_answer_json,
+        explanation,
+        generation_type,
+        source_refs_json,
+        status,
+        created_by,
+        published_at,
+        created_at
+    </sql>
+
+    <select id="findById" resultMap="questionResultMap">
+        SELECT <include refid="questionColumns" />
+        FROM quiz_questions
+        WHERE question_id = #{questionId}
+    </select>
+
+    <select id="findLatestByQuestionKeyForUpdate"
+            resultMap="questionResultMap">
+        SELECT <include refid="questionColumns" />
+        FROM quiz_questions
+        WHERE question_key = #{questionKey}
+        ORDER BY version_no DESC
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="countByQuestionKey" resultType="int">
+        SELECT COUNT(*)
+        FROM quiz_questions
+        WHERE question_key = #{questionKey}
+    </select>
 
     <select id="findReferencesByIds" resultMap="questionReferenceResultMap">
         SELECT question_id,
@@ -28,5 +97,127 @@
             #{questionId}
         </foreach>
     </select>
+
+    <select id="findAllByIds" resultMap="questionResultMap">
+        SELECT <include refid="questionColumns" />
+        FROM quiz_questions
+        WHERE question_id IN
+        <foreach collection="questionIds"
+                 item="questionId"
+                 open="("
+                 separator=","
+                 close=")">
+            #{questionId}
+        </foreach>
+    </select>
+
+    <select id="findLatestPublishedByMainChapterId"
+            resultMap="questionResultMap">
+        SELECT <include refid="questionColumns" />
+        FROM quiz_questions question
+        WHERE question.usage_type = 'MAIN_CHAPTER'
+          AND question.main_chapter_id = #{mainChapterId}
+          AND question.status = 'PUBLISHED'
+          AND question.display_order IS NOT NULL
+          AND NOT EXISTS (
+              SELECT 1
+              FROM quiz_questions newer
+              WHERE newer.question_key = question.question_key
+                AND newer.status = 'PUBLISHED'
+                AND newer.version_no &gt; question.version_no
+          )
+        ORDER BY question.display_order, question.question_id
+    </select>
+
+    <select id="findLatestPublishedLevelTestQuestions"
+            resultMap="questionResultMap">
+        SELECT
+            question.question_id,
+            question.question_key,
+            question.version_no,
+            question.usage_type,
+            question.main_chapter_id,
+            question.sub_chapter_id,
+            question.display_order,
+            question.question_type,
+            question.difficulty,
+            question.prompt,
+            question.scenario_json,
+            question.options_json,
+            question.correct_answer_json,
+            question.explanation,
+            question.generation_type,
+            question.source_refs_json,
+            question.status,
+            question.created_by,
+            question.published_at,
+            question.created_at
+        FROM quiz_questions question
+        INNER JOIN main_chapters chapter
+                ON chapter.main_chapter_id = question.main_chapter_id
+        WHERE question.usage_type = 'LEVEL_TEST'
+          AND question.status = 'PUBLISHED'
+          AND question.display_order IS NOT NULL
+          AND chapter.chapter_type = 'ASSET'
+          AND chapter.is_active = TRUE
+          AND NOT EXISTS (
+              SELECT 1
+              FROM quiz_questions newer
+              WHERE newer.question_key = question.question_key
+                AND newer.version_no &gt; question.version_no
+                AND newer.status IN ('PUBLISHED', 'RETIRED')
+          )
+        ORDER BY chapter.display_order,
+                 question.display_order,
+                 question.question_id
+    </select>
+
+    <insert id="insert"
+            parameterType="org.firstfolio.quiz.domain.QuizQuestion"
+            useGeneratedKeys="true"
+            keyProperty="questionId"
+            keyColumn="question_id">
+        INSERT INTO quiz_questions (
+            question_key,
+            version_no,
+            usage_type,
+            main_chapter_id,
+            sub_chapter_id,
+            display_order,
+            question_type,
+            difficulty,
+            prompt,
+            scenario_json,
+            options_json,
+            correct_answer_json,
+            explanation,
+            generation_type,
+            source_refs_json,
+            status,
+            created_by,
+            published_at,
+            created_at
+        ) VALUES (
+            #{questionKey},
+            #{versionNo},
+            #{usageType},
+            #{mainChapterId,jdbcType=BIGINT},
+            #{subChapterId,jdbcType=BIGINT},
+            #{displayOrder,jdbcType=INTEGER},
+            #{questionType},
+            #{difficulty,jdbcType=VARCHAR},
+            #{prompt},
+            #{scenarioJson,jdbcType=VARCHAR},
+            #{optionsJson,jdbcType=VARCHAR},
+            #{correctAnswerJson,jdbcType=VARCHAR},
+            #{explanation},
+            #{generationType},
+            #{sourceRefsJson,jdbcType=VARCHAR},
+            #{status},
+            #{createdBy},
+            #{publishedAt,jdbcType=TIMESTAMP},
+            #{createdAt}
+        )
+    </insert>
 
 </mapper>

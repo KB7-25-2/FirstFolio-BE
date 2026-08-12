@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.learning.mapper.LearningProgressMapper">
+
+    <resultMap id="learningProgressResultMap"
+               type="org.firstfolio.learning.domain.LearningProgress">
+        <id property="progressId" column="progress_id" />
+        <result property="userId" column="user_id" />
+        <result property="subChapterId" column="sub_chapter_id" />
+        <result property="contentVersionId" column="content_version_id" />
+        <result property="lastPageId" column="last_page_id" />
+        <result property="status" column="status" />
+        <result property="startedAt" column="started_at" />
+        <result property="completedAt" column="completed_at" />
+        <result property="updatedAt" column="updated_at" />
+    </resultMap>
+
+    <select id="findByUserIdAndSubChapterId"
+            resultMap="learningProgressResultMap">
+        SELECT
+            progress_id,
+            user_id,
+            sub_chapter_id,
+            content_version_id,
+            last_page_id,
+            status,
+            started_at,
+            completed_at,
+            updated_at
+        FROM user_learning_progress
+        WHERE user_id = #{userId}
+          AND sub_chapter_id = #{subChapterId}
+    </select>
+
+    <select id="findByUserIdAndSubChapterIdForUpdate"
+            resultMap="learningProgressResultMap">
+        SELECT
+            progress_id,
+            user_id,
+            sub_chapter_id,
+            content_version_id,
+            last_page_id,
+            status,
+            started_at,
+            completed_at,
+            updated_at
+        FROM user_learning_progress
+        WHERE user_id = #{userId}
+          AND sub_chapter_id = #{subChapterId}
+        FOR UPDATE
+    </select>
+
+    <insert id="insertIfAbsent"
+            parameterType="org.firstfolio.learning.domain.LearningProgress"
+            useGeneratedKeys="true"
+            keyProperty="progressId"
+            keyColumn="progress_id">
+        INSERT IGNORE INTO user_learning_progress (
+            user_id,
+            sub_chapter_id,
+            content_version_id,
+            last_page_id,
+            status,
+            started_at,
+            completed_at,
+            updated_at
+        ) VALUES (
+            #{userId},
+            #{subChapterId},
+            #{contentVersionId},
+            #{lastPageId,jdbcType=VARCHAR},
+            #{status},
+            #{startedAt},
+            #{completedAt,jdbcType=TIMESTAMP},
+            #{updatedAt}
+        )
+    </insert>
+
+    <update id="updateProgress"
+            parameterType="org.firstfolio.learning.domain.LearningProgress">
+        UPDATE user_learning_progress
+        SET last_page_id = #{lastPageId,jdbcType=VARCHAR},
+            status = #{status},
+            completed_at = #{completedAt,jdbcType=TIMESTAMP},
+            updated_at = #{updatedAt}
+        WHERE progress_id = #{progressId}
+          AND status != 'COMPLETED'
+    </update>
+
+    <insert id="insertEvent"
+            parameterType="org.firstfolio.learning.domain.LearningProgressEvent"
+            useGeneratedKeys="true"
+            keyProperty="progressEventId"
+            keyColumn="progress_event_id">
+        INSERT INTO user_learning_progress_events (
+            progress_id,
+            user_id,
+            sub_chapter_id,
+            content_version_id,
+            event_type,
+            previous_status,
+            status,
+            previous_page_id,
+            last_page_id,
+            occurred_at
+        ) VALUES (
+            #{progressId},
+            #{userId},
+            #{subChapterId},
+            #{contentVersionId},
+            #{eventType},
+            #{previousStatus,jdbcType=VARCHAR},
+            #{status},
+            #{previousPageId,jdbcType=VARCHAR},
+            #{lastPageId,jdbcType=VARCHAR},
+            #{occurredAt}
+        )
+    </insert>
+
+</mapper>

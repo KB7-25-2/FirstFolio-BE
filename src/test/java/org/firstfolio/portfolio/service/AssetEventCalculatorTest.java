@@ -30,6 +30,17 @@ class AssetEventCalculatorTest {
     private static final BigDecimal PRINCIPAL = new BigDecimal("10000000.00");
     private static final LocalDateTime OPENED_AT = LocalDateTime.of(2026, 8, 7, 3, 0);
 
+    /**
+     * 계산식 자체를 보는 테스트에 쓰는 세율.
+     *
+     * <p>세율이 0이면 지급액이 곧 세전 이자라 <b>이자 계산식만 따로 검산</b>할 수 있다.
+     * 세금이 붙는 경우는 아래 "이자소득세" 절에서 따로 본다.</p>
+     */
+    private static final BigDecimal NO_TAX = BigDecimal.ZERO;
+
+    /** D14 확정 세율. 15.4% = 소득세 14% + 지방소득세 1.4% */
+    private static final BigDecimal TAX_RATE = new BigDecimal("0.154");
+
     private final AssetEventCalculator calculator = new AssetEventCalculator(12);
 
     @Test
@@ -37,7 +48,7 @@ class AssetEventCalculatorTest {
     void paysDepositInterestOnceAtMaturity() {
         // 실제 상품: 12개월 만기 2.4% → 서비스 내 288시간(12일)
         List<ScheduledAssetEvent> events = calculator.schedule(
-                deposit("2.4", 12, "SIMPLE"), PRINCIPAL, OPENED_AT);
+                deposit("2.4", 12, "SIMPLE"), PRINCIPAL, OPENED_AT, NO_TAX);
 
         assertEquals(2, events.size());
 
@@ -66,7 +77,7 @@ class AssetEventCalculatorTest {
         savings.setReserveType("FIXED");
 
         List<ScheduledAssetEvent> events =
-                calculator.schedule(AssetEventTerms.of(savings, simulation(288)), PRINCIPAL, OPENED_AT);
+                calculator.schedule(AssetEventTerms.of(savings, simulation(288)), PRINCIPAL, OPENED_AT, NO_TAX);
 
         assertEquals(new BigDecimal("240000.00"), events.get(0).getAmount());
     }
@@ -76,7 +87,7 @@ class AssetEventCalculatorTest {
     void paysCouponsOnEveryInterval() {
         // 실제 상품: 9개월 만기 1.921%, 3개월 주기 → 서비스 내 216시간, 이표 72시간마다
         List<ScheduledAssetEvent> events = calculator.schedule(
-                bond("1.921", 9, 3, "이표채"), PRINCIPAL, OPENED_AT);
+                bond("1.921", 9, 3, "이표채"), PRINCIPAL, OPENED_AT, NO_TAX);
 
         assertEquals(4, events.size(), "이자 3회 + 만기 1회");
 
@@ -97,7 +108,7 @@ class AssetEventCalculatorTest {
     void proratesTheFinalCoupon() {
         // 실제 상품: 32개월 만기 3.47% 국고채, 12개월 주기 → 12·24개월째에 받고 8개월이 남는다
         List<ScheduledAssetEvent> events = calculator.schedule(
-                bond("3.47", 32, 12, "이표채"), PRINCIPAL, OPENED_AT);
+                bond("3.47", 32, 12, "이표채"), PRINCIPAL, OPENED_AT, NO_TAX);
 
         assertEquals(4, events.size(), "이자 3회 + 만기 1회");
 
@@ -122,7 +133,7 @@ class AssetEventCalculatorTest {
     void skipsInterimCouponsWhenIntervalOutlivesMaturity() {
         // 실제 상품: 잔존 2개월인데 제공처가 3개월 주기로 준다
         List<ScheduledAssetEvent> events = calculator.schedule(
-                bond("2.856", 2, 3, "이표채"), PRINCIPAL, OPENED_AT);
+                bond("2.856", 2, 3, "이표채"), PRINCIPAL, OPENED_AT, NO_TAX);
 
         assertEquals(2, events.size());
         // 10,000,000 × 2.856% × 2/12
@@ -136,9 +147,9 @@ class AssetEventCalculatorTest {
     void compoundsInterestUntilMaturity() {
         // 실제 상품 쌍: 32개월 만기 3.47%로 조건이 같고 이자 방식만 다르다
         List<ScheduledAssetEvent> compound = calculator.schedule(
-                bond("3.47", 32, null, "복리채"), PRINCIPAL, OPENED_AT);
+                bond("3.47", 32, null, "복리채"), PRINCIPAL, OPENED_AT, NO_TAX);
         List<ScheduledAssetEvent> coupon = calculator.schedule(
-                bond("3.47", 32, 12, "이표채"), PRINCIPAL, OPENED_AT);
+                bond("3.47", 32, 12, "이표채"), PRINCIPAL, OPENED_AT, NO_TAX);
 
         assertEquals(2, compound.size(), "중간 지급이 없어 이자 1회 + 만기 1회");
         assertEquals(AssetEventBasis.COMPOUND_INTEREST, compound.get(0).getBasis());
@@ -157,7 +168,7 @@ class AssetEventCalculatorTest {
     @DisplayName("이자가 항상 만기보다 앞에 온다 — 만기가 먼저 처리되면 보유가 닫힌 뒤에 이자를 넣게 된다")
     void putsInterestBeforeMaturity() {
         List<ScheduledAssetEvent> events = calculator.schedule(
-                bond("3.47", 32, 12, "이표채"), PRINCIPAL, OPENED_AT);
+                bond("3.47", 32, 12, "이표채"), PRINCIPAL, OPENED_AT, NO_TAX);
 
         assertEquals(
                 TransactionType.MATURITY,
@@ -179,24 +190,99 @@ class AssetEventCalculatorTest {
     @DisplayName("이율이나 만기를 알 수 없으면 가입을 거부한다 — 0원짜리 일정을 만들지 않는다")
     void rejectsUnusableTerms() {
         assertThrows(ApiException.class, () -> calculator.schedule(
-                deposit(null, 12, "SIMPLE"), PRINCIPAL, OPENED_AT));
+                deposit(null, 12, "SIMPLE"), PRINCIPAL, OPENED_AT, NO_TAX));
 
         assertThrows(ApiException.class, () -> calculator.schedule(
-                deposit("2.4", 0, "SIMPLE"), PRINCIPAL, OPENED_AT));
+                deposit("2.4", 0, "SIMPLE"), PRINCIPAL, OPENED_AT, NO_TAX));
 
         assertThrows(ApiException.class, () -> calculator.schedule(
-                deposit("2.4", 12, "SIMPLE"), BigDecimal.ZERO, OPENED_AT));
+                deposit("2.4", 12, "SIMPLE"), BigDecimal.ZERO, OPENED_AT, NO_TAX));
     }
 
     @Test
     @DisplayName("예·적금도 복리로 등록돼 있으면 복리로 계산한다")
     void honoursCompoundDeposits() {
         List<ScheduledAssetEvent> events = calculator.schedule(
-                deposit("2.4", 24, "COMPOUND"), PRINCIPAL, OPENED_AT);
+                deposit("2.4", 24, "COMPOUND"), PRINCIPAL, OPENED_AT, NO_TAX);
 
         assertEquals(AssetEventBasis.COMPOUND_INTEREST, events.get(0).getBasis());
         // 1.024^2 − 1 = 0.048576 → 485,760
         assertEquals(new BigDecimal("485760.00"), events.get(0).getAmount());
+    }
+
+    // ------------------------------------------------------------------ 이자소득세
+
+    @Test
+    @DisplayName("이자에서 이자소득세 15.4%를 떼고 지급한다")
+    void withholdsInterestIncomeTax() {
+        List<ScheduledAssetEvent> events = calculator.schedule(
+                deposit("2.4", 12, "SIMPLE"), PRINCIPAL, OPENED_AT, TAX_RATE);
+
+        ScheduledAssetEvent interest = events.get(0);
+
+        // 240,000 × 15.4% = 36,960
+        assertEquals(new BigDecimal("240000.00"), interest.getGrossAmount());
+        assertEquals(new BigDecimal("36960.00"), interest.getTaxAmount());
+        assertEquals(new BigDecimal("203040.00"), interest.getAmount(),
+                "현금에 반영되는 값은 세후여야 합니다.");
+        assertEquals(TAX_RATE, interest.getTaxRate());
+    }
+
+    @Test
+    @DisplayName("원금 반환에는 세금이 붙지 않는다 — 소득이 아니다")
+    void doesNotTaxPrincipalReturn() {
+        List<ScheduledAssetEvent> events = calculator.schedule(
+                deposit("2.4", 12, "SIMPLE"), PRINCIPAL, OPENED_AT, TAX_RATE);
+
+        ScheduledAssetEvent maturity = events.get(events.size() - 1);
+
+        assertEquals(TransactionType.MATURITY, maturity.getType());
+        assertEquals(new BigDecimal("0.00"), maturity.getTaxAmount());
+        assertEquals(PRINCIPAL, maturity.getAmount());
+        assertEquals(maturity.getGrossAmount(), maturity.getAmount());
+    }
+
+    @Test
+    @DisplayName("세전 = 지급액 + 세액이 언제나 성립한다 — 반올림으로 1원이 사라지지 않는다")
+    void keepsGrossEqualToNetPlusTax() {
+        // 이표채는 회차마다 나누어떨어지지 않는 금액이 나온다.
+        List<ScheduledAssetEvent> events = calculator.schedule(
+                bond("1.921", 9, 3, "이표채"), PRINCIPAL, OPENED_AT, TAX_RATE);
+
+        for (ScheduledAssetEvent event : events) {
+            assertEquals(
+                    event.getGrossAmount(),
+                    event.getAmount().add(event.getTaxAmount()),
+                    "세전과 세후+세액이 어긋나면 안 됩니다: " + event.getType()
+            );
+        }
+    }
+
+    @Test
+    @DisplayName("이표채는 회차마다 세금을 뗀다")
+    void withholdsTaxOnEveryCoupon() {
+        List<ScheduledAssetEvent> events = calculator.schedule(
+                bond("3.47", 32, 12, "이표채"), PRINCIPAL, OPENED_AT, TAX_RATE);
+
+        long taxedInterests = events.stream()
+                .filter(event -> event.getType() == TransactionType.INTEREST)
+                .filter(event -> event.getTaxAmount().signum() > 0)
+                .count();
+
+        assertEquals(3, taxedInterests, "12·24개월 이표와 만기 잔여분 모두 과세 대상입니다.");
+    }
+
+    @Test
+    @DisplayName("세율이 0이면 세전과 지급액이 같다 — 세금 도입 전과 동일하게 계산된다")
+    void paysGrossWhenTaxRateIsZero() {
+        List<ScheduledAssetEvent> events = calculator.schedule(
+                deposit("2.4", 12, "SIMPLE"), PRINCIPAL, OPENED_AT, NO_TAX);
+
+        ScheduledAssetEvent interest = events.get(0);
+
+        assertEquals(new BigDecimal("240000.00"), interest.getAmount());
+        assertEquals(interest.getGrossAmount(), interest.getAmount());
+        assertEquals(new BigDecimal("0.00"), interest.getTaxAmount());
     }
 
     // ------------------------------------------------------------------ 조건 만들기

@@ -8,6 +8,7 @@ import org.firstfolio.simulation.domain.FinancialProduct;
 import org.firstfolio.simulation.domain.ProductPrice;
 import org.firstfolio.simulation.mapper.FinancialProductMapper;
 import org.firstfolio.simulation.mapper.ProductPriceMapper;
+import org.firstfolio.simulation.service.PriceQuoteFetcher;
 import org.firstfolio.simulation.service.PriceRefreshResult;
 import org.firstfolio.simulation.service.PriceRefreshService;
 import org.junit.jupiter.api.DisplayName;
@@ -76,8 +77,11 @@ class PriceRefreshJdbcTest {
 
                 assertFalse(targets.isEmpty(), "공개된 주식·펀드가 없습니다. 상품 시드를 먼저 등록하세요.");
 
-                PriceRefreshService service =
-                        new PriceRefreshService(productMapper, priceMapper, fakeClient(targets), new BigDecimal("0.30"));
+                PriceRefreshService service = new PriceRefreshService(
+                        new PriceQuoteFetcher(productMapper, fakeClient(targets)),
+                        priceMapper,
+                        new BigDecimal("0.30")
+                );
 
                 LocalDateTime referenceAt = LocalDateTime.now(ZoneOffset.UTC).withNano(0);
 
@@ -162,7 +166,9 @@ class PriceRefreshJdbcTest {
                 LocalDateTime first = LocalDateTime.now(ZoneOffset.UTC).withNano(0).minusMinutes(5);
 
                 PriceRefreshService sameQuote = new PriceRefreshService(
-                        productMapper, priceMapper, fakeClient(targets, QUOTED_AT), new BigDecimal("0.30")
+                        new PriceQuoteFetcher(productMapper, fakeClient(targets, QUOTED_AT)),
+                        priceMapper,
+                        new BigDecimal("0.30")
                 );
 
                 assertEquals(1, sameQuote.refresh(first, onlySample).getCreatedCount());
@@ -175,9 +181,11 @@ class PriceRefreshJdbcTest {
 
                 // 새 체결이 들어오면 그때 쌓인다.
                 PriceRefreshService newQuote = new PriceRefreshService(
-                        productMapper,
+                        new PriceQuoteFetcher(
+                                productMapper,
+                                fakeClient(targets, "2026-08-06T13:25:40.000+09:00")
+                        ),
                         priceMapper,
-                        fakeClient(targets, "2026-08-06T13:25:40.000+09:00"),
                         new BigDecimal("0.30")
                 );
                 LocalDateTime third = first.plusMinutes(2);
@@ -192,6 +200,68 @@ class PriceRefreshJdbcTest {
                 transactionManager.rollback(transaction);
             }
         }
+    }
+
+    /**
+     * 종가 중복 방지가 기대는 질의를 실제 DB에서 확인한다.
+     *
+     * <p>{@code generation_key} 유니크 제약이 재시작 후 중복을 막아 줄 것으로 봤으나
+     * <b>2026-08-10 실측에서 뒤집혔다</b> — 시간외 거래(16:00~18:00) 중에는 시세 갱신 시각이
+     * 계속 바뀌어 90초 간격 두 호출에서 15건 중 9건이 새 행으로 저장됐다. 그래서 스케줄러가
+     * 이 질의로 직접 확인한다.</p>
+     */
+    @Test
+    @DisplayName("실제 DB에서 기준 시점 이후 저장된 가격 수를 센다")
+    void countsPricesSavedSinceGivenTime() throws Exception {
+        try (AnnotationConfigApplicationContext context = context()) {
+            DataSourceTransactionManager transactionManager =
+                    context.getBean(DataSourceTransactionManager.class);
+            FinancialProductMapper productMapper = context.getBean(FinancialProductMapper.class);
+            ProductPriceMapper priceMapper = context.getBean(ProductPriceMapper.class);
+
+            TransactionStatus transaction =
+                    transactionManager.getTransaction(new DefaultTransactionDefinition());
+
+            try {
+                FinancialProduct sample = productMapper
+                        .findPriceTargets(List.of(AssetType.STOCK, AssetType.FUND), null)
+                        .get(0);
+
+                // 기존 데이터와 겹치지 않도록 충분히 미래의 한 시점을 기준으로 삼는다.
+                LocalDateTime boundary = LocalDateTime.now(ZoneOffset.UTC).plusDays(400).withNano(0);
+
+                assertEquals(0, priceMapper.countSavedSince(boundary), "아직 아무것도 없어야 합니다.");
+
+                // 경계 이전 한 건 — 세어지면 안 된다.
+                priceMapper.insert(price(sample.getProductId(), boundary.minusMinutes(1), "before"));
+
+                assertEquals(0, priceMapper.countSavedSince(boundary), "경계 이전은 제외돼야 합니다.");
+
+                // 경계 정각 — 포함된다.
+                priceMapper.insert(price(sample.getProductId(), boundary, "at-boundary"));
+
+                assertEquals(1, priceMapper.countSavedSince(boundary), "경계 정각은 포함돼야 합니다.");
+
+                priceMapper.insert(price(sample.getProductId(), boundary.plusMinutes(1), "after"));
+
+                assertEquals(2, priceMapper.countSavedSince(boundary));
+            } finally {
+                transactionManager.rollback(transaction);
+            }
+        }
+    }
+
+    private static ProductPrice price(Long productId, LocalDateTime referenceAt, String suffix) {
+        ProductPrice row = new ProductPrice();
+
+        row.setProductId(productId);
+        row.setPrice(FAKE_PRICE);
+        row.setReferenceAt(referenceAt);
+        row.setSourceType("REAL_DATA");
+        row.setGenerationKey("test:countSavedSince:" + suffix + ":" + referenceAt);
+        row.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
+
+        return row;
     }
 
     /**
