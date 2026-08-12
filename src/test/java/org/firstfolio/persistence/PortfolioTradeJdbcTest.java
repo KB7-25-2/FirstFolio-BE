@@ -31,6 +31,7 @@ import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import javax.sql.DataSource;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -300,6 +301,47 @@ class PortfolioTradeJdbcTest {
     }
 
     @Test
+    @DisplayName("예정 이자는 저장된 정책의 이자소득세를 뗀 세후 금액으로 만들어진다")
+    void withholdsInterestIncomeTaxUsingStoredPolicy() throws Exception {
+        withRollback((context, connection) -> {
+            Fixture fixture = givenPortfolio(context, connection, "30000000.00");
+            long depositId = PortfolioFixtures.activeProductId(connection, "DEPOSIT_SAVINGS");
+
+            fixture.trade.trade(fixture.userId, buy(depositId, "10000000.00"));
+
+            long holdingId = holdingIdOf(connection, fixture.portfolioId, depositId);
+
+            BigDecimal net = new BigDecimal(scheduledAmount(connection, holdingId, "INTEREST"));
+            BigDecimal gross =
+                    new BigDecimal(scheduledDetail(connection, holdingId, "INTEREST", "gross_amount"));
+            BigDecimal tax =
+                    new BigDecimal(scheduledDetail(connection, holdingId, "INTEREST", "tax_amount"));
+
+            // 상품의 이율에 기대지 않고 관계로 검산한다 — 어떤 예·적금이 선택돼도 성립해야 한다.
+            assertEquals("0.154", scheduledDetail(connection, holdingId, "INTEREST", "tax_rate"));
+            assertEquals(0, gross.compareTo(net.add(tax)),
+                    "세전이 세후+세액과 어긋나면 1원이 사라진 것입니다.");
+            assertEquals(0, tax.compareTo(
+                            gross.multiply(new BigDecimal("0.154")).setScale(2, RoundingMode.HALF_UP)),
+                    "세액이 세전 × 15.4%가 아닙니다.");
+            assertTrue(net.compareTo(gross) < 0, "세금이 실제로 떼여야 합니다.");
+
+            // 원금 반환은 소득이 아니다.
+            assertEquals("0.00", scheduledDetail(connection, holdingId, "MATURITY", "tax_amount"));
+            assertEquals("10000000.00", scheduledAmount(connection, holdingId, "MATURITY"));
+
+            // 저장된 정책을 실제로 지났다는 증거. 기본값 폴백이었다면 null이다.
+            assertEquals(
+                    value(connection,
+                            "SELECT version_no FROM system_policies"
+                                    + " WHERE policy_key = 'TRADE' AND is_active = ?"
+                                    + " ORDER BY version_no DESC LIMIT 1", 1),
+                    scheduledDetail(connection, holdingId, "INTEREST", "policy_version")
+            );
+        });
+    }
+
+    @Test
     @DisplayName("매도에는 증권거래세가 붙고 매수에는 붙지 않는다")
     void chargesTransactionTaxOnSellOnly() throws Exception {
         withRollback((context, connection) -> {
@@ -493,6 +535,28 @@ class PortfolioTradeJdbcTest {
             throws Exception {
         try (PreparedStatement statement = connection.prepareStatement(
                 "SELECT amount FROM portfolio_transactions"
+                        + " WHERE holding_id = ? AND transaction_type = ? AND status = 'SCHEDULED'"
+        )) {
+            statement.setLong(1, holdingId);
+            statement.setString(2, type);
+
+            try (ResultSet resultSet = statement.executeQuery()) {
+                assertTrue(resultSet.next(), type + " 예정 이벤트가 있어야 합니다.");
+
+                return resultSet.getString(1);
+            }
+        }
+    }
+
+    /** 예정 이벤트의 {@code detail_json}에서 키 하나를 꺼낸다. */
+    private static String scheduledDetail(
+            Connection connection,
+            long holdingId,
+            String type,
+            String path
+    ) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT detail_json ->> '$." + path + "' FROM portfolio_transactions"
                         + " WHERE holding_id = ? AND transaction_type = ? AND status = 'SCHEDULED'"
         )) {
             statement.setLong(1, holdingId);

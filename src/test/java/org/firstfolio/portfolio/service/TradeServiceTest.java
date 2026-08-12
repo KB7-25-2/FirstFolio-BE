@@ -440,10 +440,25 @@ class TradeServiceTest {
 
         ArgumentCaptor<BigDecimal> principal = ArgumentCaptor.forClass(BigDecimal.class);
 
-        verify(eventScheduler).schedule(any(), any(), any(), principal.capture(), any());
+        verify(eventScheduler).schedule(any(), any(), any(), principal.capture(), any(), any());
 
         assertEquals(new BigDecimal("10000000.00"), principal.getValue(),
                 "가입형은 요청 금액이 그대로 원금입니다.");
+    }
+
+    @Test
+    @DisplayName("일정 생성에 거래가 읽은 정책을 그대로 넘긴다 — 같은 트랜잭션에서 버전이 갈리면 안 된다")
+    void passesTheSamePolicyToEventScheduler() {
+        buy(DEPOSIT_ID, "10000000.00");
+
+        ArgumentCaptor<TradePolicy> policy = ArgumentCaptor.forClass(TradePolicy.class);
+
+        verify(eventScheduler).schedule(any(), any(), any(), any(), any(), policy.capture());
+
+        assertEquals(new BigDecimal("0.154"), policy.getValue().getInterestIncomeTaxRate());
+        assertEquals(1, policy.getValue().getPolicyVersion());
+        // 거래당 한 번만 읽으므로 이력의 수수료와 예정 이벤트의 세금이 같은 버전을 쓴다.
+        verify(tradePolicyProvider, times(1)).findAt(any());
     }
 
     @Test
@@ -453,7 +468,7 @@ class TradeServiceTest {
         sell(DEPOSIT_ID, null);
 
         // 매수에서 한 번만 불렸어야 한다.
-        verify(eventScheduler).schedule(any(), any(), any(), any(), any());
+        verify(eventScheduler).schedule(any(), any(), any(), any(), any(), any());
     }
 
     @Test

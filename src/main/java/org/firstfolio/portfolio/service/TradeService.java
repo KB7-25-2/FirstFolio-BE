@@ -149,7 +149,8 @@ public class TradeService {
         if (command.isBuy()) {
             // 만기까지의 이자·만기 일정을 여기서 전부 만든다. 매수 이력이 있어야 event_key를
             // 유일하게 만들 수 있어 이력 기록 뒤에 부른다 (FUNC-041).
-            eventScheduler.schedule(product, stored, record, amounts.getExecutedAmount(), now);
+            eventScheduler.schedule(
+                    product, stored, record, amounts.getExecutedAmount(), now, policy);
         }
 
         log.info(

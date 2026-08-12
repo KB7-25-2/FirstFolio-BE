@@ -10,6 +10,7 @@ import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.portfolio.domain.PortfolioHolding;
 import org.firstfolio.portfolio.domain.PortfolioTransaction;
 import org.firstfolio.portfolio.domain.ScheduledAssetEvent;
+import org.firstfolio.portfolio.domain.TradePolicy;
 import org.firstfolio.portfolio.domain.TransactionStatus;
 import org.firstfolio.portfolio.mapper.PortfolioTransactionMapper;
 import org.firstfolio.simulation.domain.AssetType;
@@ -84,6 +85,8 @@ public class AssetEventScheduler {
      * @param buy       방금 남긴 매수 이력. {@code event_key}를 유일하게 만드는 데 쓴다.
      * @param principal 가입 원금(체결 금액)
      * @param openedAt  가입 시각(UTC). 모든 예정 시각의 기준점이다.
+     * @param policy    가입 시점의 수수료·세율. <b>거래를 처리한 쪽이 이미 읽은 것을 그대로 받는다</b> —
+     *                  여기서 다시 읽으면 같은 트랜잭션 안에서 정책 버전이 갈릴 수 있다.
      * @return 만든 예정 이벤트 수. 매수형은 0이다.
      */
     public int schedule(
@@ -91,7 +94,8 @@ public class AssetEventScheduler {
             PortfolioHolding holding,
             PortfolioTransaction buy,
             BigDecimal principal,
-            LocalDateTime openedAt
+            LocalDateTime openedAt,
+            TradePolicy policy
     ) {
         AssetType assetType = product.getAssetType();
 
@@ -99,12 +103,16 @@ public class AssetEventScheduler {
             return 0;
         }
 
-        // TODO: 활성 TRADE 정책의 이자소득세율을 넘긴다 (#77). 지금은 세율 0이라 동작이 이전과 같다.
         List<ScheduledAssetEvent> events = calculator.schedule(
-                termsOf(product, holding), principal, openedAt, BigDecimal.ZERO);
+                termsOf(product, holding),
+                principal,
+                openedAt,
+                policy.getInterestIncomeTaxRate()
+        );
 
         for (ScheduledAssetEvent event : events) {
-            transactionMapper.insert(toTransaction(event, product, holding, buy, principal, openedAt));
+            transactionMapper.insert(toTransaction(
+                    event, product, holding, buy, principal, openedAt, policy.getPolicyVersion()));
         }
 
         log.info(
@@ -166,7 +174,8 @@ public class AssetEventScheduler {
             PortfolioHolding holding,
             PortfolioTransaction buy,
             BigDecimal principal,
-            LocalDateTime openedAt
+            LocalDateTime openedAt,
+            Integer policyVersion
     ) {
         String eventKey = eventKeyOf(event, holding, buy);
 
@@ -182,7 +191,7 @@ public class AssetEventScheduler {
         scheduled.setEventKey(eventKey);
         // 두 컬럼 모두 유니크다. 이벤트에는 사용자 요청이 없으므로 같은 값을 쓴다.
         scheduled.setIdempotencyKey(eventKey);
-        scheduled.setDetailJson(describe(event, buy, principal));
+        scheduled.setDetailJson(describe(event, buy, principal, policyVersion));
         scheduled.setCreatedAt(openedAt);
 
         return scheduled;
@@ -199,11 +208,18 @@ public class AssetEventScheduler {
                 + "-" + event.getScheduledAt().format(EVENT_KEY_TIME);
     }
 
-    /** 계산 근거. 금액만 남기면 나중에 "왜 이 금액인지"를 확인할 방법이 없다. */
+    /**
+     * 계산 근거. 금액만 남기면 나중에 "왜 이 금액인지"를 확인할 방법이 없다.
+     *
+     * <p>세금은 <b>세전 금액·세율·세액</b>을 모두 남긴다. 이력의 {@code amount}는 세후라서,
+     * 세전을 함께 남기지 않으면 화면이 "이자 24만원 중 36,960원을 뗐다"를 보여줄 수 없다.
+     * {@code policy_version}이 null이면 저장된 정책 없이 설정 기본값으로 계산했다는 뜻이다.</p>
+     */
     private static String describe(
             ScheduledAssetEvent event,
             PortfolioTransaction buy,
-            BigDecimal principal
+            BigDecimal principal,
+            Integer policyVersion
     ) {
         ObjectNode detail = OBJECT_MAPPER.createObjectNode();
 
@@ -212,6 +228,10 @@ public class AssetEventScheduler {
         detail.put("period_months", event.getPeriodMonths());
         detail.put("rate_percent",
                 event.getRatePercent() == null ? null : event.getRatePercent().toPlainString());
+        detail.put("gross_amount", event.getGrossAmount().toPlainString());
+        detail.put("tax_rate", event.getTaxRate().toPlainString());
+        detail.put("tax_amount", event.getTaxAmount().toPlainString());
+        detail.put("policy_version", policyVersion);
         detail.put("buy_transaction_id", buy.getPortfolioTransactionId());
         detail.put("assumption", ASSUMPTION);
 
