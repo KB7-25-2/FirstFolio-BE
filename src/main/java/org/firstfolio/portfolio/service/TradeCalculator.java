@@ -2,6 +2,9 @@ package org.firstfolio.portfolio.service;
 
 import org.firstfolio.portfolio.domain.PortfolioHolding;
 import org.firstfolio.portfolio.domain.TradeAmounts;
+import org.firstfolio.portfolio.domain.TradeCosts;
+import org.firstfolio.portfolio.domain.TradePolicy;
+import org.firstfolio.simulation.domain.AssetType;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -124,6 +127,78 @@ public class TradeCalculator {
                 .multiply(remainingQuantity)
                 .divide(heldQuantity, MONEY_SCALE, RoundingMode.HALF_UP));
     }
+
+    // ---------------------------------------------------------------- 수수료
+
+    /**
+     * 매수에 드는 비용 (v3 3.3절).
+     *
+     * <p><b>수수료는 체결액 밖에서 더 나간다.</b> 500만원을 요청해 483만원이 체결되면 현금은
+     * 483만원 + 수수료만큼 준다. 요청 금액 안에서 수수료를 떼는 방식도 가능하지만, 그러면 같은
+     * 요청이 상황에 따라 한 주 덜 체결돼 "왜 19주지?"가 된다. 실제 증권사와 같은 방식을 택했다.</p>
+     *
+     * <p>그 대가로 <b>보유 현금을 전부 넣는 요청은 수수료만큼 모자라 거부</b>된다. 정수 주수 내림으로
+     * 남는 차액이 보통 수수료보다 훨씬 커서 실제로 걸리는 경우는 드물다.</p>
+     *
+     * <p>수수료를 원금에 넣지 않는 것도 의도다 — 비용이지 매입원가가 아니다. 결과적으로 매수 직후
+     * 총자산이 수수료만큼 줄어드는데, 이것이 실제로 일어난 일이다.</p>
+     */
+    public TradeCosts costsForBuy(
+            AssetType assetType,
+            BigDecimal executedAmount,
+            TradePolicy policy
+    ) {
+        BigDecimal feeRate = appliedRate(assetType, policy.getBuyFeeRate());
+        BigDecimal fee = cost(executedAmount, feeRate);
+
+        return new TradeCosts(
+                fee,
+                money(executedAmount.add(fee)),
+                feeRate,
+                policy.getPolicyVersion()
+        );
+    }
+
+    /**
+     * 매도에 드는 비용 (v3 3.3절). 대금에서 <b>빼고</b> 현금에 넣는다.
+     *
+     * <p>증권거래세는 아직 붙지 않는다 — 매도에만 적용되는 별도 항목이고 이월 항목 #76이다.</p>
+     */
+    public TradeCosts costsForSell(
+            AssetType assetType,
+            BigDecimal executedAmount,
+            TradePolicy policy
+    ) {
+        BigDecimal feeRate = appliedRate(assetType, policy.getSellFeeRate());
+        BigDecimal fee = cost(executedAmount, feeRate);
+
+        return new TradeCosts(
+                fee,
+                money(executedAmount.subtract(fee)),
+                feeRate,
+                policy.getPolicyVersion()
+        );
+    }
+
+    /**
+     * 매매 수수료는 <b>주식·펀드(ETF)에만</b> 붙는다.
+     *
+     * <p>v3 3.3절이 근거로 든 것이 "증권사 비대면 수수료율"이다. 예·적금 가입이나 채권 매수에
+     * 증권사 매매 수수료가 붙는 일은 없다. 그래서 가입형은 요율 자체를 0으로 적용한다 —
+     * 정책상의 요율이 아니라 <b>이 거래에 실제로 적용된 요율</b>을 이력에 남기기 위해서다.</p>
+     */
+    private static BigDecimal appliedRate(AssetType assetType, BigDecimal policyRate) {
+        boolean chargeable = assetType != null && !assetType.isTimeCompressed();
+
+        return chargeable ? policyRate : BigDecimal.ZERO;
+    }
+
+    /** 비용 한 항목. 원 단위로 반올림한다. */
+    private static BigDecimal cost(BigDecimal base, BigDecimal rate) {
+        return money(base.multiply(rate));
+    }
+
+    // ---------------------------------------------------------------- 보조
 
     private static BigDecimal money(BigDecimal value) {
         return value.setScale(MONEY_SCALE, RoundingMode.HALF_UP);
