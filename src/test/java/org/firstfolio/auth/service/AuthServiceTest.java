@@ -14,6 +14,8 @@ import org.firstfolio.user.mapper.UserConsentMapper;
 import org.firstfolio.user.mapper.UserMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -102,19 +104,40 @@ class AuthServiceTest {
         assertFalse(userMapper.insertCalled);
     }
 
-    @Test
-    void loginTemporarilyReturnsLevelTestWhileOnboardingIsPending() {
+    @ParameterizedTest
+    @CsvSource({
+            "LEVEL_TEST, LEVEL_TEST",
+            "CURRICULUM, CURRICULUM",
+            "HOME, HOME"
+    })
+    void loginReturnsOnboardingStepFromPersistedProgress(
+            String storedStep,
+            OnboardingStep expectedStep
+    ) {
         userMapper.foundUser = activeUser();
-        userMapper.onboardingStep = "CURRICULUM";
+        userMapper.onboardingStep = storedStep;
 
         LoginResult result = authService.login("Bearer valid-token");
 
         assertEquals(101L, result.userId());
-        assertEquals(OnboardingStep.LEVEL_TEST, result.onboardingStep());
+        assertEquals(expectedStep, result.onboardingStep());
         assertEquals(
                 LocalDateTime.of(2026, 8, 1, 0, 0),
                 userMapper.updatedLastLoginAt
         );
+    }
+
+    @Test
+    void loginRejectsInvalidPersistedOnboardingStepAsInternalError() {
+        userMapper.foundUser = activeUser();
+        userMapper.onboardingStep = "UNKNOWN";
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> authService.login("Bearer valid-token")
+        );
+
+        assertEquals(ErrorCode.INTERNAL_ERROR, exception.getErrorCode());
     }
 
     @Test
