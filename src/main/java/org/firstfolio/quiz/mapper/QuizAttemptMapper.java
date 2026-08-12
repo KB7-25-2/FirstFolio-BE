@@ -10,6 +10,8 @@ import java.util.List;
 @Mapper
 public interface QuizAttemptMapper {
 
+    Long findUserIdForUpdate(@Param("userId") long userId);
+
     QuizAttempt findByIdForUpdate(@Param("attemptId") long attemptId);
 
     QuizAttempt findLevelTestByUserId(@Param("userId") long userId);

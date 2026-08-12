@@ -55,6 +55,13 @@
         submitted_at
     </sql>
 
+    <select id="findUserIdForUpdate" resultType="java.lang.Long">
+        SELECT user_id
+        FROM users
+        WHERE user_id = #{userId}
+        FOR UPDATE
+    </select>
+
     <select id="findByIdForUpdate" resultMap="quizAttemptResultMap">
         SELECT <include refid="quizAttemptColumns" />
         FROM quiz_attempts
