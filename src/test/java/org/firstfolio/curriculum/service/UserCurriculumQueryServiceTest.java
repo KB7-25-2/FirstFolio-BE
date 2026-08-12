@@ -2,6 +2,7 @@ package org.firstfolio.curriculum.service;
 
 import org.firstfolio.curriculum.domain.ChapterType;
 import org.firstfolio.curriculum.domain.CurriculumItemStatus;
+import org.firstfolio.curriculum.domain.CurriculumOverviewItem;
 import org.firstfolio.curriculum.domain.CurriculumSourceType;
 import org.firstfolio.curriculum.domain.MainChapter;
 import org.firstfolio.curriculum.domain.UserCurriculumItem;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -93,6 +95,97 @@ class UserCurriculumQueryServiceTest {
         );
     }
 
+    @Test
+    void returnsOverviewInDisplayOrderWithProgress() {
+        CurriculumOverviewItem foundation = overview(
+                501L,
+                1L,
+                "포트폴리오 기초",
+                ChapterType.FOUNDATION,
+                CurriculumSourceType.FOUNDATION,
+                1,
+                null,
+                40
+        );
+        CurriculumOverviewItem asset = overview(
+                502L,
+                2L,
+                "예·적금",
+                ChapterType.ASSET,
+                CurriculumSourceType.LEVEL_TEST_WRONG,
+                2,
+                LocalDateTime.of(2026, 8, 12, 3, 0),
+                100
+        );
+        when(userCurriculumMapper.findOverviewByUserId(11L))
+                .thenReturn(List.of(foundation, asset));
+
+        List<CurriculumOverviewItem> result = service.findOverview(11L);
+
+        assertEquals(List.of(501L, 502L), result.stream()
+                .map(CurriculumOverviewItem::curriculumItemId)
+                .toList());
+        assertEquals(List.of(40, 100), result.stream()
+                .map(CurriculumOverviewItem::progressPercent)
+                .toList());
+    }
+
+    @Test
+    void supportsFoundationOnlyOverview() {
+        CurriculumOverviewItem foundation = overview(
+                501L,
+                1L,
+                "포트폴리오 기초",
+                ChapterType.FOUNDATION,
+                CurriculumSourceType.FOUNDATION,
+                1,
+                null,
+                0
+        );
+        when(userCurriculumMapper.findOverviewByUserId(11L))
+                .thenReturn(List.of(foundation));
+
+        assertEquals(List.of(foundation), service.findOverview(11L));
+    }
+
+    @Test
+    void throwsNotFoundWhenCurriculumIsNotConfirmed() {
+        when(userCurriculumMapper.findOverviewByUserId(11L))
+                .thenReturn(List.of());
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> service.findOverview(11L)
+        );
+
+        assertEquals(ErrorCode.CURRICULUM_NOT_FOUND,
+                exception.getErrorCode());
+    }
+
+    @Test
+    void rejectsBrokenOverviewOrderingAndFoundationInvariant() {
+        when(userCurriculumMapper.findOverviewByUserId(11L)).thenReturn(
+                List.of(overview(
+                        501L,
+                        2L,
+                        "예·적금",
+                        ChapterType.ASSET,
+                        CurriculumSourceType.USER_ADDED,
+                        2,
+                        null,
+                        0
+                ))
+        );
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> service.findOverview(11L)
+        );
+
+        assertEquals(ErrorCode.CURRICULUM_CONFIGURATION_INVALID,
+                exception.getErrorCode());
+    }
+
     private MainChapter foundation(long id) {
         MainChapter chapter = new MainChapter();
         chapter.setMainChapterId(id);
@@ -114,5 +207,28 @@ class UserCurriculumQueryServiceTest {
         item.setSourceType(sourceType);
         item.setStatus(CurriculumItemStatus.ACTIVE);
         return item;
+    }
+
+    private CurriculumOverviewItem overview(
+            long curriculumItemId,
+            long mainChapterId,
+            String title,
+            ChapterType chapterType,
+            CurriculumSourceType sourceType,
+            int displayOrder,
+            LocalDateTime completedAt,
+            int progressPercent
+    ) {
+        return new CurriculumOverviewItem(
+                curriculumItemId,
+                mainChapterId,
+                title,
+                chapterType,
+                displayOrder,
+                sourceType,
+                CurriculumItemStatus.ACTIVE,
+                completedAt,
+                progressPercent
+        );
     }
 }

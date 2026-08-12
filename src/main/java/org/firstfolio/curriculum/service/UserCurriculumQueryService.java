@@ -2,6 +2,7 @@ package org.firstfolio.curriculum.service;
 
 import org.firstfolio.curriculum.domain.ChapterType;
 import org.firstfolio.curriculum.domain.CurriculumItemStatus;
+import org.firstfolio.curriculum.domain.CurriculumOverviewItem;
 import org.firstfolio.curriculum.domain.CurriculumSourceType;
 import org.firstfolio.curriculum.domain.MainChapter;
 import org.firstfolio.curriculum.domain.UserCurriculumItem;
@@ -12,7 +13,9 @@ import org.firstfolio.exception.ErrorCode;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 public class UserCurriculumQueryService {
@@ -48,6 +51,57 @@ public class UserCurriculumQueryService {
         }
 
         return List.copyOf(items);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CurriculumOverviewItem> findOverview(long userId) {
+        List<CurriculumOverviewItem> items = userCurriculumMapper
+                .findOverviewByUserId(userId);
+        if (items.isEmpty()) {
+            throw new ApiException(ErrorCode.CURRICULUM_NOT_FOUND);
+        }
+        validateOverview(items);
+        return List.copyOf(items);
+    }
+
+    private void validateOverview(List<CurriculumOverviewItem> items) {
+        Set<Long> curriculumItemIds = new HashSet<>();
+        Set<Long> chapterIds = new HashSet<>();
+        for (int index = 0; index < items.size(); index++) {
+            CurriculumOverviewItem item = items.get(index);
+            boolean foundation = index == 0;
+            if (item.curriculumItemId() <= 0
+                    || item.mainChapterId() <= 0
+                    || item.title() == null
+                    || item.title().isBlank()
+                    || item.displayOrder() != index + 1
+                    || item.status() != CurriculumItemStatus.ACTIVE
+                    || item.sourceType() == null
+                    || item.chapterType() == null
+                    || item.progressPercent() < 0
+                    || item.progressPercent() > 100
+                    || (item.completedAt() != null
+                    && item.progressPercent() != 100)
+                    || !curriculumItemIds.add(item.curriculumItemId())
+                    || !chapterIds.add(item.mainChapterId())
+                    || !hasValidChapterRole(item, foundation)) {
+                throw new ApiException(
+                        ErrorCode.CURRICULUM_CONFIGURATION_INVALID
+                );
+            }
+        }
+    }
+
+    private boolean hasValidChapterRole(
+            CurriculumOverviewItem item,
+            boolean foundation
+    ) {
+        if (foundation) {
+            return item.chapterType() == ChapterType.FOUNDATION
+                    && item.sourceType() == CurriculumSourceType.FOUNDATION;
+        }
+        return item.chapterType() == ChapterType.ASSET
+                && item.sourceType() != CurriculumSourceType.FOUNDATION;
     }
 
     private boolean hasRequiredFoundation(

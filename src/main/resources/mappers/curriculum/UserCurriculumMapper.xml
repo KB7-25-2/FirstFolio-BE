@@ -17,11 +17,74 @@
         <result property="completedAt" column="completed_at" />
     </resultMap>
 
+    <resultMap id="curriculumOverviewItemResultMap"
+               type="org.firstfolio.curriculum.domain.CurriculumOverviewItem">
+        <constructor>
+            <arg column="curriculum_item_id" javaType="long" />
+            <arg column="main_chapter_id" javaType="long" />
+            <arg column="title" javaType="java.lang.String" />
+            <arg column="chapter_type"
+                 javaType="org.firstfolio.curriculum.domain.ChapterType" />
+            <arg column="display_order" javaType="int" />
+            <arg column="source_type"
+                 javaType="org.firstfolio.curriculum.domain.CurriculumSourceType" />
+            <arg column="status"
+                 javaType="org.firstfolio.curriculum.domain.CurriculumItemStatus" />
+            <arg column="completed_at" javaType="java.time.LocalDateTime" />
+            <arg column="progress_percent" javaType="int" />
+        </constructor>
+    </resultMap>
+
     <select id="findUserIdForUpdate" resultType="java.lang.Long">
         SELECT user_id
         FROM users
         WHERE user_id = #{userId}
         FOR UPDATE
+    </select>
+
+    <select id="findOverviewByUserId"
+            resultMap="curriculumOverviewItemResultMap">
+        SELECT
+            curriculum.curriculum_item_id,
+            curriculum.main_chapter_id,
+            chapter.title,
+            chapter.chapter_type,
+            curriculum.display_order,
+            curriculum.source_type,
+            curriculum.status,
+            curriculum.completed_at,
+            CASE
+                WHEN curriculum.completed_at IS NOT NULL THEN 100
+                WHEN NOT EXISTS (
+                    SELECT 1
+                    FROM sub_chapters active_sub
+                    WHERE active_sub.main_chapter_id = curriculum.main_chapter_id
+                      AND active_sub.is_active = TRUE
+                ) THEN 0
+                ELSE CAST(FLOOR(
+                    100.0 * (
+                        SELECT COUNT(*)
+                        FROM sub_chapters completed_sub
+                        INNER JOIN user_learning_progress progress
+                            ON progress.sub_chapter_id = completed_sub.sub_chapter_id
+                           AND progress.user_id = curriculum.user_id
+                           AND progress.status = 'COMPLETED'
+                        WHERE completed_sub.main_chapter_id = curriculum.main_chapter_id
+                          AND completed_sub.is_active = TRUE
+                    ) / (
+                        SELECT COUNT(*)
+                        FROM sub_chapters active_sub
+                        WHERE active_sub.main_chapter_id = curriculum.main_chapter_id
+                          AND active_sub.is_active = TRUE
+                    )
+                ) AS SIGNED)
+            END AS progress_percent
+        FROM user_curriculum_items curriculum
+        INNER JOIN main_chapters chapter
+            ON chapter.main_chapter_id = curriculum.main_chapter_id
+        WHERE curriculum.user_id = #{userId}
+          AND curriculum.status = 'ACTIVE'
+        ORDER BY curriculum.display_order, curriculum.curriculum_item_id
     </select>
 
     <select id="findActiveByUserId"

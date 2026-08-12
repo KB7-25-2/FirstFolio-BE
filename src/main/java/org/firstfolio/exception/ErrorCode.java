@@ -57,6 +57,7 @@ public enum ErrorCode {
     LEVEL_TEST_REQUIRED(HttpStatus.CONFLICT, "레벨 테스트 완료가 필요합니다."),
     REQUIRED_ANSWERS_MISSING(HttpStatus.CONFLICT, "레벨 테스트의 모든 문항에 답해야 합니다."),
     CURRICULUM_ALREADY_CONFIRMED(HttpStatus.CONFLICT, "이미 개인 커리큘럼을 확정했습니다."),
+    CURRICULUM_NOT_FOUND(HttpStatus.NOT_FOUND, "확정된 개인 커리큘럼이 없습니다."),
     INVALID_CURRICULUM_SELECTION(HttpStatus.UNPROCESSABLE_ENTITY, "선택한 개인 커리큘럼이 올바르지 않습니다."),
     CURRICULUM_CONFIGURATION_INVALID(HttpStatus.INTERNAL_SERVER_ERROR, "개인 커리큘럼 구성이 올바르지 않습니다."),
 

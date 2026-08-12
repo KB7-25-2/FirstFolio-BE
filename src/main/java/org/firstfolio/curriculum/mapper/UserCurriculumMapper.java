@@ -3,6 +3,7 @@ package org.firstfolio.curriculum.mapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.firstfolio.curriculum.domain.CurriculumDraftItem;
+import org.firstfolio.curriculum.domain.CurriculumOverviewItem;
 import org.firstfolio.curriculum.domain.UserCurriculumItem;
 
 import java.time.LocalDateTime;
@@ -14,6 +15,10 @@ public interface UserCurriculumMapper {
     Long findUserIdForUpdate(@Param("userId") long userId);
 
     List<UserCurriculumItem> findActiveByUserId(
+            @Param("userId") long userId
+    );
+
+    List<CurriculumOverviewItem> findOverviewByUserId(
             @Param("userId") long userId
     );
 

@@ -76,6 +76,29 @@ class UserCurriculumMapperXmlTest {
         ));
     }
 
+    @Test
+    void parsesCurriculumOverviewWithProgressCalculation() throws IOException {
+        Configuration configuration = configuration();
+        BoundSql sql = configuration.getMappedStatement(
+                UserCurriculumMapper.class.getName()
+                        + ".findOverviewByUserId"
+        ).getBoundSql(Map.of("userId", 11L));
+
+        String normalized = normalize(sql.getSql());
+        assertTrue(normalized.contains(
+                "FROM user_curriculum_items curriculum"
+        ));
+        assertTrue(normalized.contains(
+                "progress.status = 'COMPLETED'"
+        ));
+        assertTrue(normalized.contains(
+                "END AS progress_percent"
+        ));
+        assertTrue(normalized.endsWith(
+                "ORDER BY curriculum.display_order, curriculum.curriculum_item_id"
+        ));
+    }
+
     private Configuration configuration() throws IOException {
         Configuration configuration = new Configuration();
         try (InputStream input = Resources.getResourceAsStream(RESOURCE)) {
