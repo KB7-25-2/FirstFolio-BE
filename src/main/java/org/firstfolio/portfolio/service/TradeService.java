@@ -164,7 +164,7 @@ public class TradeService {
                 updated.getCashBalance()
         );
 
-        return toResult(record, amounts, updated.getCashBalance());
+        return toResult(record, amounts, executed.costs, updated.getCashBalance());
     }
 
     // ---------------------------------------------------------------- 매수
@@ -456,6 +456,9 @@ public class TradeService {
      *
      * <p>내용이 같으면 그때 결과를 그대로 돌려주고, 다르면 {@code 409}다. 같은 키에 다른 거래를
      * 붙이면 <b>둘 중 하나가 조용히 사라진다.</b></p>
+     *
+     * <p>수수료도 <b>이력에 남긴 값을 그대로 복원</b>한다. 지금 요율로 다시 계산하면 그 사이 정책이
+     * 바뀌었을 때 같은 거래가 두 가지 값으로 보인다.</p>
      */
     private TradeResult replay(PortfolioTransaction done, TradeCommand command) {
         if (!sameRequest(done.getDetailJson(), command)) {
@@ -472,11 +475,36 @@ public class TradeService {
                 done.getProductId(),
                 requestedAmountOf(done),
                 done.getAmount(),
+                moneyOf(done, "fee_amount", ZERO_MONEY),
+                moneyOf(done, "net_cash_amount", done.getAmount()),
                 done.getQuantity(),
                 done.getUnitPrice(),
                 done.getStatus().name(),
                 portfolio == null ? null : portfolio.getCashBalance()
         );
+    }
+
+    /**
+     * 이력의 {@code detail_json}에서 금액 하나를 꺼낸다. <b>없으면 기본값</b>이다.
+     *
+     * <p>수수료를 도입하기 전에 쌓인 이력에는 이 키들이 없다. 그때 거래는 실제로 수수료가 0이었고
+     * 현금 증감이 곧 체결액이었으므로, 기본값이 그 사실을 그대로 나타낸다.</p>
+     */
+    private static BigDecimal moneyOf(PortfolioTransaction done, String field, BigDecimal fallback) {
+        JsonNode node = readDetail(done.getDetailJson()).get(field);
+
+        if (node == null || node.isNull()) {
+            return fallback;
+        }
+
+        try {
+            return new BigDecimal(node.asText());
+        } catch (NumberFormatException exception) {
+            log.warn("거래 이력의 {}를 읽지 못했습니다 transactionId={}",
+                    field, done.getPortfolioTransactionId(), exception);
+
+            return fallback;
+        }
     }
 
     private static boolean sameRequest(String detailJson, TradeCommand command) {
@@ -621,6 +649,7 @@ public class TradeService {
     private static TradeResult toResult(
             PortfolioTransaction record,
             TradeAmounts amounts,
+            TradeCosts costs,
             BigDecimal cashBalance
     ) {
         return new TradeResult(
@@ -629,6 +658,8 @@ public class TradeService {
                 record.getProductId(),
                 amounts.getRequestedAmount(),
                 amounts.getExecutedAmount(),
+                costs.getFeeAmount(),
+                costs.getNetCashAmount(),
                 amounts.getQuantity(),
                 amounts.getUnitPrice(),
                 record.getStatus().name(),

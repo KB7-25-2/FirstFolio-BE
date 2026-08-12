@@ -8,6 +8,7 @@ import org.firstfolio.portfolio.domain.PortfolioHolding;
 import org.firstfolio.portfolio.domain.PortfolioStatus;
 import org.firstfolio.portfolio.domain.PortfolioTransaction;
 import org.firstfolio.portfolio.domain.TradePolicy;
+import org.firstfolio.portfolio.domain.TransactionStatus;
 import org.firstfolio.portfolio.domain.TransactionType;
 import org.firstfolio.portfolio.mapper.PortfolioHoldingMapper;
 import org.firstfolio.portfolio.mapper.PortfolioMapper;
@@ -660,5 +661,72 @@ class TradeServiceTest {
         buy(STOCK_ID, "5000000.00");
 
         verify(tradePolicyProvider, times(1)).findAt(any());
+    }
+
+    @Test
+    @DisplayName("응답에 수수료와 실제 현금 증감을 함께 돌려준다")
+    void returnsFeeAndNetCashInResult() {
+        TradeResult result = buy(STOCK_ID, "5000000.00");
+
+        assertEquals(new BigDecimal("4830000.00"), result.getAmount(), "체결액");
+        assertEquals(new BigDecimal("724.50"), result.getFeeAmount());
+        assertEquals(new BigDecimal("4830724.50"), result.getNetCashAmount(),
+                "화면이 '얼마 나갔는지'로 보여줄 값입니다.");
+    }
+
+    @Test
+    @DisplayName("매도 응답의 현금 증감은 대금에서 수수료를 뺀 값이다")
+    void returnsNetProceedsOnSell() {
+        givenHolding(STOCK_ID, "8.000000", "1932000.00", HoldingStatus.ACTIVE);
+
+        TradeResult result = sell(STOCK_ID, "8.000000");
+
+        assertEquals(new BigDecimal("1932000.00"), result.getAmount());
+        assertEquals(new BigDecimal("289.80"), result.getFeeAmount());
+        assertEquals(new BigDecimal("1931710.20"), result.getNetCashAmount());
+    }
+
+    @Test
+    @DisplayName("멱등 재요청은 이력에 남긴 수수료를 그대로 돌려준다 — 지금 요율로 다시 계산하지 않는다")
+    void replayRestoresRecordedFee() {
+        TradeResult first = buy(STOCK_ID, "5000000.00");
+
+        // 그 사이 요율이 바뀌어도 이미 체결된 거래의 값은 달라지면 안 된다.
+        when(tradePolicyProvider.findAt(any())).thenReturn(new TradePolicy(
+                new BigDecimal("0.005"), new BigDecimal("0.005"),
+                new BigDecimal("0.0020"), new BigDecimal("0.154"), new BigDecimal("0.154"), 2
+        ));
+
+        TradeResult again = buy(STOCK_ID, "5000000.00");
+
+        assertEquals(first.getFeeAmount(), again.getFeeAmount());
+        assertEquals(first.getNetCashAmount(), again.getNetCashAmount());
+        assertEquals(new BigDecimal("724.50"), again.getFeeAmount());
+    }
+
+    @Test
+    @DisplayName("수수료 도입 전에 쌓인 이력을 다시 요청해도 깨지지 않는다")
+    void replaysLegacyRecordWithoutFeeKeys() {
+        PortfolioTransaction legacy = new PortfolioTransaction();
+
+        legacy.setPortfolioTransactionId(7000L);
+        legacy.setPortfolioId(PORTFOLIO_ID);
+        legacy.setProductId(STOCK_ID);
+        legacy.setTransactionType(TransactionType.BUY);
+        legacy.setAmount(new BigDecimal("4830000.00"));
+        legacy.setStatus(TransactionStatus.COMPLETED);
+        legacy.setIdempotencyKey(KEY);
+        legacy.setDetailJson("{\"request\":{\"transaction_type\":\"BUY\",\"product_id\":87,"
+                + "\"amount\":\"5000000.00\",\"quantity\":null},"
+                + "\"requested_amount\":\"5000000.00\",\"executed_amount\":\"4830000.00\"}");
+
+        stored.put(KEY, legacy);
+
+        TradeResult result = buy(STOCK_ID, "5000000.00");
+
+        assertEquals(new BigDecimal("0.00"), result.getFeeAmount(),
+                "그때 거래는 실제로 수수료가 0이었습니다.");
+        assertEquals(new BigDecimal("4830000.00"), result.getNetCashAmount(),
+                "그때는 현금 증감이 곧 체결액이었습니다.");
     }
 }

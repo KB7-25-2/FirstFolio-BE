@@ -218,8 +218,9 @@ class PortfolioControllerTest {
                 new org.firstfolio.portfolio.service.TradeResult(
                         8201L, "BUY", 87L,
                         new BigDecimal("5000000.00"), new BigDecimal("4830000.00"),
+                        new BigDecimal("724.50"), new BigDecimal("4830724.50"),
                         new BigDecimal("20.000000"), new BigDecimal("241500.0000"),
-                        "COMPLETED", new BigDecimal("25170000.00")
+                        "COMPLETED", new BigDecimal("25169275.50")
                 )
         );
 
@@ -235,7 +236,9 @@ class PortfolioControllerTest {
                 .andExpect(jsonPath("$.data.amount").value("4830000.00"))
                 .andExpect(jsonPath("$.data.quantity").value("20.000000"))
                 .andExpect(jsonPath("$.data.unit_price").value("241500.0000"))
-                .andExpect(jsonPath("$.data.cash_balance").value("25170000.00"));
+                .andExpect(jsonPath("$.data.fee_amount").value("724.50"))
+                .andExpect(jsonPath("$.data.net_cash_amount").value("4830724.50"))
+                .andExpect(jsonPath("$.data.cash_balance").value("25169275.50"));
     }
 
     @Test
@@ -244,7 +247,9 @@ class PortfolioControllerTest {
         when(tradeService.trade(eq(USER_ID), any())).thenReturn(
                 new org.firstfolio.portfolio.service.TradeResult(
                         8202L, "SELL", 87L, new BigDecimal("1932000.00"),
-                        new BigDecimal("1932000.00"), new BigDecimal("8.000000"),
+                        new BigDecimal("1932000.00"),
+                        new BigDecimal("289.80"), new BigDecimal("1931710.20"),
+                        new BigDecimal("8.000000"),
                         new BigDecimal("241500.0000"), "COMPLETED", new BigDecimal("9000000.00")
                 )
         );
@@ -276,7 +281,9 @@ class PortfolioControllerTest {
         when(tradeService.trade(eq(USER_ID), any())).thenReturn(
                 new org.firstfolio.portfolio.service.TradeResult(
                         8203L, "SELL", 25L, new BigDecimal("10000000.00"),
-                        new BigDecimal("10000000.00"), null, null,
+                        new BigDecimal("10000000.00"),
+                        new BigDecimal("0.00"), new BigDecimal("10000000.00"),
+                        null, null,
                         "COMPLETED", new BigDecimal("40000000.00")
                 )
         );
@@ -289,7 +296,9 @@ class PortfolioControllerTest {
                                 + "\"product_id\":25}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.quantity").doesNotExist())
-                .andExpect(jsonPath("$.data.unit_price").doesNotExist());
+                .andExpect(jsonPath("$.data.unit_price").doesNotExist())
+                .andExpect(jsonPath("$.data.fee_amount").value("0.00"))
+                .andExpect(jsonPath("$.data.net_cash_amount").value("10000000.00"));
     }
 
     @Test
