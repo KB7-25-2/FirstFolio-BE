@@ -95,6 +95,12 @@ final class LevelTestQuestionSnapshotCodec {
         }
     }
 
+    boolean containsChoiceKey(QuizAnswer answer, String key) {
+        return parseSnapshot(answer.getQuestionSnapshotJson())
+                .choiceKeys()
+                .contains(key);
+    }
+
     private ParsedSnapshot parseSnapshot(String snapshotJson) {
         try {
             JsonNode snapshot = objectMapper.readTree(snapshotJson);

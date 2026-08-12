@@ -55,6 +55,8 @@ public interface QuizAttemptMapper {
 
     int insertAnswer(QuizAnswer answer);
 
+    int saveLevelTestAnswer(QuizAnswer answer);
+
     int gradeAnswerIfUnanswered(QuizAnswer answer);
 
     int completeAttemptIfInProgress(QuizAttempt attempt);

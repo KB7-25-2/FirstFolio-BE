@@ -239,6 +239,16 @@
         )
     </insert>
 
+    <update id="saveLevelTestAnswer"
+            parameterType="org.firstfolio.quiz.domain.QuizAnswer">
+        UPDATE quiz_answers
+        SET user_answer_json = #{userAnswerJson},
+            is_correct = NULL,
+            answered_at = #{answeredAt}
+        WHERE quiz_answer_id = #{quizAnswerId}
+          AND is_correct IS NULL
+    </update>
+
     <update id="gradeAnswerIfUnanswered"
             parameterType="org.firstfolio.quiz.domain.QuizAnswer">
         UPDATE quiz_answers

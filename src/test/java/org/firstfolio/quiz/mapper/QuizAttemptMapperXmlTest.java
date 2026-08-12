@@ -57,6 +57,7 @@ class QuizAttemptMapperXmlTest {
         assertTrue(configuration.hasStatement(id("countCorrectByAttemptId")));
         assertTrue(configuration.hasStatement(id("insertAttempt")));
         assertTrue(configuration.hasStatement(id("insertAnswer")));
+        assertTrue(configuration.hasStatement(id("saveLevelTestAnswer")));
         assertTrue(configuration.hasStatement(id("gradeAnswerIfUnanswered")));
         assertTrue(configuration.hasStatement(id("completeAttemptIfInProgress")));
 
@@ -117,6 +118,17 @@ class QuizAttemptMapperXmlTest {
                 .getBoundSql(new org.firstfolio.quiz.domain.QuizAnswer());
         assertTrue(normalize(gradeSql.getSql()).contains(
                 "WHERE quiz_answer_id = ? AND user_answer_json IS NULL"
+        ));
+
+        BoundSql saveLevelTestAnswerSql = configuration.getMappedStatement(
+                        id("saveLevelTestAnswer")
+                )
+                .getBoundSql(new org.firstfolio.quiz.domain.QuizAnswer());
+        assertTrue(normalize(saveLevelTestAnswerSql.getSql()).contains(
+                "SET user_answer_json = ?, is_correct = NULL, answered_at = ?"
+        ));
+        assertTrue(normalize(saveLevelTestAnswerSql.getSql()).contains(
+                "WHERE quiz_answer_id = ? AND is_correct IS NULL"
         ));
 
         BoundSql completeSql = configuration.getMappedStatement(
