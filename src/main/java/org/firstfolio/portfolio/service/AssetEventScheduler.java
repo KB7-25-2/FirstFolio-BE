@@ -99,8 +99,9 @@ public class AssetEventScheduler {
             return 0;
         }
 
+        // TODO: 활성 TRADE 정책의 이자소득세율을 넘긴다 (#77). 지금은 세율 0이라 동작이 이전과 같다.
         List<ScheduledAssetEvent> events = calculator.schedule(
-                termsOf(product, holding), principal, openedAt);
+                termsOf(product, holding), principal, openedAt, BigDecimal.ZERO);
 
         for (ScheduledAssetEvent event : events) {
             transactionMapper.insert(toTransaction(event, product, holding, buy, principal, openedAt));

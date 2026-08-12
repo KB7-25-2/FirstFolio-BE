@@ -50,6 +50,7 @@ import java.util.List;
 public class AssetEventCalculator {
 
     private static final int MONEY_SCALE = 2;
+    private static final BigDecimal ZERO_MONEY = new BigDecimal("0.00");
     private static final BigDecimal HUNDRED = new BigDecimal("100");
     private static final BigDecimal MONTHS_PER_YEAR = new BigDecimal("12");
 
@@ -76,13 +77,17 @@ public class AssetEventCalculator {
      * <p>순서가 곧 삽입 순서이고, 삽입 순서가 곧 배치의 처리 순서다. 만기 시각에는 이자와 만기가
      * 같은 초에 겹치는데, 만기가 먼저 처리되면 보유가 닫힌 뒤에 이자를 넣게 된다.</p>
      *
-     * @param principal 가입 원금. 가입형은 요청 금액이 그대로 원금이다.
-     * @param openedAt  가입 시각(UTC). 모든 예정 시각의 기준점이다.
+     * @param principal            가입 원금. 가입형은 요청 금액이 그대로 원금이다.
+     * @param openedAt             가입 시각(UTC). 모든 예정 시각의 기준점이다.
+     * @param interestIncomeTaxRate 이자소득세율 (0.154 = 15.4%, D14). <b>이자에만</b> 적용되고
+     *                             원금 반환에는 붙지 않는다. 세금을 떼는 자리는 여기 한 곳이다 —
+     *                             배치는 확정된 세후 금액을 반영만 한다.
      */
     public List<ScheduledAssetEvent> schedule(
             AssetEventTerms terms,
             BigDecimal principal,
-            LocalDateTime openedAt
+            LocalDateTime openedAt,
+            BigDecimal interestIncomeTaxRate
     ) {
         requireUsable(terms, principal);
 
@@ -96,16 +101,24 @@ public class AssetEventCalculator {
                     compoundInterest(principal, rate, terms.getMaturityMonths()),
                     AssetEventBasis.COMPOUND_INTEREST,
                     terms.getMaturityMonths(),
-                    terms.getRatePercent()
+                    terms.getRatePercent(),
+                    interestIncomeTaxRate
             ));
         } else {
-            events.addAll(couponSchedule(terms, principal, rate, openedAt, maturityAt));
+            events.addAll(couponSchedule(
+                    terms, principal, rate, openedAt, maturityAt, interestIncomeTaxRate));
         }
+
+        // 원금 반환은 소득이 아니다 — 과세하지 않는다.
+        BigDecimal returned = money(principal);
 
         events.add(new ScheduledAssetEvent(
                 TransactionType.MATURITY,
                 maturityAt,
-                money(principal),
+                returned,
+                returned,
+                ZERO_MONEY,
+                BigDecimal.ZERO,
                 AssetEventBasis.PRINCIPAL_RETURN,
                 0,
                 null
@@ -125,7 +138,8 @@ public class AssetEventCalculator {
             BigDecimal principal,
             BigDecimal rate,
             LocalDateTime openedAt,
-            LocalDateTime maturityAt
+            LocalDateTime maturityAt,
+            BigDecimal interestIncomeTaxRate
     ) {
         int maturityMonths = terms.getMaturityMonths();
         int intervalMonths = Math.min(terms.getIntervalMonths(), maturityMonths);
@@ -141,7 +155,8 @@ public class AssetEventCalculator {
                     simpleInterest(principal, rate, intervalMonths),
                     AssetEventBasis.SIMPLE_INTEREST,
                     intervalMonths,
-                    terms.getRatePercent()
+                    terms.getRatePercent(),
+                    interestIncomeTaxRate
             ));
         }
 
@@ -152,7 +167,8 @@ public class AssetEventCalculator {
                 simpleInterest(principal, rate, remainingMonths),
                 AssetEventBasis.SIMPLE_INTEREST,
                 remainingMonths,
-                terms.getRatePercent()
+                terms.getRatePercent(),
+                interestIncomeTaxRate
         ));
 
         return events;
@@ -216,15 +232,34 @@ public class AssetEventCalculator {
         return money(principal.multiply(grown, RATE_MATH).subtract(principal));
     }
 
+    /**
+     * 이자 한 건. <b>여기서 세금을 뗀다</b> (D14).
+     *
+     * <pre>세액 = 세전 이자 × 세율 (원 단위 반올림) · 지급액 = 세전 − 세액</pre>
+     *
+     * <p>세액을 반올림하고 그 나머지를 지급액으로 두므로 <b>세전 = 지급액 + 세액</b>이 언제나
+     * 성립한다. 둘을 각각 반올림하면 1원이 사라지거나 생긴다.</p>
+     */
     private static ScheduledAssetEvent interest(
             LocalDateTime scheduledAt,
-            BigDecimal amount,
+            BigDecimal grossAmount,
             AssetEventBasis basis,
             int periodMonths,
-            BigDecimal ratePercent
+            BigDecimal ratePercent,
+            BigDecimal taxRate
     ) {
+        BigDecimal tax = money(grossAmount.multiply(taxRate));
+
         return new ScheduledAssetEvent(
-                TransactionType.INTEREST, scheduledAt, amount, basis, periodMonths, ratePercent
+                TransactionType.INTEREST,
+                scheduledAt,
+                money(grossAmount.subtract(tax)),
+                grossAmount,
+                tax,
+                taxRate,
+                basis,
+                periodMonths,
+                ratePercent
         );
     }
 
