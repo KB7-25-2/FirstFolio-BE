@@ -42,6 +42,10 @@ public interface QuizAttemptMapper {
             @Param("attemptId") long attemptId
     );
 
+    List<QuizAnswer> findAnswersByAttemptIdForUpdate(
+            @Param("attemptId") long attemptId
+    );
+
     QuizAnswer findAnswerByAttemptIdAndQuestionIdForUpdate(
             @Param("attemptId") long attemptId,
             @Param("questionId") long questionId
@@ -56,6 +60,8 @@ public interface QuizAttemptMapper {
     int insertAnswer(QuizAnswer answer);
 
     int saveLevelTestAnswer(QuizAnswer answer);
+
+    int gradeLevelTestAnswer(QuizAnswer answer);
 
     int gradeAnswerIfUnanswered(QuizAnswer answer);
 

@@ -10,6 +10,7 @@ import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.quiz.domain.LevelTestAttemptQuestion;
 import org.firstfolio.quiz.domain.LevelTestSavedAnswer;
+import org.firstfolio.quiz.domain.LevelTestQuestionGradingResult;
 import org.firstfolio.quiz.domain.QuizAnswer;
 import org.firstfolio.quiz.domain.QuizChoice;
 import org.firstfolio.quiz.domain.QuizGenerationType;
@@ -81,24 +82,34 @@ final class LevelTestQuestionSnapshotCodec {
             return null;
         }
         ParsedSnapshot snapshot = parseSnapshot(answer.getQuestionSnapshotJson());
-        try {
-            String key = requiredText(
-                    objectMapper.readTree(answer.getUserAnswerJson()),
-                    "key"
-            );
-            if (!snapshot.choiceKeys().contains(key)) {
-                throw invalidQuestionSet(null);
-            }
-            return new LevelTestSavedAnswer(answer.getQuestionId(), key);
-        } catch (JsonProcessingException exception) {
-            throw invalidQuestionSet(exception);
+        String key = parseUserAnswer(answer.getUserAnswerJson());
+        if (!snapshot.choiceKeys().contains(key)) {
+            throw invalidQuestionSet(null);
         }
+        return new LevelTestSavedAnswer(answer.getQuestionId(), key);
     }
 
     boolean containsChoiceKey(QuizAnswer answer, String key) {
         return parseSnapshot(answer.getQuestionSnapshotJson())
                 .choiceKeys()
                 .contains(key);
+    }
+
+    LevelTestQuestionGradingResult grade(QuizAnswer answer) {
+        if (answer.getQuestionId() <= 0 || answer.getUserAnswerJson() == null) {
+            throw invalidQuestionSet(null);
+        }
+        ParsedSnapshot snapshot = parseSnapshot(answer.getQuestionSnapshotJson());
+        String selectedKey = parseUserAnswer(answer.getUserAnswerJson());
+        if (!snapshot.choiceKeys().contains(selectedKey)) {
+            throw invalidQuestionSet(null);
+        }
+        return new LevelTestQuestionGradingResult(
+                answer.getQuestionId(),
+                snapshot.mainChapterId(),
+                snapshot.assetType(),
+                snapshot.correctKey().equals(selectedKey)
+        );
     }
 
     private ParsedSnapshot parseSnapshot(String snapshotJson) {
@@ -128,7 +139,7 @@ final class LevelTestQuestionSnapshotCodec {
 
             JsonNode options = snapshot.path("options_json");
             JsonNode correctAnswer = snapshot.path("correct_answer_json");
-            Set<String> choiceKeys = validateAnswerSchema(
+            AnswerSchema answerSchema = validateAnswerSchema(
                     options,
                     correctAnswer
             );
@@ -149,14 +160,15 @@ final class LevelTestQuestionSnapshotCodec {
                     prompt,
                     scenario,
                     List.copyOf(choices),
-                    choiceKeys
+                    answerSchema.choiceKeys(),
+                    answerSchema.correctKey()
             );
         } catch (JsonProcessingException | IllegalArgumentException exception) {
             throw invalidQuestionSet(exception);
         }
     }
 
-    private Set<String> validateAnswerSchema(
+    private AnswerSchema validateAnswerSchema(
             JsonNode options,
             JsonNode correctAnswer
     ) {
@@ -171,10 +183,22 @@ final class LevelTestQuestionSnapshotCodec {
                 throw invalidQuestionSet(null);
             }
         }
-        if (!keys.contains(requiredText(correctAnswer, "key"))) {
+        String correctKey = requiredText(correctAnswer, "key");
+        if (!keys.contains(correctKey)) {
             throw invalidQuestionSet(null);
         }
-        return Set.copyOf(keys);
+        return new AnswerSchema(Set.copyOf(keys), correctKey);
+    }
+
+    private String parseUserAnswer(String userAnswerJson) {
+        try {
+            return requiredText(
+                    objectMapper.readTree(userAnswerJson),
+                    "key"
+            );
+        } catch (JsonProcessingException exception) {
+            throw invalidQuestionSet(exception);
+        }
     }
 
     private JsonNode parseNullableJson(String json) {
@@ -231,7 +255,8 @@ final class LevelTestQuestionSnapshotCodec {
             String prompt,
             JsonNode scenario,
             List<QuizChoice> choices,
-            Set<String> choiceKeys
+            Set<String> choiceKeys,
+            String correctKey
     ) {
         private ParsedSnapshot {
             scenario = scenario == null ? null : scenario.deepCopy();
@@ -242,6 +267,15 @@ final class LevelTestQuestionSnapshotCodec {
         @Override
         public JsonNode scenario() {
             return scenario == null ? null : scenario.deepCopy();
+        }
+    }
+
+    private record AnswerSchema(
+            Set<String> choiceKeys,
+            String correctKey
+    ) {
+        private AnswerSchema {
+            choiceKeys = Set.copyOf(choiceKeys);
         }
     }
 }

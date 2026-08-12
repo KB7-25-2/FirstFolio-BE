@@ -51,6 +51,9 @@ class QuizAttemptMapperXmlTest {
         )));
         assertTrue(configuration.hasStatement(id("findAnswersByAttemptId")));
         assertTrue(configuration.hasStatement(id(
+                "findAnswersByAttemptIdForUpdate"
+        )));
+        assertTrue(configuration.hasStatement(id(
                 "findAnswerByAttemptIdAndQuestionIdForUpdate"
         )));
         assertTrue(configuration.hasStatement(id("countAnsweredByAttemptId")));
@@ -58,6 +61,7 @@ class QuizAttemptMapperXmlTest {
         assertTrue(configuration.hasStatement(id("insertAttempt")));
         assertTrue(configuration.hasStatement(id("insertAnswer")));
         assertTrue(configuration.hasStatement(id("saveLevelTestAnswer")));
+        assertTrue(configuration.hasStatement(id("gradeLevelTestAnswer")));
         assertTrue(configuration.hasStatement(id("gradeAnswerIfUnanswered")));
         assertTrue(configuration.hasStatement(id("completeAttemptIfInProgress")));
 
@@ -101,6 +105,14 @@ class QuizAttemptMapperXmlTest {
                 "WHERE attempt_id = ? ORDER BY display_order ASC"
         ));
 
+        BoundSql answersLockSql = configuration.getMappedStatement(
+                        id("findAnswersByAttemptIdForUpdate")
+                )
+                .getBoundSql(Map.of("attemptId", 3001L));
+        assertTrue(normalize(answersLockSql.getSql()).contains(
+                "WHERE attempt_id = ? ORDER BY display_order ASC FOR UPDATE"
+        ));
+
         BoundSql answerLockSql = configuration.getMappedStatement(id(
                         "findAnswerByAttemptIdAndQuestionIdForUpdate"
                 ))
@@ -129,6 +141,17 @@ class QuizAttemptMapperXmlTest {
         ));
         assertTrue(normalize(saveLevelTestAnswerSql.getSql()).contains(
                 "WHERE quiz_answer_id = ? AND is_correct IS NULL"
+        ));
+
+        BoundSql gradeLevelTestAnswerSql = configuration.getMappedStatement(
+                        id("gradeLevelTestAnswer")
+                )
+                .getBoundSql(new org.firstfolio.quiz.domain.QuizAnswer());
+        assertTrue(normalize(gradeLevelTestAnswerSql.getSql()).contains(
+                "SET is_correct = ? WHERE quiz_answer_id = ?"
+        ));
+        assertTrue(normalize(gradeLevelTestAnswerSql.getSql()).contains(
+                "user_answer_json IS NOT NULL AND is_correct IS NULL"
         ));
 
         BoundSql completeSql = configuration.getMappedStatement(
