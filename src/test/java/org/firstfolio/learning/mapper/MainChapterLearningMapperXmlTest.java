@@ -4,7 +4,7 @@ import org.apache.ibatis.builder.xml.XMLMapperBuilder;
 import org.apache.ibatis.io.Resources;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.session.Configuration;
-import org.firstfolio.learning.domain.UserCurriculumItem;
+import org.firstfolio.curriculum.domain.UserCurriculumItem;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;

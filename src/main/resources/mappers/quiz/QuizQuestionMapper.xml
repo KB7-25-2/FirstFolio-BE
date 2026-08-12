@@ -129,6 +129,49 @@
         ORDER BY question.display_order, question.question_id
     </select>
 
+    <select id="findLatestPublishedLevelTestQuestions"
+            resultMap="questionResultMap">
+        SELECT
+            question.question_id,
+            question.question_key,
+            question.version_no,
+            question.usage_type,
+            question.main_chapter_id,
+            question.sub_chapter_id,
+            question.display_order,
+            question.question_type,
+            question.difficulty,
+            question.prompt,
+            question.scenario_json,
+            question.options_json,
+            question.correct_answer_json,
+            question.explanation,
+            question.generation_type,
+            question.source_refs_json,
+            question.status,
+            question.created_by,
+            question.published_at,
+            question.created_at
+        FROM quiz_questions question
+        INNER JOIN main_chapters chapter
+                ON chapter.main_chapter_id = question.main_chapter_id
+        WHERE question.usage_type = 'LEVEL_TEST'
+          AND question.status = 'PUBLISHED'
+          AND question.display_order IS NOT NULL
+          AND chapter.chapter_type = 'ASSET'
+          AND chapter.is_active = TRUE
+          AND NOT EXISTS (
+              SELECT 1
+              FROM quiz_questions newer
+              WHERE newer.question_key = question.question_key
+                AND newer.version_no &gt; question.version_no
+                AND newer.status IN ('PUBLISHED', 'RETIRED')
+          )
+        ORDER BY chapter.display_order,
+                 question.display_order,
+                 question.question_id
+    </select>
+
     <insert id="insert"
             parameterType="org.firstfolio.quiz.domain.QuizQuestion"
             useGeneratedKeys="true"

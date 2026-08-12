@@ -32,6 +32,10 @@ class QuizAttemptMapperXmlTest {
 
         assertTrue(configuration.hasMapper(QuizAttemptMapper.class));
         assertTrue(configuration.hasStatement(id("findByIdForUpdate")));
+        assertTrue(configuration.hasStatement(id("findLevelTestByUserId")));
+        assertTrue(configuration.hasStatement(id(
+                "findLevelTestByUserIdForUpdate"
+        )));
         assertTrue(configuration.hasStatement(id(
                 "findInProgressByUserIdAndSubChapterIdForUpdate"
         )));
@@ -61,6 +65,14 @@ class QuizAttemptMapperXmlTest {
                 .getBoundSql(Map.of("userId", 11L, "subChapterId", 101L));
         assertTrue(normalize(lockSql.getSql()).contains(
                 "AND status = 'IN_PROGRESS' ORDER BY attempt_no DESC LIMIT 1 FOR UPDATE"
+        ));
+
+        BoundSql levelTestLockSql = configuration.getMappedStatement(id(
+                        "findLevelTestByUserIdForUpdate"
+                ))
+                .getBoundSql(Map.of("userId", 11L));
+        assertTrue(normalize(levelTestLockSql.getSql()).contains(
+                "WHERE user_id = ? AND quiz_type = 'LEVEL_TEST' LIMIT 1 FOR UPDATE"
         ));
 
         BoundSql mainLockSql = configuration.getMappedStatement(id(

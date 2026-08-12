@@ -4,7 +4,7 @@ import org.firstfolio.curriculum.domain.MainChapter;
 import org.firstfolio.curriculum.mapper.MainChapterMapper;
 import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
-import org.firstfolio.learning.domain.UserCurriculumItem;
+import org.firstfolio.curriculum.domain.UserCurriculumItem;
 import org.firstfolio.learning.mapper.MainChapterLearningMapper;
 import org.firstfolio.quiz.domain.QuizAnswer;
 import org.firstfolio.quiz.domain.QuizAttempt;

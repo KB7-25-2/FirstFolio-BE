@@ -51,6 +51,15 @@ public enum ErrorCode {
     INVALID_SELECTED_CHOICE(HttpStatus.UNPROCESSABLE_ENTITY, "선택한 답안이 올바르지 않습니다."),
     SUB_CHAPTERS_INCOMPLETE(HttpStatus.FORBIDDEN, "대단원의 모든 소단원 학습을 먼저 완료해야 합니다."),
 
+    // 온보딩 레벨 테스트·개인 커리큘럼
+    LEVEL_TEST_QUESTION_SET_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "레벨 테스트 문항 구성이 올바르지 않습니다."),
+    LEVEL_TEST_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 레벨 테스트를 완료했습니다."),
+    LEVEL_TEST_REQUIRED(HttpStatus.CONFLICT, "레벨 테스트 완료가 필요합니다."),
+    REQUIRED_ANSWERS_MISSING(HttpStatus.CONFLICT, "레벨 테스트의 모든 문항에 답해야 합니다."),
+    CURRICULUM_ALREADY_CONFIRMED(HttpStatus.CONFLICT, "이미 개인 커리큘럼을 확정했습니다."),
+    INVALID_CURRICULUM_SELECTION(HttpStatus.UNPROCESSABLE_ENTITY, "선택한 개인 커리큘럼이 올바르지 않습니다."),
+    CURRICULUM_CONFIGURATION_INVALID(HttpStatus.INTERNAL_SERVER_ERROR, "개인 커리큘럼 구성이 올바르지 않습니다."),
+
     // 학습 진도
     CONTINUE_POSITION_NOT_FOUND(HttpStatus.NOT_FOUND, "이어갈 미완료 학습 위치가 없습니다."),
     CONTENT_VERSION_MISMATCH(HttpStatus.CONFLICT, "소단원과 콘텐츠 버전이 일치하지 않습니다."),

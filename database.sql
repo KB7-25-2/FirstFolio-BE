@@ -332,7 +332,10 @@ CREATE TABLE quiz_attempts (
     attempt_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '퀴즈 응시 식별자',
     user_id BIGINT NOT NULL COMMENT '응시 사용자',
     quiz_type VARCHAR(30) NOT NULL COMMENT 'LEVEL_TEST, SUB_CHAPTER, MAIN_CHAPTER',
-    main_chapter_id BIGINT NULL COMMENT '대단원 또는 레벨 테스트 대상',
+    level_test_user_id BIGINT GENERATED ALWAYS AS (
+        CASE WHEN quiz_type = 'LEVEL_TEST' THEN user_id ELSE NULL END
+    ) STORED COMMENT '사용자당 하나의 통합 레벨 테스트 응시를 보장하는 생성 컬럼',
+    main_chapter_id BIGINT NULL COMMENT '대단원 퀴즈 대상. 통합 레벨 테스트는 NULL',
     sub_chapter_id BIGINT NULL COMMENT '소단원 퀴즈 대상',
     content_version_id BIGINT NULL COMMENT '소단원 흐름에서 응시한 학습 JSON 버전',
     attempt_no INT NOT NULL DEFAULT 1 COMMENT '같은 퀴즈의 응시 순번',
@@ -345,6 +348,7 @@ CREATE TABLE quiz_attempts (
     started_at DATETIME NOT NULL COMMENT '응시 시작 일시',
     submitted_at DATETIME NULL COMMENT '최종 제출 일시',
     CONSTRAINT pk_quiz_attempts PRIMARY KEY (attempt_id),
+    CONSTRAINT uq_quiz_attempts_level_test_user UNIQUE (level_test_user_id),
     CONSTRAINT fk_quiz_attempts_user
        FOREIGN KEY (user_id) REFERENCES users (user_id)
            ON UPDATE RESTRICT ON DELETE RESTRICT,
@@ -374,9 +378,15 @@ CREATE TABLE quiz_attempts (
            AND score >= 0
        ),
     CONSTRAINT chk_quiz_attempts_scope CHECK (
-       (quiz_type = 'SUB_CHAPTER' AND sub_chapter_id IS NOT NULL)
+       (quiz_type = 'LEVEL_TEST'
+           AND main_chapter_id IS NULL
+           AND sub_chapter_id IS NULL
+           AND content_version_id IS NULL)
            OR
-       (quiz_type IN ('LEVEL_TEST', 'MAIN_CHAPTER')
+       (quiz_type = 'SUB_CHAPTER'
+           AND sub_chapter_id IS NOT NULL)
+           OR
+       (quiz_type = 'MAIN_CHAPTER'
            AND main_chapter_id IS NOT NULL
            AND sub_chapter_id IS NULL)
        ),
@@ -752,3 +762,5 @@ CREATE TABLE admin_audit_logs (
 -- 7. FOUNDATION completion creates exactly one INITIAL_GRANT using a
 --    deterministic user_id + curriculum_item_id idempotency key.
 -- 8. Published questions and content versions are not updated or deleted.
+-- 9. A LEVEL_TEST attempt keeps its assigned quiz_answers and question
+--    snapshots even when chapter or question publication state changes.

@@ -4,7 +4,8 @@ import org.firstfolio.curriculum.domain.ChapterType;
 import org.firstfolio.curriculum.domain.MainChapter;
 import org.firstfolio.curriculum.mapper.MainChapterMapper;
 import org.firstfolio.learning.domain.MainChapterCompletionResult;
-import org.firstfolio.learning.domain.UserCurriculumItem;
+import org.firstfolio.curriculum.domain.CurriculumItemStatus;
+import org.firstfolio.curriculum.domain.UserCurriculumItem;
 import org.firstfolio.learning.mapper.MainChapterLearningMapper;
 import org.firstfolio.portfolio.service.InitialGrantResult;
 import org.firstfolio.portfolio.service.InitialGrantService;
@@ -118,7 +119,7 @@ class MainChapterCompletionServiceTest {
         item.setCurriculumItemId(CURRICULUM_ITEM_ID);
         item.setUserId(USER_ID);
         item.setMainChapterId(MAIN_CHAPTER_ID);
-        item.setStatus("ACTIVE");
+        item.setStatus(CurriculumItemStatus.ACTIVE);
         item.setCompletedAt(completedAt);
         when(learningMapper.findActiveCurriculumItemForUpdate(
                 USER_ID,

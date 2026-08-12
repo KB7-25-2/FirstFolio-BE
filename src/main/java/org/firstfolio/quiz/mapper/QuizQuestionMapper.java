@@ -30,5 +30,7 @@ public interface QuizQuestionMapper {
             @Param("mainChapterId") long mainChapterId
     );
 
+    List<QuizQuestion> findLatestPublishedLevelTestQuestions();
+
     int insert(QuizQuestion question);
 }
