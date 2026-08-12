@@ -23,6 +23,9 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import javax.sql.DataSource;
 import java.time.Clock;
 
+import org.flywaydb.core.Flyway;
+import org.springframework.context.annotation.DependsOn;
+
 @Configuration
 @PropertySource("classpath:/application.properties")
 @MapperScan(basePackages = "org.firstfolio", annotationClass = Mapper.class)
@@ -64,7 +67,18 @@ public class RootConfig {
         return new HikariDataSource(config);
     }
 
+    // Database Migration
+    @Bean(initMethod = "migrate")
+    public Flyway flyway(DataSource dataSource) {
+        return Flyway.configure()
+            .dataSource(dataSource)
+            .baselineOnMigrate(true)
+            .baselineVersion("1")
+            .load();
+    }
+
     @Bean
+    @DependsOn("flyway")
     public SqlSessionFactory sqlSessionFactory(
             DataSource dataSource,
             ApplicationContext applicationContext
