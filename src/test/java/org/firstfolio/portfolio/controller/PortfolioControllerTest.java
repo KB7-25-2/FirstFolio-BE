@@ -218,7 +218,8 @@ class PortfolioControllerTest {
                 new org.firstfolio.portfolio.service.TradeResult(
                         8201L, "BUY", 87L,
                         new BigDecimal("5000000.00"), new BigDecimal("4830000.00"),
-                        new BigDecimal("724.50"), new BigDecimal("4830724.50"),
+                        new BigDecimal("724.50"), new BigDecimal("0.00"),
+                        new BigDecimal("4830724.50"),
                         new BigDecimal("20.000000"), new BigDecimal("241500.0000"),
                         "COMPLETED", new BigDecimal("25169275.50")
                 )
@@ -237,8 +238,35 @@ class PortfolioControllerTest {
                 .andExpect(jsonPath("$.data.quantity").value("20.000000"))
                 .andExpect(jsonPath("$.data.unit_price").value("241500.0000"))
                 .andExpect(jsonPath("$.data.fee_amount").value("724.50"))
+                .andExpect(jsonPath("$.data.tax_amount").value("0.00"))
                 .andExpect(jsonPath("$.data.net_cash_amount").value("4830724.50"))
                 .andExpect(jsonPath("$.data.cash_balance").value("25169275.50"));
+    }
+
+    @Test
+    @DisplayName("매도 응답에는 증권거래세가 함께 실린다")
+    void exposesTransactionTaxOnSell() throws Exception {
+        when(tradeService.trade(eq(USER_ID), any())).thenReturn(
+                new org.firstfolio.portfolio.service.TradeResult(
+                        8204L, "SELL", 87L,
+                        new BigDecimal("1932000.00"), new BigDecimal("1932000.00"),
+                        new BigDecimal("289.80"), new BigDecimal("3864.00"),
+                        new BigDecimal("1927846.20"),
+                        new BigDecimal("8.000000"), new BigDecimal("241500.0000"),
+                        "COMPLETED", new BigDecimal("9000000.00")
+                )
+        );
+
+        mockMvc.perform(authenticated(
+                        org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                                .post("/api/portfolios/current/trades"))
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"idempotency_key\":\"trade-101-4\",\"transaction_type\":\"SELL\","
+                                + "\"product_id\":87,\"quantity\":\"8.000000\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.fee_amount").value("289.80"))
+                .andExpect(jsonPath("$.data.tax_amount").value("3864.00"))
+                .andExpect(jsonPath("$.data.net_cash_amount").value("1927846.20"));
     }
 
     @Test
@@ -248,7 +276,8 @@ class PortfolioControllerTest {
                 new org.firstfolio.portfolio.service.TradeResult(
                         8202L, "SELL", 87L, new BigDecimal("1932000.00"),
                         new BigDecimal("1932000.00"),
-                        new BigDecimal("289.80"), new BigDecimal("1931710.20"),
+                        new BigDecimal("289.80"), new BigDecimal("3864.00"),
+                        new BigDecimal("1927846.20"),
                         new BigDecimal("8.000000"),
                         new BigDecimal("241500.0000"), "COMPLETED", new BigDecimal("9000000.00")
                 )
@@ -282,7 +311,8 @@ class PortfolioControllerTest {
                 new org.firstfolio.portfolio.service.TradeResult(
                         8203L, "SELL", 25L, new BigDecimal("10000000.00"),
                         new BigDecimal("10000000.00"),
-                        new BigDecimal("0.00"), new BigDecimal("10000000.00"),
+                        new BigDecimal("0.00"), new BigDecimal("0.00"),
+                        new BigDecimal("10000000.00"),
                         null, null,
                         "COMPLETED", new BigDecimal("40000000.00")
                 )
@@ -298,6 +328,7 @@ class PortfolioControllerTest {
                 .andExpect(jsonPath("$.data.quantity").doesNotExist())
                 .andExpect(jsonPath("$.data.unit_price").doesNotExist())
                 .andExpect(jsonPath("$.data.fee_amount").value("0.00"))
+                .andExpect(jsonPath("$.data.tax_amount").value("0.00"))
                 .andExpect(jsonPath("$.data.net_cash_amount").value("10000000.00"));
     }
 

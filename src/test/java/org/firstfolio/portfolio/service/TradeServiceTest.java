@@ -683,7 +683,16 @@ class TradeServiceTest {
 
         assertEquals(new BigDecimal("1932000.00"), result.getAmount());
         assertEquals(new BigDecimal("289.80"), result.getFeeAmount());
+        assertEquals(new BigDecimal("3864.00"), result.getTaxAmount());
         assertEquals(new BigDecimal("1927846.20"), result.getNetCashAmount());
+    }
+
+    @Test
+    @DisplayName("매수 응답의 증권거래세는 0이다 — null이 아니다")
+    void returnsZeroTaxOnBuy() {
+        TradeResult result = buy(STOCK_ID, "5000000.00");
+
+        assertEquals(new BigDecimal("0.00"), result.getTaxAmount());
     }
 
     @Test
@@ -728,6 +737,19 @@ class TradeServiceTest {
     }
 
     @Test
+    @DisplayName("매도 멱등 재요청도 이력에 남긴 증권거래세를 그대로 돌려준다")
+    void replayRestoresRecordedTax() {
+        givenHolding(STOCK_ID, "8.000000", "1932000.00", HoldingStatus.ACTIVE);
+
+        TradeResult first = sell(STOCK_ID, "8.000000");
+        TradeResult again = sell(STOCK_ID, "8.000000");
+
+        assertEquals(first.getTaxAmount(), again.getTaxAmount());
+        assertEquals(new BigDecimal("3864.00"), again.getTaxAmount());
+        assertEquals(new BigDecimal("1927846.20"), again.getNetCashAmount());
+    }
+
+    @Test
     @DisplayName("수수료 도입 전에 쌓인 이력을 다시 요청해도 깨지지 않는다")
     void replaysLegacyRecordWithoutFeeKeys() {
         PortfolioTransaction legacy = new PortfolioTransaction();
@@ -749,6 +771,8 @@ class TradeServiceTest {
 
         assertEquals(new BigDecimal("0.00"), result.getFeeAmount(),
                 "그때 거래는 실제로 수수료가 0이었습니다.");
+        assertEquals(new BigDecimal("0.00"), result.getTaxAmount(),
+                "거래세도 마찬가지입니다.");
         assertEquals(new BigDecimal("4830000.00"), result.getNetCashAmount(),
                 "그때는 현금 증감이 곧 체결액이었습니다.");
     }

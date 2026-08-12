@@ -20,6 +20,7 @@ public final class TradeResult {
     private final BigDecimal requestedAmount;
     private final BigDecimal amount;
     private final BigDecimal feeAmount;
+    private final BigDecimal taxAmount;
     private final BigDecimal netCashAmount;
     private final BigDecimal quantity;
     private final BigDecimal unitPrice;
@@ -33,6 +34,7 @@ public final class TradeResult {
             BigDecimal requestedAmount,
             BigDecimal amount,
             BigDecimal feeAmount,
+            BigDecimal taxAmount,
             BigDecimal netCashAmount,
             BigDecimal quantity,
             BigDecimal unitPrice,
@@ -45,6 +47,7 @@ public final class TradeResult {
         this.requestedAmount = requestedAmount;
         this.amount = amount;
         this.feeAmount = feeAmount;
+        this.taxAmount = taxAmount;
         this.netCashAmount = netCashAmount;
         this.quantity = quantity;
         this.unitPrice = unitPrice;
@@ -75,6 +78,11 @@ public final class TradeResult {
     /** 매매 수수료. 예·적금·채권 거래에서는 {@code 0.00}이다. */
     public BigDecimal getFeeAmount() {
         return feeAmount;
+    }
+
+    /** 증권거래세. <b>매수와 예·적금·채권 거래에서는 {@code 0.00}</b>이다. */
+    public BigDecimal getTaxAmount() {
+        return taxAmount;
     }
 
     /** 실제로 오간 현금. 매수는 체결액보다 크고 매도는 작다. */
