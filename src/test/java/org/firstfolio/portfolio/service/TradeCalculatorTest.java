@@ -2,6 +2,9 @@ package org.firstfolio.portfolio.service;
 
 import org.firstfolio.portfolio.domain.PortfolioHolding;
 import org.firstfolio.portfolio.domain.TradeAmounts;
+import org.firstfolio.portfolio.domain.TradeCosts;
+import org.firstfolio.portfolio.domain.TradePolicy;
+import org.firstfolio.simulation.domain.AssetType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -13,6 +16,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TradeCalculatorTest {
 
+    /** v3 3.3절 확정 요율. 0.00015 = 0.015% */
+    private static final BigDecimal FEE_RATE = new BigDecimal("0.00015");
+
     private final TradeCalculator calculator = new TradeCalculator();
 
     private static PortfolioHolding holding(String quantity, String principal) {
@@ -22,6 +28,17 @@ class TradeCalculatorTest {
         holding.setPrincipalAmount(new BigDecimal(principal));
 
         return holding;
+    }
+
+    private static TradePolicy policy(Integer versionNo) {
+        return new TradePolicy(
+                FEE_RATE,
+                FEE_RATE,
+                new BigDecimal("0.0020"),
+                new BigDecimal("0.154"),
+                new BigDecimal("0.154"),
+                versionNo
+        );
     }
 
     @Test
@@ -150,5 +167,152 @@ class TradeCalculatorTest {
         }
 
         assertEquals(new BigDecimal("0.00"), principal, "마지막 한 주까지 팔면 0이어야 합니다.");
+    }
+
+    // ---------------------------------------------------------------- 수수료
+
+    @Test
+    @DisplayName("매수 수수료는 체결액 밖에서 더 나간다 — 현금은 체결액보다 많이 준다")
+    void addsBuyFeeOnTopOfExecutedAmount() {
+        // 4,830,000 × 0.00015 = 724.50
+        TradeCosts costs = calculator.costsForBuy(
+                AssetType.STOCK, new BigDecimal("4830000.00"), policy(1));
+
+        assertEquals(new BigDecimal("724.50"), costs.getFeeAmount());
+        assertEquals(new BigDecimal("4830724.50"), costs.getNetCashAmount());
+        assertEquals(FEE_RATE, costs.getFeeRate());
+    }
+
+    @Test
+    @DisplayName("매도 수수료는 대금에서 빼고 현금에 넣는다")
+    void subtractsSellFeeFromProceeds() {
+        // 1,932,000 × 0.00015 = 289.80
+        TradeCosts costs = calculator.costsForSell(
+                AssetType.STOCK, new BigDecimal("1932000.00"), policy(1));
+
+        assertEquals(new BigDecimal("289.80"), costs.getFeeAmount());
+        // 수수료 289.80 + 증권거래세 3,864.00을 뺀 값
+        assertEquals(new BigDecimal("1927846.20"), costs.getNetCashAmount());
+    }
+
+    @Test
+    @DisplayName("펀드(ETF)도 주식과 같이 수수료가 붙는다")
+    void chargesFeeOnFundToo() {
+        TradeCosts costs = calculator.costsForBuy(
+                AssetType.FUND, new BigDecimal("1000000.00"), policy(1));
+
+        assertEquals(new BigDecimal("150.00"), costs.getFeeAmount());
+        assertEquals(new BigDecimal("1000150.00"), costs.getNetCashAmount());
+    }
+
+    @Test
+    @DisplayName("예·적금 가입에는 매매 수수료가 붙지 않는다 — 적용 요율 자체가 0이다")
+    void chargesNoFeeOnDepositSavings() {
+        TradeCosts costs = calculator.costsForBuy(
+                AssetType.DEPOSIT_SAVINGS, new BigDecimal("10000000.00"), policy(1));
+
+        assertEquals(new BigDecimal("0.00"), costs.getFeeAmount());
+        assertEquals(new BigDecimal("10000000.00"), costs.getNetCashAmount(),
+                "가입형은 현금 차감이 원금과 정확히 같아야 합니다.");
+        assertEquals(0, costs.getFeeRate().signum(),
+                "적용되지 않은 요율을 이력에 남기면 검산할 때 틀린 근거가 됩니다.");
+    }
+
+    @Test
+    @DisplayName("채권 해지에도 매매 수수료가 붙지 않는다")
+    void chargesNoFeeOnBondRedeem() {
+        TradeCosts costs = calculator.costsForSell(
+                AssetType.BOND, new BigDecimal("5000000.00"), policy(1));
+
+        assertEquals(new BigDecimal("0.00"), costs.getFeeAmount());
+        assertEquals(new BigDecimal("5000000.00"), costs.getNetCashAmount());
+    }
+
+    @Test
+    @DisplayName("수수료는 원 단위로 반올림한다 (HALF_UP)")
+    void roundsFeeToTwoDecimals() {
+        // 33,333 × 0.00015 = 4.99995 → 5.00
+        TradeCosts costs = calculator.costsForBuy(
+                AssetType.STOCK, new BigDecimal("33333.00"), policy(1));
+
+        assertEquals(new BigDecimal("5.00"), costs.getFeeAmount());
+        assertEquals(new BigDecimal("33338.00"), costs.getNetCashAmount());
+    }
+
+    @Test
+    @DisplayName("정책 버전을 그대로 들고 다닌다 — 나중에 요율이 바뀌어도 검산할 수 있어야 한다")
+    void carriesPolicyVersion() {
+        TradeCosts costs = calculator.costsForBuy(
+                AssetType.STOCK, new BigDecimal("1000000.00"), policy(3));
+
+        assertEquals(3, costs.getPolicyVersion());
+    }
+
+    @Test
+    @DisplayName("설정 기본값으로 계산하면 정책 버전이 null로 남는다")
+    void keepsNullPolicyVersionWhenFellBackToDefaults() {
+        TradeCosts costs = calculator.costsForBuy(
+                AssetType.STOCK, new BigDecimal("1000000.00"), policy(null));
+
+        assertNull(costs.getPolicyVersion(),
+                "기본값으로 돌았다는 사실 자체가 이력에 남아야 합니다.");
+    }
+
+    // ---------------------------------------------------------------- 증권거래세
+
+    @Test
+    @DisplayName("매도에는 증권거래세 0.20%가 수수료와 함께 붙는다")
+    void chargesSecuritiesTransactionTaxOnSell() {
+        // 1,932,000 × 0.0020 = 3,864.00
+        TradeCosts costs = calculator.costsForSell(
+                AssetType.STOCK, new BigDecimal("1932000.00"), policy(1));
+
+        assertEquals(new BigDecimal("3864.00"), costs.getTaxAmount());
+        assertEquals(new BigDecimal("0.0020"), costs.getTaxRate());
+        assertEquals(new BigDecimal("1927846.20"), costs.getNetCashAmount(),
+                "대금에서 수수료와 거래세를 모두 뺀 값이어야 합니다.");
+    }
+
+    @Test
+    @DisplayName("매수에는 증권거래세가 붙지 않는다")
+    void chargesNoTransactionTaxOnBuy() {
+        TradeCosts costs = calculator.costsForBuy(
+                AssetType.STOCK, new BigDecimal("4830000.00"), policy(1));
+
+        assertEquals(new BigDecimal("0.00"), costs.getTaxAmount());
+        assertEquals(0, costs.getTaxRate().signum());
+        assertEquals(new BigDecimal("4830724.50"), costs.getNetCashAmount(),
+                "매수 현금은 수수료만 더한 값이어야 합니다.");
+    }
+
+    @Test
+    @DisplayName("ETF 매도에도 증권거래세를 매긴다 — 현실과 다른 의도한 단순화 (D17)")
+    void chargesTransactionTaxOnFundToo() {
+        TradeCosts costs = calculator.costsForSell(
+                AssetType.FUND, new BigDecimal("1000000.00"), policy(1));
+
+        assertEquals(new BigDecimal("2000.00"), costs.getTaxAmount());
+        assertEquals(new BigDecimal("997850.00"), costs.getNetCashAmount());
+    }
+
+    @Test
+    @DisplayName("채권 해지에는 증권거래세가 붙지 않는다")
+    void chargesNoTransactionTaxOnBondRedeem() {
+        TradeCosts costs = calculator.costsForSell(
+                AssetType.BOND, new BigDecimal("5000000.00"), policy(1));
+
+        assertEquals(new BigDecimal("0.00"), costs.getTaxAmount());
+        assertEquals(new BigDecimal("5000000.00"), costs.getNetCashAmount());
+    }
+
+    @Test
+    @DisplayName("수수료와 거래세를 합쳐도 순현금이 음수가 되지 않는다")
+    void neverDrivesNetProceedsNegative() {
+        // 1주 값이 1원이어도 요율 합이 0.215%라 남는 쪽이 훨씬 크다.
+        TradeCosts costs = calculator.costsForSell(
+                AssetType.STOCK, new BigDecimal("1.00"), policy(1));
+
+        assertTrue(costs.getNetCashAmount().signum() >= 0,
+                "순현금이 음수가 되면 안 됩니다: " + costs.getNetCashAmount());
     }
 }
