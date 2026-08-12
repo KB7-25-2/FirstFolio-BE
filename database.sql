@@ -158,7 +158,7 @@ CREATE TABLE user_curriculum_items (
     user_id BIGINT NOT NULL COMMENT '커리큘럼 소유 사용자',
     main_chapter_id BIGINT NOT NULL COMMENT '선택된 대단원',
     display_order INT NOT NULL COMMENT '사용자가 확정한 학습 순서',
-    source_type VARCHAR(30) NOT NULL COMMENT 'REQUIRED, LEVEL_TEST_WRONG, CART',
+    source_type VARCHAR(30) NOT NULL COMMENT 'FOUNDATION, LEVEL_TEST_WRONG, USER_ADDED',
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE 또는 REMOVED',
     confirmed_at DATETIME NOT NULL COMMENT '커리큘럼 확정 일시',
     completed_at DATETIME NULL COMMENT '대단원 완료 일시',
@@ -172,7 +172,7 @@ CREATE TABLE user_curriculum_items (
            ON UPDATE RESTRICT ON DELETE RESTRICT,
     CONSTRAINT chk_user_curriculum_order CHECK (display_order > 0),
     CONSTRAINT chk_user_curriculum_source CHECK (
-       source_type IN ('REQUIRED', 'LEVEL_TEST_WRONG', 'CART')
+       source_type IN ('FOUNDATION', 'LEVEL_TEST_WRONG', 'USER_ADDED')
        ),
     CONSTRAINT chk_user_curriculum_status CHECK (status IN ('ACTIVE', 'REMOVED')),
     INDEX idx_user_curriculum_active_order (user_id, status, display_order)

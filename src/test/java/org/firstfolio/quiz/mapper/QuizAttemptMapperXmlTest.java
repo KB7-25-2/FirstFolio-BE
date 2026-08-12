@@ -31,6 +31,7 @@ class QuizAttemptMapperXmlTest {
         }
 
         assertTrue(configuration.hasMapper(QuizAttemptMapper.class));
+        assertTrue(configuration.hasStatement(id("findUserIdForUpdate")));
         assertTrue(configuration.hasStatement(id("findByIdForUpdate")));
         assertTrue(configuration.hasStatement(id("findLevelTestByUserId")));
         assertTrue(configuration.hasStatement(id(
@@ -50,14 +51,27 @@ class QuizAttemptMapperXmlTest {
         )));
         assertTrue(configuration.hasStatement(id("findAnswersByAttemptId")));
         assertTrue(configuration.hasStatement(id(
+                "findAnswersByAttemptIdForUpdate"
+        )));
+        assertTrue(configuration.hasStatement(id(
                 "findAnswerByAttemptIdAndQuestionIdForUpdate"
         )));
         assertTrue(configuration.hasStatement(id("countAnsweredByAttemptId")));
         assertTrue(configuration.hasStatement(id("countCorrectByAttemptId")));
         assertTrue(configuration.hasStatement(id("insertAttempt")));
         assertTrue(configuration.hasStatement(id("insertAnswer")));
+        assertTrue(configuration.hasStatement(id("saveLevelTestAnswer")));
+        assertTrue(configuration.hasStatement(id("gradeLevelTestAnswer")));
         assertTrue(configuration.hasStatement(id("gradeAnswerIfUnanswered")));
         assertTrue(configuration.hasStatement(id("completeAttemptIfInProgress")));
+
+        BoundSql userLockSql = configuration.getMappedStatement(id(
+                        "findUserIdForUpdate"
+                ))
+                .getBoundSql(Map.of("userId", 11L));
+        assertTrue(normalize(userLockSql.getSql()).contains(
+                "SELECT user_id FROM users WHERE user_id = ? FOR UPDATE"
+        ));
 
         BoundSql lockSql = configuration.getMappedStatement(id(
                         "findInProgressByUserIdAndSubChapterIdForUpdate"
@@ -91,6 +105,14 @@ class QuizAttemptMapperXmlTest {
                 "WHERE attempt_id = ? ORDER BY display_order ASC"
         ));
 
+        BoundSql answersLockSql = configuration.getMappedStatement(
+                        id("findAnswersByAttemptIdForUpdate")
+                )
+                .getBoundSql(Map.of("attemptId", 3001L));
+        assertTrue(normalize(answersLockSql.getSql()).contains(
+                "WHERE attempt_id = ? ORDER BY display_order ASC FOR UPDATE"
+        ));
+
         BoundSql answerLockSql = configuration.getMappedStatement(id(
                         "findAnswerByAttemptIdAndQuestionIdForUpdate"
                 ))
@@ -108,6 +130,28 @@ class QuizAttemptMapperXmlTest {
                 .getBoundSql(new org.firstfolio.quiz.domain.QuizAnswer());
         assertTrue(normalize(gradeSql.getSql()).contains(
                 "WHERE quiz_answer_id = ? AND user_answer_json IS NULL"
+        ));
+
+        BoundSql saveLevelTestAnswerSql = configuration.getMappedStatement(
+                        id("saveLevelTestAnswer")
+                )
+                .getBoundSql(new org.firstfolio.quiz.domain.QuizAnswer());
+        assertTrue(normalize(saveLevelTestAnswerSql.getSql()).contains(
+                "SET user_answer_json = ?, is_correct = NULL, answered_at = ?"
+        ));
+        assertTrue(normalize(saveLevelTestAnswerSql.getSql()).contains(
+                "WHERE quiz_answer_id = ? AND is_correct IS NULL"
+        ));
+
+        BoundSql gradeLevelTestAnswerSql = configuration.getMappedStatement(
+                        id("gradeLevelTestAnswer")
+                )
+                .getBoundSql(new org.firstfolio.quiz.domain.QuizAnswer());
+        assertTrue(normalize(gradeLevelTestAnswerSql.getSql()).contains(
+                "SET is_correct = ? WHERE quiz_answer_id = ?"
+        ));
+        assertTrue(normalize(gradeLevelTestAnswerSql.getSql()).contains(
+                "user_answer_json IS NOT NULL AND is_correct IS NULL"
         ));
 
         BoundSql completeSql = configuration.getMappedStatement(

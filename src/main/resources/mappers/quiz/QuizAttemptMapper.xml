@@ -55,6 +55,13 @@
         submitted_at
     </sql>
 
+    <select id="findUserIdForUpdate" resultType="java.lang.Long">
+        SELECT user_id
+        FROM users
+        WHERE user_id = #{userId}
+        FOR UPDATE
+    </select>
+
     <select id="findByIdForUpdate" resultMap="quizAttemptResultMap">
         SELECT <include refid="quizAttemptColumns" />
         FROM quiz_attempts
@@ -138,6 +145,24 @@
         FROM quiz_answers
         WHERE attempt_id = #{attemptId}
         ORDER BY display_order ASC
+    </select>
+
+    <select id="findAnswersByAttemptIdForUpdate"
+            resultMap="quizAnswerResultMap">
+        SELECT
+            quiz_answer_id,
+            attempt_id,
+            question_id,
+            display_order,
+            question_snapshot_json,
+            user_answer_json,
+            is_correct,
+            answered_at,
+            created_at
+        FROM quiz_answers
+        WHERE attempt_id = #{attemptId}
+        ORDER BY display_order ASC
+        FOR UPDATE
     </select>
 
     <select id="findAnswerByAttemptIdAndQuestionIdForUpdate"
@@ -232,6 +257,25 @@
         )
     </insert>
 
+    <update id="saveLevelTestAnswer"
+            parameterType="org.firstfolio.quiz.domain.QuizAnswer">
+        UPDATE quiz_answers
+        SET user_answer_json = #{userAnswerJson},
+            is_correct = NULL,
+            answered_at = #{answeredAt}
+        WHERE quiz_answer_id = #{quizAnswerId}
+          AND is_correct IS NULL
+    </update>
+
+    <update id="gradeLevelTestAnswer"
+            parameterType="org.firstfolio.quiz.domain.QuizAnswer">
+        UPDATE quiz_answers
+        SET is_correct = #{correct}
+        WHERE quiz_answer_id = #{quizAnswerId}
+          AND user_answer_json IS NOT NULL
+          AND is_correct IS NULL
+    </update>
+
     <update id="gradeAnswerIfUnanswered"
             parameterType="org.firstfolio.quiz.domain.QuizAnswer">
         UPDATE quiz_answers
@@ -248,7 +292,7 @@
         SET status = #{status},
             correct_count = #{correctCount},
             score = #{score},
-            reward_policy_id = #{rewardPolicyId},
+            reward_policy_id = #{rewardPolicyId,jdbcType=BIGINT},
             point_transaction_id = #{pointTransactionId,jdbcType=BIGINT},
             submitted_at = #{submittedAt}
         WHERE attempt_id = #{attemptId}

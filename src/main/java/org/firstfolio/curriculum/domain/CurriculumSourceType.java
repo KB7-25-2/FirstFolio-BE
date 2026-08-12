@@ -1,7 +1,7 @@
 package org.firstfolio.curriculum.domain;
 
 public enum CurriculumSourceType {
-    REQUIRED,
+    FOUNDATION,
     LEVEL_TEST_WRONG,
-    CART
+    USER_ADDED
 }

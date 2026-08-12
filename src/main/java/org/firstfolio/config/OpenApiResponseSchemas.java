@@ -9,6 +9,10 @@ import org.firstfolio.auth.dto.response.SignupResponse;
 import org.firstfolio.content.dto.response.ContentVersionCreateResponse;
 import org.firstfolio.content.dto.response.ContentVersionListResponse;
 import org.firstfolio.content.dto.response.ContentVersionPublishResponse;
+import org.firstfolio.curriculum.dto.response.CurriculumConfirmResponse;
+import org.firstfolio.curriculum.dto.response.CurriculumDraftEditResponse;
+import org.firstfolio.curriculum.dto.response.CurriculumDraftResponse;
+import org.firstfolio.curriculum.dto.response.CurriculumOverviewResponse;
 import org.firstfolio.curriculum.dto.response.MainChapterCreateResponse;
 import org.firstfolio.curriculum.dto.response.MainChapterListResponse;
 import org.firstfolio.curriculum.dto.response.MainChapterPatchResponse;
@@ -27,9 +31,12 @@ import org.firstfolio.portfolio.dto.response.PortfolioEventRetryResponse;
 import org.firstfolio.portfolio.dto.response.PortfolioResetResponse;
 import org.firstfolio.portfolio.dto.response.PortfolioTransactionPageResponse;
 import org.firstfolio.portfolio.dto.response.TradeResponse;
-import org.firstfolio.quiz.dto.response.QuizQuestionCreateResponse;
+import org.firstfolio.quiz.dto.response.LevelTestAttemptStartResponse;
+import org.firstfolio.quiz.dto.response.LevelTestAnswerSaveResponse;
+import org.firstfolio.quiz.dto.response.LevelTestSubmitResponse;
 import org.firstfolio.quiz.dto.response.QuizAttemptStartResponse;
 import org.firstfolio.quiz.dto.response.QuizAnswerGradingResponse;
+import org.firstfolio.quiz.dto.response.QuizQuestionCreateResponse;
 import org.firstfolio.simulation.dto.response.PriceRefreshResponse;
 import org.firstfolio.simulation.dto.response.ProductDetailResponse;
 import org.firstfolio.simulation.dto.response.ProductPageResponse;
@@ -97,6 +104,18 @@ public final class OpenApiResponseSchemas {
     @Schema(name = "SubChapterPatchApiResponse")
     public record SubChapterPatch(SubChapterPatchResponse data) { }
 
+    @Schema(name = "CurriculumDraftApiResponse")
+    public record CurriculumDraft(CurriculumDraftResponse data) { }
+
+    @Schema(name = "CurriculumDraftEditApiResponse")
+    public record CurriculumDraftEdit(CurriculumDraftEditResponse data) { }
+
+    @Schema(name = "CurriculumConfirmApiResponse")
+    public record CurriculumConfirm(CurriculumConfirmResponse data) { }
+
+    @Schema(name = "CurriculumOverviewApiResponse")
+    public record CurriculumOverview(CurriculumOverviewResponse data) { }
+
     @Schema(name = "ContentVersionListApiResponse")
     public record ContentVersionList(ContentVersionListResponse data) { }
 
@@ -111,6 +130,15 @@ public final class OpenApiResponseSchemas {
 
     @Schema(name = "QuizAttemptStartApiResponse")
     public record QuizAttemptStart(QuizAttemptStartResponse data) { }
+
+    @Schema(name = "LevelTestAttemptStartApiResponse")
+    public record LevelTestAttemptStart(LevelTestAttemptStartResponse data) { }
+
+    @Schema(name = "LevelTestAnswerSaveApiResponse")
+    public record LevelTestAnswerSave(LevelTestAnswerSaveResponse data) { }
+
+    @Schema(name = "LevelTestSubmitApiResponse")
+    public record LevelTestSubmit(LevelTestSubmitResponse data) { }
 
     @Schema(name = "QuizAnswerGradingApiResponse")
     public record QuizAnswerGrading(QuizAnswerGradingResponse data) { }

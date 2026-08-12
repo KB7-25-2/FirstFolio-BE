@@ -10,6 +10,8 @@ import java.util.List;
 @Mapper
 public interface QuizAttemptMapper {
 
+    Long findUserIdForUpdate(@Param("userId") long userId);
+
     QuizAttempt findByIdForUpdate(@Param("attemptId") long attemptId);
 
     QuizAttempt findLevelTestByUserId(@Param("userId") long userId);
@@ -40,6 +42,10 @@ public interface QuizAttemptMapper {
             @Param("attemptId") long attemptId
     );
 
+    List<QuizAnswer> findAnswersByAttemptIdForUpdate(
+            @Param("attemptId") long attemptId
+    );
+
     QuizAnswer findAnswerByAttemptIdAndQuestionIdForUpdate(
             @Param("attemptId") long attemptId,
             @Param("questionId") long questionId
@@ -52,6 +58,10 @@ public interface QuizAttemptMapper {
     int insertAttempt(QuizAttempt attempt);
 
     int insertAnswer(QuizAnswer answer);
+
+    int saveLevelTestAnswer(QuizAnswer answer);
+
+    int gradeLevelTestAnswer(QuizAnswer answer);
 
     int gradeAnswerIfUnanswered(QuizAnswer answer);
 
