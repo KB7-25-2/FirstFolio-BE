@@ -6,11 +6,14 @@
 <mapper namespace="org.firstfolio.learning.mapper.MainChapterLearningMapper">
 
     <resultMap id="curriculumItemResultMap"
-               type="org.firstfolio.learning.domain.UserCurriculumItem">
+               type="org.firstfolio.curriculum.domain.UserCurriculumItem">
         <id property="curriculumItemId" column="curriculum_item_id" />
         <result property="userId" column="user_id" />
         <result property="mainChapterId" column="main_chapter_id" />
+        <result property="displayOrder" column="display_order" />
+        <result property="sourceType" column="source_type" />
         <result property="status" column="status" />
+        <result property="confirmedAt" column="confirmed_at" />
         <result property="completedAt" column="completed_at" />
     </resultMap>
 
@@ -20,7 +23,10 @@
             curriculum_item_id,
             user_id,
             main_chapter_id,
+            display_order,
+            source_type,
             status,
+            confirmed_at,
             completed_at
         FROM user_curriculum_items
         WHERE user_id = #{userId}

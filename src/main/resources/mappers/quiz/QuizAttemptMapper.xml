@@ -62,6 +62,24 @@
         FOR UPDATE
     </select>
 
+    <select id="findLevelTestByUserId" resultMap="quizAttemptResultMap">
+        SELECT <include refid="quizAttemptColumns" />
+        FROM quiz_attempts
+        WHERE user_id = #{userId}
+          AND quiz_type = 'LEVEL_TEST'
+        LIMIT 1
+    </select>
+
+    <select id="findLevelTestByUserIdForUpdate"
+            resultMap="quizAttemptResultMap">
+        SELECT <include refid="quizAttemptColumns" />
+        FROM quiz_attempts
+        WHERE user_id = #{userId}
+          AND quiz_type = 'LEVEL_TEST'
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
     <select id="findInProgressByUserIdAndSubChapterIdForUpdate"
             resultMap="quizAttemptResultMap">
         SELECT <include refid="quizAttemptColumns" />

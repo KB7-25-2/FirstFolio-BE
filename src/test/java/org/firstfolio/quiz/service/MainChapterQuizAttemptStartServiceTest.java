@@ -5,7 +5,8 @@ import org.firstfolio.curriculum.domain.MainChapter;
 import org.firstfolio.curriculum.mapper.MainChapterMapper;
 import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
-import org.firstfolio.learning.domain.UserCurriculumItem;
+import org.firstfolio.curriculum.domain.CurriculumItemStatus;
+import org.firstfolio.curriculum.domain.UserCurriculumItem;
 import org.firstfolio.learning.mapper.MainChapterLearningMapper;
 import org.firstfolio.quiz.domain.QuizAnswer;
 import org.firstfolio.quiz.domain.QuizAttempt;
@@ -178,7 +179,7 @@ class MainChapterQuizAttemptStartServiceTest {
         item.setCurriculumItemId(100L);
         item.setUserId(USER_ID);
         item.setMainChapterId(MAIN_CHAPTER_ID);
-        item.setStatus("ACTIVE");
+        item.setStatus(CurriculumItemStatus.ACTIVE);
         return item;
     }
 

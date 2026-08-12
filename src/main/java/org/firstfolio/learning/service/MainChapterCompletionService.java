@@ -6,7 +6,7 @@ import org.firstfolio.curriculum.mapper.MainChapterMapper;
 import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.learning.domain.MainChapterCompletionResult;
-import org.firstfolio.learning.domain.UserCurriculumItem;
+import org.firstfolio.curriculum.domain.UserCurriculumItem;
 import org.firstfolio.learning.mapper.MainChapterLearningMapper;
 import org.firstfolio.portfolio.service.InitialGrantResult;
 import org.firstfolio.portfolio.service.InitialGrantService;

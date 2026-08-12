@@ -116,19 +116,12 @@
             ) THEN 'HOME'
             WHEN EXISTS (
                 SELECT 1
-                FROM main_chapters chapter
-                WHERE chapter.chapter_type = 'ASSET'
-                  AND chapter.is_active = TRUE
-                  AND NOT EXISTS (
-                      SELECT 1
-                      FROM quiz_attempts attempt
-                      WHERE attempt.user_id = #{userId}
-                        AND attempt.quiz_type = 'LEVEL_TEST'
-                        AND attempt.main_chapter_id = chapter.main_chapter_id
-                        AND attempt.status = 'GRADED'
-                  )
-            ) THEN 'LEVEL_TEST'
-            ELSE 'CURRICULUM'
+                FROM quiz_attempts attempt
+                WHERE attempt.user_id = #{userId}
+                  AND attempt.quiz_type = 'LEVEL_TEST'
+                  AND attempt.status = 'GRADED'
+            ) THEN 'CURRICULUM'
+            ELSE 'LEVEL_TEST'
         END
     </select>
 

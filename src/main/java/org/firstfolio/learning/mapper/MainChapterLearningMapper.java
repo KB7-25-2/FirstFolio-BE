@@ -2,7 +2,7 @@ package org.firstfolio.learning.mapper;
 
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-import org.firstfolio.learning.domain.UserCurriculumItem;
+import org.firstfolio.curriculum.domain.UserCurriculumItem;
 
 import java.time.LocalDateTime;
 

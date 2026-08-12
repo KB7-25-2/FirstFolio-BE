@@ -53,6 +53,10 @@ class QuizQuestionMapperXmlTest {
                 QuizQuestionMapper.class.getName()
                         + ".findLatestPublishedByMainChapterId"
         ));
+        assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName()
+                        + ".findLatestPublishedLevelTestQuestions"
+        ));
         assertTrue(configuration.hasStatement(statementId));
 
         BoundSql boundSql = configuration.getMappedStatement(statementId)
@@ -85,6 +89,25 @@ class QuizQuestionMapperXmlTest {
         ));
         assertTrue(normalizedMainQuestionSql.endsWith(
                 "ORDER BY question.display_order, question.question_id"
+        ));
+
+        BoundSql levelTestSql = configuration.getMappedStatement(
+                        QuizQuestionMapper.class.getName()
+                                + ".findLatestPublishedLevelTestQuestions"
+                )
+                .getBoundSql(Map.of());
+        String normalizedLevelTestSql = normalize(levelTestSql.getSql());
+        assertTrue(normalizedLevelTestSql.contains(
+                "question.usage_type = 'LEVEL_TEST'"
+        ));
+        assertTrue(normalizedLevelTestSql.contains(
+                "chapter.chapter_type = 'ASSET' AND chapter.is_active = TRUE"
+        ));
+        assertTrue(normalizedLevelTestSql.contains(
+                "newer.status IN ('PUBLISHED', 'RETIRED')"
+        ));
+        assertTrue(normalizedLevelTestSql.endsWith(
+                "ORDER BY chapter.display_order, question.display_order, question.question_id"
         ));
     }
 

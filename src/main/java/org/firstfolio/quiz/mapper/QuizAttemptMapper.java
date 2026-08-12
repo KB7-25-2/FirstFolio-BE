@@ -12,6 +12,10 @@ public interface QuizAttemptMapper {
 
     QuizAttempt findByIdForUpdate(@Param("attemptId") long attemptId);
 
+    QuizAttempt findLevelTestByUserId(@Param("userId") long userId);
+
+    QuizAttempt findLevelTestByUserIdForUpdate(@Param("userId") long userId);
+
     QuizAttempt findInProgressByUserIdAndSubChapterIdForUpdate(
             @Param("userId") long userId,
             @Param("subChapterId") long subChapterId
