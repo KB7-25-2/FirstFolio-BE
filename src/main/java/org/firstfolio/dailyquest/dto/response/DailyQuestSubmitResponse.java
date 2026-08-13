@@ -61,7 +61,7 @@ public record DailyQuestSubmitResponse(
             @Schema(description = "정답") AnswerResponse correctAnswer,
             @Schema(description = "정답 해설") String explanation,
             @Schema(
-                    description = "AI 문항의 근거 출처와 기준 시점. 일반 문항은 null",
+                    description = "AI 문항의 선택적 근거 출처와 기준 시점. 출처가 없거나 일반 문항이면 null",
                     nullable = true
             )
             JsonNode sourceRefs

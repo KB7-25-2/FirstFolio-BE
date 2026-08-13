@@ -261,7 +261,7 @@ CREATE TABLE quiz_questions (
     explanation TEXT NOT NULL COMMENT '정답 해설',
     generation_type VARCHAR(20) NOT NULL COMMENT 'HUMAN, AI',
     quest_date DATE NULL COMMENT 'DAILY_NEWS 문항을 제공할 서비스 기준 날짜',
-    source_refs_json JSON NULL COMMENT 'AI 생성 문항의 knowledge_contents ID, 근거 출처와 기준 시점. DB 간 FK는 애플리케이션에서 검증',
+    source_refs_json JSON NULL COMMENT 'AI 생성 문항의 선택적 knowledge_contents ID, 근거 출처와 기준 시점. DB 간 FK는 애플리케이션에서 검증',
     status VARCHAR(20) NOT NULL COMMENT 'DRAFT, REVIEW, PUBLISHED, RETIRED',
     created_by BIGINT NOT NULL COMMENT '작성자 또는 생성 작업 관리자',
     published_at DATETIME NULL COMMENT '게시 일시',
@@ -309,9 +309,13 @@ CREATE TABLE quiz_questions (
         (generation_type = 'HUMAN' AND source_refs_json IS NULL)
             OR
         (generation_type = 'AI'
-            AND source_refs_json IS NOT NULL
-            AND JSON_TYPE(source_refs_json) = 'ARRAY'
-            AND JSON_LENGTH(source_refs_json) > 0)
+            AND (
+                source_refs_json IS NULL
+                OR (
+                    JSON_TYPE(source_refs_json) = 'ARRAY'
+                    AND JSON_LENGTH(source_refs_json) > 0
+                )
+            ))
         ),
     CONSTRAINT chk_quiz_questions_status CHECK (
         status IN ('DRAFT', 'REVIEW', 'PUBLISHED', 'RETIRED')

@@ -169,14 +169,27 @@ class QuizQuestionSchemaValidatorTest {
     }
 
     @Test
-    void rejectsSourceReferencesThatDoNotMatchGenerationType() throws IOException {
+    void acceptsAiQuestionWithoutSourceReferences() throws IOException {
         ObjectNode aiWithoutSources = humanSingleChoice();
         aiWithoutSources.put("generation_type", "AI");
+
+        assertTrue(validate(aiWithoutSources).isValid());
+    }
+
+    @Test
+    void rejectsHumanQuestionWithSourceReferences() throws IOException {
         ObjectNode humanWithSources = aiScenario();
         humanWithSources.put("generation_type", "HUMAN");
 
-        assertSchemaViolation(validate(aiWithoutSources));
         assertSchemaViolation(validate(humanWithSources));
+    }
+
+    @Test
+    void rejectsEmptyAiSourceReferences() throws IOException {
+        ObjectNode question = aiScenario();
+        question.putArray("source_refs_json");
+
+        assertSchemaViolation(validate(question));
     }
 
     @Test

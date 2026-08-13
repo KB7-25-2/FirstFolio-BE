@@ -293,22 +293,11 @@
       "if": {
         "properties": {
           "generation_type": {
-            "const": "AI"
+            "const": "HUMAN"
           }
         }
       },
       "then": {
-        "properties": {
-          "source_refs_json": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "$ref": "#/$defs/sourceRef"
-            }
-          }
-        }
-      },
-      "else": {
         "properties": {
           "source_refs_json": {
             "type": "null"
