@@ -54,7 +54,9 @@ public enum ErrorCode {
     // 일일 퀘스트
     DAILY_QUEST_NOT_AVAILABLE(HttpStatus.FORBIDDEN, "현재 조건에서는 일일 퀘스트를 배정할 수 없습니다."),
     DAILY_QUEST_POOL_UNAVAILABLE(HttpStatus.UNPROCESSABLE_ENTITY, "일일 퀘스트 문항을 충분히 확보할 수 없습니다."),
+    DAILY_QUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "오늘의 일일 퀘스트를 찾을 수 없습니다."),
     DAILY_QUEST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "오늘의 일일 퀘스트 문항을 찾을 수 없습니다."),
+    DAILY_QUEST_INCOMPLETE(HttpStatus.CONFLICT, "일일 퀘스트의 모든 문항에 답해야 합니다."),
     DAILY_QUEST_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 완료된 일일 퀘스트입니다."),
     INVALID_ANSWER(HttpStatus.UNPROCESSABLE_ENTITY, "문항 형식에 맞지 않는 답안입니다."),
 

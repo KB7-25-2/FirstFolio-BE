@@ -40,6 +40,7 @@ class DailyQuestMapperXmlTest {
                 "findByUserIdAndQuestDateForUpdate",
                 "findByIdForUpdate",
                 "findItemsByDailyQuestId",
+                "findItemsByDailyQuestIdForUpdate",
                 "findUnresolvedWrongAnswers",
                 "findRecentlyAssignedGeneralQuestionKeys",
                 "findQuestIdByItemIdAndUserId",
@@ -49,7 +50,9 @@ class DailyQuestMapperXmlTest {
                 "insertQuest",
                 "insertItem",
                 "saveAnswer",
-                "markInProgressIfAssigned"
+                "markInProgressIfAssigned",
+                "gradeItem",
+                "completeQuestIfInProgress"
         }) {
             assertTrue(configuration.hasStatement(
                     DailyQuestMapper.class.getName() + "." + statement
@@ -156,6 +159,42 @@ class DailyQuestMapperXmlTest {
                 .getBoundSql(Map.of("dailyQuestId", 4001L));
         assertTrue(normalize(progressSql.getSql()).endsWith(
                 "WHERE daily_quest_id = ? AND status = 'ASSIGNED'"
+        ));
+
+        BoundSql lockedItemsSql = configuration.getMappedStatement(
+                        DailyQuestMapper.class.getName()
+                                + ".findItemsByDailyQuestIdForUpdate"
+                )
+                .getBoundSql(Map.of("dailyQuestId", 4001L));
+        assertTrue(normalize(lockedItemsSql.getSql()).endsWith(
+                "ORDER BY display_order FOR UPDATE"
+        ));
+
+        BoundSql gradeSql = configuration.getMappedStatement(
+                        DailyQuestMapper.class.getName() + ".gradeItem"
+                )
+                .getBoundSql(
+                        new org.firstfolio.dailyquest.domain.DailyQuestItem()
+                );
+        assertTrue(normalize(gradeSql.getSql()).endsWith(
+                "AND user_answer_json IS NOT NULL AND is_correct IS NULL"
+        ));
+
+        BoundSql completeSql = configuration.getMappedStatement(
+                        DailyQuestMapper.class.getName()
+                                + ".completeQuestIfInProgress"
+                )
+                .getBoundSql(
+                        new org.firstfolio.dailyquest.domain.DailyQuest()
+                );
+        String normalizedCompleteSql = normalize(completeSql.getSql());
+        assertTrue(normalizedCompleteSql.contains(
+                "SET status = ?, correct_count = ?, score = ?, "
+                        + "reward_policy_id = ?, point_transaction_id = ?, "
+                        + "completed_at = ?"
+        ));
+        assertTrue(normalizedCompleteSql.endsWith(
+                "AND status = 'IN_PROGRESS' AND completed_at IS NULL"
         ));
     }
 

@@ -32,6 +32,10 @@ public interface DailyQuestMapper {
             @Param("dailyQuestId") long dailyQuestId
     );
 
+    List<DailyQuestItem> findItemsByDailyQuestIdForUpdate(
+            @Param("dailyQuestId") long dailyQuestId
+    );
+
     List<DailyQuestWrongAnswer> findUnresolvedWrongAnswers(
             @Param("userId") long userId
     );
@@ -69,4 +73,8 @@ public interface DailyQuestMapper {
     int markInProgressIfAssigned(
             @Param("dailyQuestId") long dailyQuestId
     );
+
+    int gradeItem(DailyQuestItem item);
+
+    int completeQuestIfInProgress(DailyQuest dailyQuest);
 }

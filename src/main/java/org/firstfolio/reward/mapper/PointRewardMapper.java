@@ -8,7 +8,7 @@ import org.firstfolio.reward.domain.RewardPolicy;
 import java.time.LocalDateTime;
 
 @Mapper
-public interface QuizRewardMapper {
+public interface PointRewardMapper {
 
     RewardPolicy findActivePolicyAt(
             @Param("policyKey") String policyKey,
