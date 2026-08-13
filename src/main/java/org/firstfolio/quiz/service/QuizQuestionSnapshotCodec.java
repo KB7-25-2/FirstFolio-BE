@@ -65,10 +65,20 @@ public final class QuizQuestionSnapshotCodec {
     }
 
     QuizAttemptQuestion toQuestionView(QuizAnswer answer) {
+        return toQuestionView(
+                answer.getQuestionId(),
+                answer.getDisplayOrder(),
+                answer.getQuestionSnapshotJson()
+        );
+    }
+
+    public QuizAttemptQuestion toQuestionView(
+            long questionId,
+            int displayOrder,
+            String snapshotJson
+    ) {
         try {
-            JsonNode snapshot = objectMapper.readTree(
-                    answer.getQuestionSnapshotJson()
-            );
+            JsonNode snapshot = objectMapper.readTree(snapshotJson);
             QuizQuestionType questionType = QuizQuestionType.valueOf(
                     requiredText(snapshot, "question_type")
             );
@@ -97,8 +107,8 @@ public final class QuizQuestionSnapshotCodec {
             }
 
             return new QuizAttemptQuestion(
-                    answer.getQuestionId(),
-                    answer.getDisplayOrder(),
+                    questionId,
+                    displayOrder,
                     questionType,
                     generationType,
                     prompt,
