@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.dailyquest.mapper.DailyQuestMapper">
+
+    <resultMap id="dailyQuestResultMap"
+               type="org.firstfolio.dailyquest.domain.DailyQuest">
+        <id property="dailyQuestId" column="daily_quest_id" />
+        <result property="userId" column="user_id" />
+        <result property="questDate" column="quest_date" />
+        <result property="status" column="status" />
+        <result property="totalCount" column="total_count" />
+        <result property="correctCount" column="correct_count" />
+        <result property="score" column="score" />
+        <result property="rewardPolicyId" column="reward_policy_id" />
+        <result property="pointTransactionId" column="point_transaction_id" />
+        <result property="completedAt" column="completed_at" />
+    </resultMap>
+
+    <resultMap id="dailyQuestItemResultMap"
+               type="org.firstfolio.dailyquest.domain.DailyQuestItem">
+        <id property="dailyQuestItemId" column="daily_quest_item_id" />
+        <result property="dailyQuestId" column="daily_quest_id" />
+        <result property="questionId" column="question_id" />
+        <result property="displayOrder" column="display_order" />
+        <result property="questionSnapshotJson" column="question_snapshot_json" />
+        <result property="userAnswerJson" column="user_answer_json" />
+        <result property="correct" column="is_correct" />
+        <result property="answeredAt" column="answered_at" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <sql id="dailyQuestColumns">
+        daily_quest_id,
+        user_id,
+        quest_date,
+        status,
+        total_count,
+        correct_count,
+        score,
+        reward_policy_id,
+        point_transaction_id,
+        completed_at
+    </sql>
+
+    <sql id="dailyQuestItemColumns">
+        daily_quest_item_id,
+        daily_quest_id,
+        question_id,
+        display_order,
+        question_snapshot_json,
+        user_answer_json,
+        is_correct,
+        answered_at,
+        created_at
+    </sql>
+
+    <select id="findUserIdForUpdate" resultType="java.lang.Long">
+        SELECT user_id
+        FROM users
+        WHERE user_id = #{userId}
+        FOR UPDATE
+    </select>
+
+    <select id="findByUserIdAndQuestDate"
+            resultMap="dailyQuestResultMap">
+        SELECT <include refid="dailyQuestColumns" />
+        FROM daily_quests
+        WHERE user_id = #{userId}
+          AND quest_date = #{questDate}
+    </select>
+
+    <select id="findByUserIdAndQuestDateForUpdate"
+            resultMap="dailyQuestResultMap">
+        SELECT <include refid="dailyQuestColumns" />
+        FROM daily_quests
+        WHERE user_id = #{userId}
+          AND quest_date = #{questDate}
+        FOR UPDATE
+    </select>
+
+    <select id="findByIdForUpdate" resultMap="dailyQuestResultMap">
+        SELECT <include refid="dailyQuestColumns" />
+        FROM daily_quests
+        WHERE daily_quest_id = #{dailyQuestId}
+        FOR UPDATE
+    </select>
+
+    <select id="findItemsByDailyQuestId"
+            resultMap="dailyQuestItemResultMap">
+        SELECT <include refid="dailyQuestItemColumns" />
+        FROM daily_quest_items
+        WHERE daily_quest_id = #{dailyQuestId}
+        ORDER BY display_order
+    </select>
+
+    <select id="findItemByIdAndUserIdForUpdate"
+            resultMap="dailyQuestItemResultMap">
+        SELECT
+            item.daily_quest_item_id,
+            item.daily_quest_id,
+            item.question_id,
+            item.display_order,
+            item.question_snapshot_json,
+            item.user_answer_json,
+            item.is_correct,
+            item.answered_at,
+            item.created_at
+        FROM daily_quest_items item
+        INNER JOIN daily_quests quest
+                ON quest.daily_quest_id = item.daily_quest_id
+        WHERE item.daily_quest_item_id = #{dailyQuestItemId}
+          AND quest.user_id = #{userId}
+        FOR UPDATE
+    </select>
+
+    <select id="countItemsByDailyQuestId" resultType="int">
+        SELECT COUNT(*)
+        FROM daily_quest_items
+        WHERE daily_quest_id = #{dailyQuestId}
+    </select>
+
+    <select id="countAnsweredItemsByDailyQuestId" resultType="int">
+        SELECT COUNT(*)
+        FROM daily_quest_items
+        WHERE daily_quest_id = #{dailyQuestId}
+          AND user_answer_json IS NOT NULL
+    </select>
+
+    <insert id="insertQuest"
+            parameterType="org.firstfolio.dailyquest.domain.DailyQuest"
+            useGeneratedKeys="true"
+            keyProperty="dailyQuestId"
+            keyColumn="daily_quest_id">
+        INSERT INTO daily_quests (
+            user_id,
+            quest_date,
+            status,
+            total_count,
+            correct_count,
+            score,
+            reward_policy_id,
+            point_transaction_id,
+            completed_at
+        ) VALUES (
+            #{userId},
+            #{questDate},
+            #{status},
+            #{totalCount},
+            #{correctCount},
+            #{score},
+            #{rewardPolicyId,jdbcType=BIGINT},
+            #{pointTransactionId,jdbcType=BIGINT},
+            #{completedAt,jdbcType=TIMESTAMP}
+        )
+    </insert>
+
+    <insert id="insertItem"
+            parameterType="org.firstfolio.dailyquest.domain.DailyQuestItem"
+            useGeneratedKeys="true"
+            keyProperty="dailyQuestItemId"
+            keyColumn="daily_quest_item_id">
+        INSERT INTO daily_quest_items (
+            daily_quest_id,
+            question_id,
+            display_order,
+            question_snapshot_json,
+            user_answer_json,
+            is_correct,
+            answered_at,
+            created_at
+        ) VALUES (
+            #{dailyQuestId},
+            #{questionId},
+            #{displayOrder},
+            #{questionSnapshotJson},
+            #{userAnswerJson,jdbcType=VARCHAR},
+            #{correct,jdbcType=BOOLEAN},
+            #{answeredAt,jdbcType=TIMESTAMP},
+            #{createdAt}
+        )
+    </insert>
+
+</mapper>

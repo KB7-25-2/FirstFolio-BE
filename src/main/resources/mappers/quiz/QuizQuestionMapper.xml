@@ -22,6 +22,7 @@
         <result property="correctAnswerJson" column="correct_answer_json" />
         <result property="explanation" column="explanation" />
         <result property="generationType" column="generation_type" />
+        <result property="questDate" column="quest_date" />
         <result property="sourceRefsJson" column="source_refs_json" />
         <result property="status" column="status" />
         <result property="createdBy" column="created_by" />
@@ -53,6 +54,7 @@
         correct_answer_json,
         explanation,
         generation_type,
+        quest_date,
         source_refs_json,
         status,
         created_by,
@@ -147,6 +149,7 @@
             question.correct_answer_json,
             question.explanation,
             question.generation_type,
+            question.quest_date,
             question.source_refs_json,
             question.status,
             question.created_by,
@@ -192,6 +195,7 @@
             correct_answer_json,
             explanation,
             generation_type,
+            quest_date,
             source_refs_json,
             status,
             created_by,
@@ -212,6 +216,7 @@
             #{correctAnswerJson,jdbcType=VARCHAR},
             #{explanation},
             #{generationType},
+            #{questDate,jdbcType=DATE},
             #{sourceRefsJson,jdbcType=VARCHAR},
             #{status},
             #{createdBy},

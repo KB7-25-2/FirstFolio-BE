@@ -16,6 +16,7 @@
     "correct_answer_json",
     "explanation",
     "generation_type",
+    "quest_date",
     "source_refs_json"
   ],
   "properties": {
@@ -91,6 +92,13 @@
         "AI"
       ]
     },
+    "quest_date": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date"
+    },
     "source_refs_json": {
       "oneOf": [
         {
@@ -118,8 +126,63 @@
       },
       "then": {
         "properties": {
+          "main_chapter_id": {
+            "$ref": "#/$defs/positiveId"
+          },
           "sub_chapter_id": {
             "$ref": "#/$defs/positiveId"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "usage_type": {
+            "const": "DAILY_GENERAL"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "main_chapter_id": {
+            "$ref": "#/$defs/positiveId"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "usage_type": {
+            "const": "DAILY_NEWS"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "main_chapter_id": {
+            "type": "null"
+          },
+          "sub_chapter_id": {
+            "type": "null"
+          },
+          "question_type": {
+            "const": "SCENARIO"
+          },
+          "generation_type": {
+            "const": "AI"
+          },
+          "quest_date": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "quest_date": {
+            "type": "null"
           }
         }
       }
