@@ -126,8 +126,8 @@ class QuizAttemptStartServiceTest {
         assertEquals(List.of(1, 2), result.questions().stream()
                 .map(question -> question.displayOrder())
                 .toList());
-        assertEquals("1", result.questions().get(0).choices().get(0).id());
-        assertEquals("선택지 1", result.questions().get(0).choices().get(0).text());
+        assertEquals("1", result.questions().get(0).choices().get(0).key());
+        assertEquals("선택지 1", result.questions().get(0).choices().get(0).label());
         assertNull(result.questions().get(0).scenario());
 
         ArgumentCaptor<QuizAnswer> answerCaptor =

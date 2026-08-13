@@ -2,10 +2,10 @@ package org.firstfolio.quiz.domain;
 
 import java.util.Objects;
 
-public record QuizChoice(String id, String text) {
+public record QuizChoice(String key, String label) {
 
     public QuizChoice {
-        Objects.requireNonNull(id, "id must not be null");
-        Objects.requireNonNull(text, "text must not be null");
+        Objects.requireNonNull(key, "key must not be null");
+        Objects.requireNonNull(label, "label must not be null");
     }
 }
