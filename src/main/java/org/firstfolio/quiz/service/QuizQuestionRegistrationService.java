@@ -108,6 +108,7 @@ public class QuizQuestionRegistrationService {
                 request.explanation(),
                 QuizGenerationType.HUMAN,
                 null,
+                null,
                 actorUserId,
                 now
         );
@@ -175,6 +176,7 @@ public class QuizQuestionRegistrationService {
                 request.correctAnswerJson().toString(),
                 request.explanation(),
                 base.getGenerationType(),
+                base.getQuestDate(),
                 jsonOrNull(request.sourceRefsJson()),
                 actorUserId,
                 now
@@ -204,6 +206,7 @@ public class QuizQuestionRegistrationService {
         setNode(candidate, "correct_answer_json", request.correctAnswerJson());
         putText(candidate, "explanation", request.explanation());
         candidate.put("generation_type", QuizGenerationType.HUMAN.name());
+        candidate.putNull("quest_date");
         candidate.putNull("source_refs_json");
         return candidate;
     }
@@ -225,6 +228,11 @@ public class QuizQuestionRegistrationService {
         setNode(candidate, "correct_answer_json", request.correctAnswerJson());
         putText(candidate, "explanation", request.explanation());
         candidate.put("generation_type", base.getGenerationType().name());
+        if (base.getQuestDate() == null) {
+            candidate.putNull("quest_date");
+        } else {
+            candidate.put("quest_date", base.getQuestDate().toString());
+        }
         setNode(candidate, "source_refs_json", request.sourceRefsJson());
         return candidate;
     }
@@ -343,6 +351,7 @@ public class QuizQuestionRegistrationService {
         snapshot.put("correct_answer_json", parseStoredJson(question.getCorrectAnswerJson()));
         snapshot.put("explanation", question.getExplanation());
         snapshot.put("generation_type", question.getGenerationType());
+        snapshot.put("quest_date", question.getQuestDate());
         snapshot.put("source_refs_json", parseStoredJson(question.getSourceRefsJson()));
         snapshot.put("status", question.getStatus());
         snapshot.put("created_by", question.getCreatedBy());

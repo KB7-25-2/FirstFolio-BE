@@ -424,6 +424,7 @@ class QuizQuestionRegistrationServiceTest {
                 "기존 해설",
                 QuizGenerationType.HUMAN,
                 null,
+                null,
                 ACTOR_ID,
                 NOW.minusDays(1)
         );

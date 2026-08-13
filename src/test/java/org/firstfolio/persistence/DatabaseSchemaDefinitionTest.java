@@ -27,6 +27,41 @@ class DatabaseSchemaDefinitionTest {
         ));
     }
 
+    @Test
+    void dailyQuestSchemaUsesQuestionUsageAndQuestDate() throws IOException {
+        String schema = normalize(Files.readString(Path.of("database.sql")));
+
+        assertTrue(schema.contains(
+                "quest_date DATE NULL COMMENT "
+                        + "'DAILY_NEWS 문항을 제공할 서비스 기준 날짜'"
+        ));
+        assertTrue(schema.contains(
+                "usage_type = 'DAILY_GENERAL' "
+                        + "AND main_chapter_id IS NOT NULL "
+                        + "AND quest_date IS NULL"
+        ));
+        assertTrue(schema.contains(
+                "usage_type = 'DAILY_NEWS' "
+                        + "AND main_chapter_id IS NULL "
+                        + "AND sub_chapter_id IS NULL "
+                        + "AND quest_date IS NOT NULL "
+                        + "AND question_type = 'SCENARIO' "
+                        + "AND generation_type = 'AI'"
+        ));
+        assertTrue(schema.contains(
+                "CONSTRAINT uq_daily_quest_items_question "
+                        + "UNIQUE (daily_quest_id, question_id)"
+        ));
+        assertTrue(schema.contains(
+                "reward_policy_id BIGINT NULL COMMENT "
+                        + "'완료 시 적용한 DAILY_QUEST_REWARD 정책 버전'"
+        ));
+        assertTrue(!schema.contains(
+                "source_type VARCHAR(20) NOT NULL COMMENT "
+                        + "'GENERAL, WRONG_RETRY, NEWS'"
+        ));
+    }
+
     private String normalize(String sql) {
         return sql.replaceAll("\\s+", " ").trim();
     }

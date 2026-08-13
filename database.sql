@@ -55,7 +55,7 @@ CREATE TABLE user_consents (
 
 CREATE TABLE system_policies (
     policy_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '정책 버전 식별자',
-    policy_key VARCHAR(50) NOT NULL COMMENT 'QUIZ_REWARD, ATTENDANCE, LEADERBOARD, SIMULATION, TRADE, RESET, GIFTICON, AI_REVIEW 등',
+    policy_key VARCHAR(50) NOT NULL COMMENT 'QUIZ_REWARD, DAILY_QUEST_REWARD, ATTENDANCE, LEADERBOARD, SIMULATION, TRADE, RESET, GIFTICON, AI_REVIEW 등',
     version_no INT NOT NULL COMMENT '정책별 버전 번호',
     config_json JSON NOT NULL COMMENT '정답 수별 포인트와 상품에 종속되지 않는 전역 운영 설정',
     effective_from DATETIME NOT NULL COMMENT '적용 시작 시각',
@@ -260,6 +260,7 @@ CREATE TABLE quiz_questions (
     correct_answer_json JSON NOT NULL COMMENT '정답 데이터',
     explanation TEXT NOT NULL COMMENT '정답 해설',
     generation_type VARCHAR(20) NOT NULL COMMENT 'HUMAN, AI',
+    quest_date DATE NULL COMMENT 'DAILY_NEWS 문항을 제공할 서비스 기준 날짜',
     source_refs_json JSON NULL COMMENT 'AI 생성 문항의 knowledge_contents ID, 근거 출처와 기준 시점. DB 간 FK는 애플리케이션에서 검증',
     status VARCHAR(20) NOT NULL COMMENT 'DRAFT, REVIEW, PUBLISHED, RETIRED',
     created_by BIGINT NOT NULL COMMENT '작성자 또는 생성 작업 관리자',
@@ -316,15 +317,29 @@ CREATE TABLE quiz_questions (
         status IN ('DRAFT', 'REVIEW', 'PUBLISHED', 'RETIRED')
         ),
     CONSTRAINT chk_quiz_questions_scope CHECK (
-        (usage_type = 'SUB_CHAPTER' AND sub_chapter_id IS NOT NULL)
+        (usage_type = 'SUB_CHAPTER'
+            AND main_chapter_id IS NOT NULL
+            AND sub_chapter_id IS NOT NULL
+            AND quest_date IS NULL)
             OR
         (usage_type IN ('LEVEL_TEST', 'MAIN_CHAPTER')
             AND main_chapter_id IS NOT NULL
-            AND sub_chapter_id IS NULL)
+            AND sub_chapter_id IS NULL
+            AND quest_date IS NULL)
             OR
-        (usage_type IN ('DAILY_GENERAL', 'DAILY_NEWS'))
+        (usage_type = 'DAILY_GENERAL'
+            AND main_chapter_id IS NOT NULL
+            AND quest_date IS NULL)
+            OR
+        (usage_type = 'DAILY_NEWS'
+            AND main_chapter_id IS NULL
+            AND sub_chapter_id IS NULL
+            AND quest_date IS NOT NULL
+            AND question_type = 'SCENARIO'
+            AND generation_type = 'AI')
         ),
     INDEX idx_quiz_questions_usage_status (usage_type, status, main_chapter_id),
+    INDEX idx_quiz_questions_daily_date (usage_type, quest_date, status),
     INDEX idx_quiz_questions_sub_status (sub_chapter_id, status)
 ) ENGINE = InnoDB COMMENT = '레벨 테스트·소단원·대단원·일일 퀘스트 문항 버전 원본';
 
@@ -457,12 +472,17 @@ CREATE TABLE daily_quests (
     total_count INT NOT NULL DEFAULT 5 COMMENT '문항 수. 초기 정책은 5',
     correct_count INT NOT NULL DEFAULT 0 COMMENT '정답 수',
     score INT NOT NULL DEFAULT 0 COMMENT '리더보드 반영 점수',
+    reward_policy_id BIGINT NULL COMMENT '완료 시 적용한 DAILY_QUEST_REWARD 정책 버전',
     point_transaction_id BIGINT NULL COMMENT '완료 보상 원장',
     completed_at DATETIME NULL COMMENT '완료 일시',
     CONSTRAINT pk_daily_quests PRIMARY KEY (daily_quest_id),
     CONSTRAINT uq_daily_quests_user_date UNIQUE (user_id, quest_date),
+    CONSTRAINT uq_daily_quests_point_transaction UNIQUE (point_transaction_id),
     CONSTRAINT fk_daily_quests_user
       FOREIGN KEY (user_id) REFERENCES users (user_id)
+          ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CONSTRAINT fk_daily_quests_reward_policy
+      FOREIGN KEY (reward_policy_id) REFERENCES system_policies (policy_id)
           ON UPDATE RESTRICT ON DELETE RESTRICT,
     CONSTRAINT fk_daily_quests_point_transaction
       FOREIGN KEY (point_transaction_id) REFERENCES point_transactions (point_transaction_id)
@@ -483,7 +503,6 @@ CREATE TABLE daily_quest_items (
     daily_quest_item_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '일일 문항 배정 식별자',
     daily_quest_id BIGINT NOT NULL COMMENT '소속 일일 퀘스트',
     question_id BIGINT NOT NULL COMMENT '배정한 특정 문항 버전 행',
-    source_type VARCHAR(20) NOT NULL COMMENT 'GENERAL, WRONG_RETRY, NEWS',
     display_order INT NOT NULL COMMENT '1~5 노출 순서',
     question_snapshot_json JSON NOT NULL COMMENT '배정 당시 시나리오를 포함한 문항 전체 스냅샷',
     user_answer_json JSON NULL COMMENT '사용자 답안',
@@ -492,15 +511,13 @@ CREATE TABLE daily_quest_items (
     created_at DATETIME NOT NULL COMMENT '배정 일시',
     CONSTRAINT pk_daily_quest_items PRIMARY KEY (daily_quest_item_id),
     CONSTRAINT uq_daily_quest_items_order UNIQUE (daily_quest_id, display_order),
+    CONSTRAINT uq_daily_quest_items_question UNIQUE (daily_quest_id, question_id),
     CONSTRAINT fk_daily_quest_items_quest
        FOREIGN KEY (daily_quest_id) REFERENCES daily_quests (daily_quest_id)
            ON UPDATE RESTRICT ON DELETE RESTRICT,
     CONSTRAINT fk_daily_quest_items_question
        FOREIGN KEY (question_id) REFERENCES quiz_questions (question_id)
            ON UPDATE RESTRICT ON DELETE RESTRICT,
-    CONSTRAINT chk_daily_quest_items_source CHECK (
-       source_type IN ('GENERAL', 'WRONG_RETRY', 'NEWS')
-       ),
     CONSTRAINT chk_daily_quest_items_order CHECK (display_order BETWEEN 1 AND 5),
     INDEX idx_daily_quest_items_question (question_id)
 ) ENGINE = InnoDB COMMENT = '일일 퀘스트 문항 배정·답안·채점 이력';

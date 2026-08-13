@@ -1,0 +1,342 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.dailyquest.mapper.DailyQuestMapper">
+
+    <resultMap id="dailyQuestResultMap"
+               type="org.firstfolio.dailyquest.domain.DailyQuest">
+        <id property="dailyQuestId" column="daily_quest_id" />
+        <result property="userId" column="user_id" />
+        <result property="questDate" column="quest_date" />
+        <result property="status" column="status" />
+        <result property="totalCount" column="total_count" />
+        <result property="correctCount" column="correct_count" />
+        <result property="score" column="score" />
+        <result property="rewardPolicyId" column="reward_policy_id" />
+        <result property="pointTransactionId" column="point_transaction_id" />
+        <result property="completedAt" column="completed_at" />
+    </resultMap>
+
+    <resultMap id="dailyQuestItemResultMap"
+               type="org.firstfolio.dailyquest.domain.DailyQuestItem">
+        <id property="dailyQuestItemId" column="daily_quest_item_id" />
+        <result property="dailyQuestId" column="daily_quest_id" />
+        <result property="questionId" column="question_id" />
+        <result property="displayOrder" column="display_order" />
+        <result property="questionSnapshotJson" column="question_snapshot_json" />
+        <result property="userAnswerJson" column="user_answer_json" />
+        <result property="correct" column="is_correct" />
+        <result property="answeredAt" column="answered_at" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <resultMap id="dailyQuestWrongAnswerResultMap"
+               type="org.firstfolio.dailyquest.domain.DailyQuestWrongAnswer">
+        <id property="questionKey" column="question_key" />
+        <result property="mainChapterId" column="main_chapter_id" />
+        <result property="subChapterId" column="sub_chapter_id" />
+        <result property="answeredAt" column="answered_at" />
+        <result property="wrongCount" column="wrong_count" />
+    </resultMap>
+
+    <sql id="dailyQuestColumns">
+        daily_quest_id,
+        user_id,
+        quest_date,
+        status,
+        total_count,
+        correct_count,
+        score,
+        reward_policy_id,
+        point_transaction_id,
+        completed_at
+    </sql>
+
+    <sql id="dailyQuestItemColumns">
+        daily_quest_item_id,
+        daily_quest_id,
+        question_id,
+        display_order,
+        question_snapshot_json,
+        user_answer_json,
+        is_correct,
+        answered_at,
+        created_at
+    </sql>
+
+    <select id="findUserIdForUpdate" resultType="java.lang.Long">
+        SELECT user_id
+        FROM users
+        WHERE user_id = #{userId}
+        FOR UPDATE
+    </select>
+
+    <select id="findByUserIdAndQuestDate"
+            resultMap="dailyQuestResultMap">
+        SELECT <include refid="dailyQuestColumns" />
+        FROM daily_quests
+        WHERE user_id = #{userId}
+          AND quest_date = #{questDate}
+    </select>
+
+    <select id="findByUserIdAndQuestDateForUpdate"
+            resultMap="dailyQuestResultMap">
+        SELECT <include refid="dailyQuestColumns" />
+        FROM daily_quests
+        WHERE user_id = #{userId}
+          AND quest_date = #{questDate}
+        FOR UPDATE
+    </select>
+
+    <select id="findByIdForUpdate" resultMap="dailyQuestResultMap">
+        SELECT <include refid="dailyQuestColumns" />
+        FROM daily_quests
+        WHERE daily_quest_id = #{dailyQuestId}
+        FOR UPDATE
+    </select>
+
+    <select id="findItemsByDailyQuestId"
+            resultMap="dailyQuestItemResultMap">
+        SELECT <include refid="dailyQuestItemColumns" />
+        FROM daily_quest_items
+        WHERE daily_quest_id = #{dailyQuestId}
+        ORDER BY display_order
+    </select>
+
+    <select id="findItemsByDailyQuestIdForUpdate"
+            resultMap="dailyQuestItemResultMap">
+        SELECT <include refid="dailyQuestItemColumns" />
+        FROM daily_quest_items
+        WHERE daily_quest_id = #{dailyQuestId}
+        ORDER BY display_order
+        FOR UPDATE
+    </select>
+
+    <select id="findUnresolvedWrongAnswers"
+            resultMap="dailyQuestWrongAnswerResultMap">
+        WITH answer_history AS (
+            SELECT
+                question.question_key,
+                FIRST_VALUE(question.main_chapter_id) OVER (
+                    PARTITION BY question.question_key
+                    ORDER BY answer.answered_at DESC,
+                             answer.quiz_answer_id DESC
+                ) AS main_chapter_id,
+                FIRST_VALUE(question.sub_chapter_id) OVER (
+                    PARTITION BY question.question_key
+                    ORDER BY answer.answered_at DESC,
+                             answer.quiz_answer_id DESC
+                ) AS sub_chapter_id,
+                FIRST_VALUE(question.usage_type) OVER (
+                    PARTITION BY question.question_key
+                    ORDER BY answer.answered_at DESC,
+                             answer.quiz_answer_id DESC
+                ) AS usage_type,
+                answer.is_correct,
+                answer.answered_at,
+                SUM(CASE WHEN answer.is_correct = TRUE THEN 1 ELSE 0 END)
+                OVER (
+                    PARTITION BY question.question_key
+                    ORDER BY answer.answered_at DESC,
+                             answer.quiz_answer_id DESC
+                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                ) AS later_correct_count
+            FROM quiz_answers answer
+            INNER JOIN quiz_attempts attempt
+                    ON attempt.attempt_id = answer.attempt_id
+            INNER JOIN quiz_questions question
+                    ON question.question_id = answer.question_id
+            WHERE attempt.user_id = #{userId}
+              AND answer.is_correct IS NOT NULL
+              AND question.usage_type IN (
+                  'LEVEL_TEST',
+                  'SUB_CHAPTER',
+                  'MAIN_CHAPTER'
+              )
+        )
+        SELECT
+            latest.question_key,
+            latest.main_chapter_id,
+            latest.sub_chapter_id,
+            MAX(latest.answered_at) AS answered_at,
+            COUNT(*) AS wrong_count
+        FROM answer_history latest
+        WHERE latest.is_correct = FALSE
+          AND latest.later_correct_count = 0
+          AND NOT (
+              latest.usage_type = 'LEVEL_TEST'
+              AND EXISTS (
+                  SELECT 1
+                  FROM user_curriculum_items curriculum
+                  WHERE curriculum.user_id = #{userId}
+                    AND curriculum.main_chapter_id = latest.main_chapter_id
+                    AND curriculum.completed_at IS NOT NULL
+              )
+          )
+        GROUP BY
+            latest.question_key,
+            latest.main_chapter_id,
+            latest.sub_chapter_id,
+            latest.usage_type
+        ORDER BY answered_at DESC, latest.question_key
+    </select>
+
+    <select id="findRecentlyAssignedGeneralQuestionKeys"
+            resultType="java.lang.String">
+        SELECT DISTINCT question.question_key
+        FROM daily_quests quest
+        INNER JOIN daily_quest_items item
+                ON item.daily_quest_id = quest.daily_quest_id
+        INNER JOIN quiz_questions question
+                ON question.question_id = item.question_id
+        WHERE quest.user_id = #{userId}
+          AND quest.quest_date &gt;= #{fromDate}
+          AND quest.quest_date &lt; #{questDate}
+          AND question.usage_type = 'DAILY_GENERAL'
+        ORDER BY question.question_key
+    </select>
+
+    <select id="findQuestIdByItemIdAndUserId"
+            resultType="java.lang.Long">
+        SELECT quest.daily_quest_id
+        FROM daily_quest_items item
+        INNER JOIN daily_quests quest
+                ON quest.daily_quest_id = item.daily_quest_id
+        WHERE item.daily_quest_item_id = #{dailyQuestItemId}
+          AND quest.user_id = #{userId}
+    </select>
+
+    <select id="findItemByIdAndUserIdForUpdate"
+            resultMap="dailyQuestItemResultMap">
+        SELECT
+            item.daily_quest_item_id,
+            item.daily_quest_id,
+            item.question_id,
+            item.display_order,
+            item.question_snapshot_json,
+            item.user_answer_json,
+            item.is_correct,
+            item.answered_at,
+            item.created_at
+        FROM daily_quest_items item
+        INNER JOIN daily_quests quest
+                ON quest.daily_quest_id = item.daily_quest_id
+        WHERE item.daily_quest_item_id = #{dailyQuestItemId}
+          AND quest.user_id = #{userId}
+        FOR UPDATE
+    </select>
+
+    <select id="countItemsByDailyQuestId" resultType="int">
+        SELECT COUNT(*)
+        FROM daily_quest_items
+        WHERE daily_quest_id = #{dailyQuestId}
+    </select>
+
+    <select id="countAnsweredItemsByDailyQuestId" resultType="int">
+        SELECT COUNT(*)
+        FROM daily_quest_items
+        WHERE daily_quest_id = #{dailyQuestId}
+          AND user_answer_json IS NOT NULL
+    </select>
+
+    <insert id="insertQuest"
+            parameterType="org.firstfolio.dailyquest.domain.DailyQuest"
+            useGeneratedKeys="true"
+            keyProperty="dailyQuestId"
+            keyColumn="daily_quest_id">
+        INSERT INTO daily_quests (
+            user_id,
+            quest_date,
+            status,
+            total_count,
+            correct_count,
+            score,
+            reward_policy_id,
+            point_transaction_id,
+            completed_at
+        ) VALUES (
+            #{userId},
+            #{questDate},
+            #{status},
+            #{totalCount},
+            #{correctCount},
+            #{score},
+            #{rewardPolicyId,jdbcType=BIGINT},
+            #{pointTransactionId,jdbcType=BIGINT},
+            #{completedAt,jdbcType=TIMESTAMP}
+        )
+    </insert>
+
+    <insert id="insertItem"
+            parameterType="org.firstfolio.dailyquest.domain.DailyQuestItem"
+            useGeneratedKeys="true"
+            keyProperty="dailyQuestItemId"
+            keyColumn="daily_quest_item_id">
+        INSERT INTO daily_quest_items (
+            daily_quest_id,
+            question_id,
+            display_order,
+            question_snapshot_json,
+            user_answer_json,
+            is_correct,
+            answered_at,
+            created_at
+        ) VALUES (
+            #{dailyQuestId},
+            #{questionId},
+            #{displayOrder},
+            #{questionSnapshotJson},
+            #{userAnswerJson,jdbcType=VARCHAR},
+            #{correct,jdbcType=BOOLEAN},
+            #{answeredAt,jdbcType=TIMESTAMP},
+            #{createdAt}
+        )
+    </insert>
+
+    <update id="saveAnswer"
+            parameterType="org.firstfolio.dailyquest.domain.DailyQuestItem">
+        UPDATE daily_quest_items
+        SET user_answer_json = #{userAnswerJson},
+            is_correct = NULL,
+            answered_at = #{answeredAt}
+        WHERE daily_quest_item_id = #{dailyQuestItemId}
+          AND daily_quest_id = #{dailyQuestId}
+          AND is_correct IS NULL
+    </update>
+
+    <update id="markInProgressIfAssigned">
+        UPDATE daily_quests
+        SET status = 'IN_PROGRESS'
+        WHERE daily_quest_id = #{dailyQuestId}
+          AND status = 'ASSIGNED'
+    </update>
+
+    <update id="gradeItem"
+            parameterType="org.firstfolio.dailyquest.domain.DailyQuestItem">
+        UPDATE daily_quest_items
+        SET is_correct = #{correct}
+        WHERE daily_quest_item_id = #{dailyQuestItemId}
+          AND daily_quest_id = #{dailyQuestId}
+          AND user_answer_json IS NOT NULL
+          AND is_correct IS NULL
+    </update>
+
+    <update id="completeQuestIfInProgress"
+            parameterType="org.firstfolio.dailyquest.domain.DailyQuest">
+        UPDATE daily_quests
+        SET status = #{status},
+            correct_count = #{correctCount},
+            score = #{score},
+            reward_policy_id = #{rewardPolicyId},
+            point_transaction_id = #{pointTransactionId,jdbcType=BIGINT},
+            completed_at = #{completedAt}
+        WHERE daily_quest_id = #{dailyQuestId}
+          AND user_id = #{userId}
+          AND quest_date = #{questDate}
+          AND status = 'IN_PROGRESS'
+          AND completed_at IS NULL
+    </update>
+
+</mapper>
