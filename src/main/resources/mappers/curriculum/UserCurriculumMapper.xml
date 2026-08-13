@@ -20,18 +20,18 @@
     <resultMap id="curriculumOverviewItemResultMap"
                type="org.firstfolio.curriculum.domain.CurriculumOverviewItem">
         <constructor>
-            <arg column="curriculum_item_id" javaType="long" />
-            <arg column="main_chapter_id" javaType="long" />
+            <arg column="curriculum_item_id" javaType="_long" />
+            <arg column="main_chapter_id" javaType="_long" />
             <arg column="title" javaType="java.lang.String" />
             <arg column="chapter_type"
                  javaType="org.firstfolio.curriculum.domain.ChapterType" />
-            <arg column="display_order" javaType="int" />
+            <arg column="display_order" javaType="_int" />
             <arg column="source_type"
                  javaType="org.firstfolio.curriculum.domain.CurriculumSourceType" />
             <arg column="status"
                  javaType="org.firstfolio.curriculum.domain.CurriculumItemStatus" />
             <arg column="completed_at" javaType="java.time.LocalDateTime" />
-            <arg column="progress_percent" javaType="int" />
+            <arg column="progress_percent" javaType="_int" />
         </constructor>
     </resultMap>
 
