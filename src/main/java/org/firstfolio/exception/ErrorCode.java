@@ -54,6 +54,9 @@ public enum ErrorCode {
     // 일일 퀘스트
     DAILY_QUEST_NOT_AVAILABLE(HttpStatus.FORBIDDEN, "현재 조건에서는 일일 퀘스트를 배정할 수 없습니다."),
     DAILY_QUEST_POOL_UNAVAILABLE(HttpStatus.UNPROCESSABLE_ENTITY, "일일 퀘스트 문항을 충분히 확보할 수 없습니다."),
+    DAILY_QUEST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "오늘의 일일 퀘스트 문항을 찾을 수 없습니다."),
+    DAILY_QUEST_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 완료된 일일 퀘스트입니다."),
+    INVALID_ANSWER(HttpStatus.UNPROCESSABLE_ENTITY, "문항 형식에 맞지 않는 답안입니다."),
 
     // 온보딩 레벨 테스트·개인 커리큘럼
     LEVEL_TEST_QUESTION_SET_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "레벨 테스트 문항 구성이 올바르지 않습니다."),

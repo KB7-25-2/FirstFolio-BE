@@ -189,6 +189,16 @@
         ORDER BY question.question_key
     </select>
 
+    <select id="findQuestIdByItemIdAndUserId"
+            resultType="java.lang.Long">
+        SELECT quest.daily_quest_id
+        FROM daily_quest_items item
+        INNER JOIN daily_quests quest
+                ON quest.daily_quest_id = item.daily_quest_id
+        WHERE item.daily_quest_item_id = #{dailyQuestItemId}
+          AND quest.user_id = #{userId}
+    </select>
+
     <select id="findItemByIdAndUserIdForUpdate"
             resultMap="dailyQuestItemResultMap">
         SELECT
@@ -275,5 +285,23 @@
             #{createdAt}
         )
     </insert>
+
+    <update id="saveAnswer"
+            parameterType="org.firstfolio.dailyquest.domain.DailyQuestItem">
+        UPDATE daily_quest_items
+        SET user_answer_json = #{userAnswerJson},
+            is_correct = NULL,
+            answered_at = #{answeredAt}
+        WHERE daily_quest_item_id = #{dailyQuestItemId}
+          AND daily_quest_id = #{dailyQuestId}
+          AND is_correct IS NULL
+    </update>
+
+    <update id="markInProgressIfAssigned">
+        UPDATE daily_quests
+        SET status = 'IN_PROGRESS'
+        WHERE daily_quest_id = #{dailyQuestId}
+          AND status = 'ASSIGNED'
+    </update>
 
 </mapper>

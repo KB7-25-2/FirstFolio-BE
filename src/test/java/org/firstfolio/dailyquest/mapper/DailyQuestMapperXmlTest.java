@@ -42,11 +42,14 @@ class DailyQuestMapperXmlTest {
                 "findItemsByDailyQuestId",
                 "findUnresolvedWrongAnswers",
                 "findRecentlyAssignedGeneralQuestionKeys",
+                "findQuestIdByItemIdAndUserId",
                 "findItemByIdAndUserIdForUpdate",
                 "countItemsByDailyQuestId",
                 "countAnsweredItemsByDailyQuestId",
                 "insertQuest",
-                "insertItem"
+                "insertItem",
+                "saveAnswer",
+                "markInProgressIfAssigned"
         }) {
             assertTrue(configuration.hasStatement(
                     DailyQuestMapper.class.getName() + "." + statement
@@ -117,6 +120,42 @@ class DailyQuestMapperXmlTest {
         ));
         assertTrue(normalizedRecentKeysSql.contains(
                 "question.usage_type = 'DAILY_GENERAL'"
+        ));
+
+        BoundSql itemQuestSql = configuration.getMappedStatement(
+                        DailyQuestMapper.class.getName()
+                                + ".findQuestIdByItemIdAndUserId"
+                )
+                .getBoundSql(Map.of(
+                        "dailyQuestItemId",
+                        5001L,
+                        "userId",
+                        10L
+                ));
+        String normalizedItemQuestSql = normalize(itemQuestSql.getSql());
+        assertTrue(normalizedItemQuestSql.contains(
+                "item.daily_quest_item_id = ? AND quest.user_id = ?"
+        ));
+
+        BoundSql answerSaveSql = configuration.getMappedStatement(
+                        DailyQuestMapper.class.getName() + ".saveAnswer"
+                )
+                .getBoundSql(new org.firstfolio.dailyquest.domain.DailyQuestItem());
+        String normalizedAnswerSaveSql = normalize(answerSaveSql.getSql());
+        assertTrue(normalizedAnswerSaveSql.contains(
+                "SET user_answer_json = ?, is_correct = NULL, answered_at = ?"
+        ));
+        assertTrue(normalizedAnswerSaveSql.endsWith(
+                "AND daily_quest_id = ? AND is_correct IS NULL"
+        ));
+
+        BoundSql progressSql = configuration.getMappedStatement(
+                        DailyQuestMapper.class.getName()
+                                + ".markInProgressIfAssigned"
+                )
+                .getBoundSql(Map.of("dailyQuestId", 4001L));
+        assertTrue(normalize(progressSql.getSql()).endsWith(
+                "WHERE daily_quest_id = ? AND status = 'ASSIGNED'"
         ));
     }
 

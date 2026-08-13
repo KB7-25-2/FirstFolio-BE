@@ -42,6 +42,11 @@ public interface DailyQuestMapper {
             @Param("questDate") LocalDate questDate
     );
 
+    Long findQuestIdByItemIdAndUserId(
+            @Param("dailyQuestItemId") long dailyQuestItemId,
+            @Param("userId") long userId
+    );
+
     DailyQuestItem findItemByIdAndUserIdForUpdate(
             @Param("dailyQuestItemId") long dailyQuestItemId,
             @Param("userId") long userId
@@ -58,4 +63,10 @@ public interface DailyQuestMapper {
     int insertQuest(DailyQuest dailyQuest);
 
     int insertItem(DailyQuestItem item);
+
+    int saveAnswer(DailyQuestItem item);
+
+    int markInProgressIfAssigned(
+            @Param("dailyQuestId") long dailyQuestId
+    );
 }

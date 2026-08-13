@@ -19,6 +19,7 @@ import org.firstfolio.curriculum.dto.response.MainChapterPatchResponse;
 import org.firstfolio.curriculum.dto.response.SubChapterCreateResponse;
 import org.firstfolio.curriculum.dto.response.SubChapterListResponse;
 import org.firstfolio.curriculum.dto.response.SubChapterPatchResponse;
+import org.firstfolio.dailyquest.dto.response.DailyQuestAnswerSaveResponse;
 import org.firstfolio.dailyquest.dto.response.DailyQuestTodayResponse;
 import org.firstfolio.learning.dto.response.LessonContentResponse;
 import org.firstfolio.learning.dto.response.LearningProgressResponse;
@@ -146,6 +147,9 @@ public final class OpenApiResponseSchemas {
 
     @Schema(name = "DailyQuestTodayApiResponse")
     public record DailyQuestToday(DailyQuestTodayResponse data) { }
+
+    @Schema(name = "DailyQuestAnswerSaveApiResponse")
+    public record DailyQuestAnswerSave(DailyQuestAnswerSaveResponse data) { }
 
     @Schema(name = "PortfolioDetailApiResponse")
     public record PortfolioDetail(PortfolioDetailResponse data) { }
