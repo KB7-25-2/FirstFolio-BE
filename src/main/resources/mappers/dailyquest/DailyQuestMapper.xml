@@ -32,6 +32,15 @@
         <result property="createdAt" column="created_at" />
     </resultMap>
 
+    <resultMap id="dailyQuestWrongAnswerResultMap"
+               type="org.firstfolio.dailyquest.domain.DailyQuestWrongAnswer">
+        <id property="questionKey" column="question_key" />
+        <result property="mainChapterId" column="main_chapter_id" />
+        <result property="subChapterId" column="sub_chapter_id" />
+        <result property="answeredAt" column="answered_at" />
+        <result property="wrongCount" column="wrong_count" />
+    </resultMap>
+
     <sql id="dailyQuestColumns">
         daily_quest_id,
         user_id,
@@ -94,6 +103,90 @@
         FROM daily_quest_items
         WHERE daily_quest_id = #{dailyQuestId}
         ORDER BY display_order
+    </select>
+
+    <select id="findUnresolvedWrongAnswers"
+            resultMap="dailyQuestWrongAnswerResultMap">
+        WITH answer_history AS (
+            SELECT
+                question.question_key,
+                FIRST_VALUE(question.main_chapter_id) OVER (
+                    PARTITION BY question.question_key
+                    ORDER BY answer.answered_at DESC,
+                             answer.quiz_answer_id DESC
+                ) AS main_chapter_id,
+                FIRST_VALUE(question.sub_chapter_id) OVER (
+                    PARTITION BY question.question_key
+                    ORDER BY answer.answered_at DESC,
+                             answer.quiz_answer_id DESC
+                ) AS sub_chapter_id,
+                FIRST_VALUE(question.usage_type) OVER (
+                    PARTITION BY question.question_key
+                    ORDER BY answer.answered_at DESC,
+                             answer.quiz_answer_id DESC
+                ) AS usage_type,
+                answer.is_correct,
+                answer.answered_at,
+                SUM(CASE WHEN answer.is_correct = TRUE THEN 1 ELSE 0 END)
+                OVER (
+                    PARTITION BY question.question_key
+                    ORDER BY answer.answered_at DESC,
+                             answer.quiz_answer_id DESC
+                    ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+                ) AS later_correct_count
+            FROM quiz_answers answer
+            INNER JOIN quiz_attempts attempt
+                    ON attempt.attempt_id = answer.attempt_id
+            INNER JOIN quiz_questions question
+                    ON question.question_id = answer.question_id
+            WHERE attempt.user_id = #{userId}
+              AND answer.is_correct IS NOT NULL
+              AND question.usage_type IN (
+                  'LEVEL_TEST',
+                  'SUB_CHAPTER',
+                  'MAIN_CHAPTER'
+              )
+        )
+        SELECT
+            latest.question_key,
+            latest.main_chapter_id,
+            latest.sub_chapter_id,
+            MAX(latest.answered_at) AS answered_at,
+            COUNT(*) AS wrong_count
+        FROM answer_history latest
+        WHERE latest.is_correct = FALSE
+          AND latest.later_correct_count = 0
+          AND NOT (
+              latest.usage_type = 'LEVEL_TEST'
+              AND EXISTS (
+                  SELECT 1
+                  FROM user_curriculum_items curriculum
+                  WHERE curriculum.user_id = #{userId}
+                    AND curriculum.main_chapter_id = latest.main_chapter_id
+                    AND curriculum.completed_at IS NOT NULL
+              )
+          )
+        GROUP BY
+            latest.question_key,
+            latest.main_chapter_id,
+            latest.sub_chapter_id,
+            latest.usage_type
+        ORDER BY answered_at DESC, latest.question_key
+    </select>
+
+    <select id="findRecentlyAssignedGeneralQuestionKeys"
+            resultType="java.lang.String">
+        SELECT DISTINCT question.question_key
+        FROM daily_quests quest
+        INNER JOIN daily_quest_items item
+                ON item.daily_quest_id = quest.daily_quest_id
+        INNER JOIN quiz_questions question
+                ON question.question_id = item.question_id
+        WHERE quest.user_id = #{userId}
+          AND quest.quest_date &gt;= #{fromDate}
+          AND quest.quest_date &lt; #{questDate}
+          AND question.usage_type = 'DAILY_GENERAL'
+        ORDER BY question.question_key
     </select>
 
     <select id="findItemByIdAndUserIdForUpdate"

@@ -57,6 +57,14 @@ class QuizQuestionMapperXmlTest {
                 QuizQuestionMapper.class.getName()
                         + ".findLatestPublishedLevelTestQuestions"
         ));
+        assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName()
+                        + ".findLatestPublishedDailyGeneralQuestions"
+        ));
+        assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName()
+                        + ".findLatestPublishedDailyNewsByQuestDate"
+        ));
         assertTrue(configuration.hasStatement(statementId));
 
         BoundSql boundSql = configuration.getMappedStatement(statementId)
@@ -108,6 +116,39 @@ class QuizQuestionMapperXmlTest {
         ));
         assertTrue(normalizedLevelTestSql.endsWith(
                 "ORDER BY chapter.display_order, question.display_order, question.question_id"
+        ));
+
+        BoundSql dailyGeneralSql = configuration.getMappedStatement(
+                        QuizQuestionMapper.class.getName()
+                                + ".findLatestPublishedDailyGeneralQuestions"
+                )
+                .getBoundSql(Map.of());
+        String normalizedDailyGeneralSql = normalize(
+                dailyGeneralSql.getSql()
+        );
+        assertTrue(normalizedDailyGeneralSql.contains(
+                "question.usage_type = 'DAILY_GENERAL'"
+        ));
+        assertTrue(normalizedDailyGeneralSql.contains(
+                "newer.status IN ('PUBLISHED', 'RETIRED')"
+        ));
+
+        BoundSql dailyNewsSql = configuration.getMappedStatement(
+                        QuizQuestionMapper.class.getName()
+                                + ".findLatestPublishedDailyNewsByQuestDate"
+                )
+                .getBoundSql(Map.of(
+                        "questDate",
+                        java.time.LocalDate.of(2026, 8, 13)
+                ));
+        String normalizedDailyNewsSql = normalize(dailyNewsSql.getSql());
+        assertTrue(normalizedDailyNewsSql.contains(
+                "question.usage_type = 'DAILY_NEWS' "
+                        + "AND question.quest_date = ?"
+        ));
+        assertTrue(normalizedDailyNewsSql.endsWith(
+                "ORDER BY question.published_at DESC, "
+                        + "question.question_id DESC LIMIT 1"
         ));
     }
 

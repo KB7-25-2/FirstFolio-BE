@@ -16,11 +16,32 @@ import org.firstfolio.quiz.domain.QuizQuestionType;
 import java.util.ArrayList;
 import java.util.List;
 
-final class QuizQuestionSnapshotCodec {
+public final class QuizQuestionSnapshotCodec {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    String createSnapshot(QuizQuestion question) {
+    public String createSnapshot(QuizQuestion question) {
+        return writeSnapshot(createContentSnapshot(question));
+    }
+
+    public String createVersionedSnapshot(QuizQuestion question) {
+        ObjectNode snapshot = createContentSnapshot(question);
+        snapshot.put("question_key", question.getQuestionKey());
+        snapshot.put("version_no", question.getVersionNo());
+        snapshot.put("usage_type", question.getUsageType().name());
+        if (question.getQuestDate() == null) {
+            snapshot.putNull("quest_date");
+        } else {
+            snapshot.put("quest_date", question.getQuestDate().toString());
+        }
+        snapshot.set(
+                "source_refs_json",
+                parseNullableJson(question.getSourceRefsJson())
+        );
+        return writeSnapshot(snapshot);
+    }
+
+    private ObjectNode createContentSnapshot(QuizQuestion question) {
         ObjectNode snapshot = objectMapper.createObjectNode();
         snapshot.put("question_type", question.getQuestionType().name());
         snapshot.put("generation_type", question.getGenerationType().name());
@@ -32,7 +53,10 @@ final class QuizQuestionSnapshotCodec {
                 parseRequiredJson(question.getCorrectAnswerJson())
         );
         snapshot.put("explanation", question.getExplanation());
+        return snapshot;
+    }
 
+    private String writeSnapshot(ObjectNode snapshot) {
         try {
             return objectMapper.writeValueAsString(snapshot);
         } catch (JsonProcessingException exception) {

@@ -175,6 +175,40 @@
                  question.question_id
     </select>
 
+    <select id="findLatestPublishedDailyGeneralQuestions"
+            resultMap="questionResultMap">
+        SELECT <include refid="questionColumns" />
+        FROM quiz_questions question
+        WHERE question.usage_type = 'DAILY_GENERAL'
+          AND question.status = 'PUBLISHED'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM quiz_questions newer
+              WHERE newer.question_key = question.question_key
+                AND newer.version_no &gt; question.version_no
+                AND newer.status IN ('PUBLISHED', 'RETIRED')
+          )
+        ORDER BY question.question_id
+    </select>
+
+    <select id="findLatestPublishedDailyNewsByQuestDate"
+            resultMap="questionResultMap">
+        SELECT <include refid="questionColumns" />
+        FROM quiz_questions question
+        WHERE question.usage_type = 'DAILY_NEWS'
+          AND question.quest_date = #{questDate}
+          AND question.status = 'PUBLISHED'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM quiz_questions newer
+              WHERE newer.question_key = question.question_key
+                AND newer.version_no &gt; question.version_no
+                AND newer.status IN ('PUBLISHED', 'RETIRED')
+          )
+        ORDER BY question.published_at DESC, question.question_id DESC
+        LIMIT 1
+    </select>
+
     <insert id="insert"
             parameterType="org.firstfolio.quiz.domain.QuizQuestion"
             useGeneratedKeys="true"

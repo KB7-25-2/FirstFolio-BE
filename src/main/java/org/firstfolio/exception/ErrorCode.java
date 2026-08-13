@@ -51,6 +51,10 @@ public enum ErrorCode {
     INVALID_SELECTED_CHOICE(HttpStatus.UNPROCESSABLE_ENTITY, "선택한 답안이 올바르지 않습니다."),
     SUB_CHAPTERS_INCOMPLETE(HttpStatus.FORBIDDEN, "대단원의 모든 소단원 학습을 먼저 완료해야 합니다."),
 
+    // 일일 퀘스트
+    DAILY_QUEST_NOT_AVAILABLE(HttpStatus.FORBIDDEN, "현재 조건에서는 일일 퀘스트를 배정할 수 없습니다."),
+    DAILY_QUEST_POOL_UNAVAILABLE(HttpStatus.UNPROCESSABLE_ENTITY, "일일 퀘스트 문항을 충분히 확보할 수 없습니다."),
+
     // 온보딩 레벨 테스트·개인 커리큘럼
     LEVEL_TEST_QUESTION_SET_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "레벨 테스트 문항 구성이 올바르지 않습니다."),
     LEVEL_TEST_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 레벨 테스트를 완료했습니다."),

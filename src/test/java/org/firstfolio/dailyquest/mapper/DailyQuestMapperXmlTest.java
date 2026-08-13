@@ -40,6 +40,8 @@ class DailyQuestMapperXmlTest {
                 "findByUserIdAndQuestDateForUpdate",
                 "findByIdForUpdate",
                 "findItemsByDailyQuestId",
+                "findUnresolvedWrongAnswers",
+                "findRecentlyAssignedGeneralQuestionKeys",
                 "findItemByIdAndUserIdForUpdate",
                 "countItemsByDailyQuestId",
                 "countAnsweredItemsByDailyQuestId",
@@ -72,6 +74,49 @@ class DailyQuestMapperXmlTest {
         assertTrue(normalizedInsertSql.contains(
                 "INSERT INTO daily_quest_items "
                         + "( daily_quest_id, question_id, display_order"
+        ));
+
+        BoundSql wrongAnswersSql = configuration.getMappedStatement(
+                        DailyQuestMapper.class.getName()
+                                + ".findUnresolvedWrongAnswers"
+                )
+                .getBoundSql(Map.of("userId", 10L));
+        String normalizedWrongAnswersSql = normalize(
+                wrongAnswersSql.getSql()
+        );
+        assertTrue(normalizedWrongAnswersSql.contains(
+                "FIRST_VALUE(question.main_chapter_id) OVER "
+                        + "( PARTITION BY question.question_key"
+        ));
+        assertTrue(normalizedWrongAnswersSql.contains(
+                "latest.is_correct = FALSE "
+                        + "AND latest.later_correct_count = 0"
+        ));
+        assertTrue(normalizedWrongAnswersSql.contains(
+                "COUNT(*) AS wrong_count"
+        ));
+        assertTrue(normalizedWrongAnswersSql.contains(
+                "latest.usage_type = 'LEVEL_TEST' AND EXISTS"
+        ));
+
+        BoundSql recentKeysSql = configuration.getMappedStatement(
+                        DailyQuestMapper.class.getName()
+                                + ".findRecentlyAssignedGeneralQuestionKeys"
+                )
+                .getBoundSql(Map.of(
+                        "userId",
+                        10L,
+                        "fromDate",
+                        LocalDate.of(2026, 8, 6),
+                        "questDate",
+                        LocalDate.of(2026, 8, 13)
+                ));
+        String normalizedRecentKeysSql = normalize(recentKeysSql.getSql());
+        assertTrue(normalizedRecentKeysSql.contains(
+                "quest.quest_date >= ? AND quest.quest_date < ?"
+        ));
+        assertTrue(normalizedRecentKeysSql.contains(
+                "question.usage_type = 'DAILY_GENERAL'"
         ));
     }
 

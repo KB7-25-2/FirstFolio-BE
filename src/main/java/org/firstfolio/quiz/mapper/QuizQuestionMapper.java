@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Param;
 import org.firstfolio.quiz.domain.QuizQuestion;
 import org.firstfolio.quiz.domain.QuizQuestionReference;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Mapper
@@ -31,6 +32,12 @@ public interface QuizQuestionMapper {
     );
 
     List<QuizQuestion> findLatestPublishedLevelTestQuestions();
+
+    List<QuizQuestion> findLatestPublishedDailyGeneralQuestions();
+
+    QuizQuestion findLatestPublishedDailyNewsByQuestDate(
+            @Param("questDate") LocalDate questDate
+    );
 
     int insert(QuizQuestion question);
 }

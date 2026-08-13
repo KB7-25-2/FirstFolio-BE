@@ -4,6 +4,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.firstfolio.dailyquest.domain.DailyQuest;
 import org.firstfolio.dailyquest.domain.DailyQuestItem;
+import org.firstfolio.dailyquest.domain.DailyQuestWrongAnswer;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -29,6 +30,16 @@ public interface DailyQuestMapper {
 
     List<DailyQuestItem> findItemsByDailyQuestId(
             @Param("dailyQuestId") long dailyQuestId
+    );
+
+    List<DailyQuestWrongAnswer> findUnresolvedWrongAnswers(
+            @Param("userId") long userId
+    );
+
+    List<String> findRecentlyAssignedGeneralQuestionKeys(
+            @Param("userId") long userId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("questDate") LocalDate questDate
     );
 
     DailyQuestItem findItemByIdAndUserIdForUpdate(
