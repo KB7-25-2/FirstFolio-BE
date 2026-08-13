@@ -48,6 +48,7 @@
   },
   "explanation": "제시된 조건을 모두 충족하는 선택지입니다.",
   "generation_type": "AI",
+  "quest_date": null,
   "source_refs_json": [
     {
       "knowledge_content_id": 9001,

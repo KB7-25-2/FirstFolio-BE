@@ -23,5 +23,6 @@
   },
   "explanation": "정답에 대한 해설입니다.",
   "generation_type": "HUMAN",
+  "quest_date": null,
   "source_refs_json": null
 }

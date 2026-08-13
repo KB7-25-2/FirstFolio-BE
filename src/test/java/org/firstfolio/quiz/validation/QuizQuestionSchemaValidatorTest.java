@@ -44,6 +44,38 @@ class QuizQuestionSchemaValidatorTest {
     }
 
     @Test
+    void acceptsDailyGeneralAndDatedDailyNewsQuestions() throws IOException {
+        ObjectNode general = humanSingleChoice();
+        general.put("usage_type", "DAILY_GENERAL");
+        general.putNull("sub_chapter_id");
+
+        ObjectNode news = aiScenario();
+        news.put("usage_type", "DAILY_NEWS");
+        news.putNull("main_chapter_id");
+        news.put("quest_date", "2026-08-13");
+
+        assertTrue(validate(general).isValid());
+        assertTrue(validate(news).isValid());
+    }
+
+    @Test
+    void rejectsDailyNewsWithoutQuestDateOrAiScenarioContract()
+            throws IOException {
+        ObjectNode missingDate = aiScenario();
+        missingDate.put("usage_type", "DAILY_NEWS");
+        missingDate.putNull("main_chapter_id");
+
+        ObjectNode humanNews = humanSingleChoice();
+        humanNews.put("usage_type", "DAILY_NEWS");
+        humanNews.putNull("main_chapter_id");
+        humanNews.putNull("sub_chapter_id");
+        humanNews.put("quest_date", "2026-08-13");
+
+        assertSchemaViolation(validate(missingDate));
+        assertSchemaViolation(validate(humanNews));
+    }
+
+    @Test
     void acceptsTrueFalseQuestionWithOAndXOptions() throws IOException {
         ObjectNode question = humanSingleChoice();
         question.put("question_type", "TRUE_FALSE");
@@ -137,14 +169,27 @@ class QuizQuestionSchemaValidatorTest {
     }
 
     @Test
-    void rejectsSourceReferencesThatDoNotMatchGenerationType() throws IOException {
+    void acceptsAiQuestionWithoutSourceReferences() throws IOException {
         ObjectNode aiWithoutSources = humanSingleChoice();
         aiWithoutSources.put("generation_type", "AI");
+
+        assertTrue(validate(aiWithoutSources).isValid());
+    }
+
+    @Test
+    void rejectsHumanQuestionWithSourceReferences() throws IOException {
         ObjectNode humanWithSources = aiScenario();
         humanWithSources.put("generation_type", "HUMAN");
 
-        assertSchemaViolation(validate(aiWithoutSources));
         assertSchemaViolation(validate(humanWithSources));
+    }
+
+    @Test
+    void rejectsEmptyAiSourceReferences() throws IOException {
+        ObjectNode question = aiScenario();
+        question.putArray("source_refs_json");
+
+        assertSchemaViolation(validate(question));
     }
 
     @Test

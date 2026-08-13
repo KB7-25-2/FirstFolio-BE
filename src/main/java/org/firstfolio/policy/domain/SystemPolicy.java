@@ -5,8 +5,9 @@ import java.time.LocalDateTime;
 /**
  * {@code system_policies} 한 행. <b>버전이 붙은 운영 정책</b>이다.
  *
- * <p>여덟 개 도메인이 {@code policy_key}로 나눠 쓴다 — {@code QUIZ_REWARD}, {@code ATTENDANCE},
- * {@code LEADERBOARD}, {@code SIMULATION}, {@code TRADE}, {@code RESET}, {@code GIFTICON},
+ * <p>도메인별로 {@code policy_key}를 나눠 쓴다 — {@code QUIZ_REWARD},
+ * {@code DAILY_QUEST_REWARD}, {@code ATTENDANCE}, {@code LEADERBOARD},
+ * {@code SIMULATION}, {@code TRADE}, {@code RESET}, {@code GIFTICON},
  * {@code AI_REVIEW}. <b>내용({@code configJson})은 키마다 완전히 다르므로 해석은 각 도메인이 한다.</b>
  * 이 클래스는 어느 행이 지금 유효한지까지만 다룬다.</p>
  *

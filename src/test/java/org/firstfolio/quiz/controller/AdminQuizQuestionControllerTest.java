@@ -180,6 +180,7 @@ class AdminQuizQuestionControllerTest {
                 "해설",
                 QuizGenerationType.HUMAN,
                 null,
+                null,
                 900L,
                 LocalDateTime.of(2026, 8, 10, 6, 0)
         );

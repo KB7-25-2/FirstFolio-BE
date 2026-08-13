@@ -1,5 +1,6 @@
 package org.firstfolio.quiz.domain;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class QuizQuestion {
@@ -19,6 +20,7 @@ public class QuizQuestion {
     private String correctAnswerJson;
     private String explanation;
     private QuizGenerationType generationType;
+    private LocalDate questDate;
     private String sourceRefsJson;
     private QuizQuestionStatus status;
     private long createdBy;
@@ -43,6 +45,7 @@ public class QuizQuestion {
             String correctAnswerJson,
             String explanation,
             QuizGenerationType generationType,
+            LocalDate questDate,
             String sourceRefsJson,
             long createdBy,
             LocalDateTime createdAt
@@ -62,6 +65,7 @@ public class QuizQuestion {
         question.correctAnswerJson = correctAnswerJson;
         question.explanation = explanation;
         question.generationType = generationType;
+        question.questDate = questDate;
         question.sourceRefsJson = sourceRefsJson;
         question.status = QuizQuestionStatus.DRAFT;
         question.createdBy = createdBy;
@@ -187,6 +191,14 @@ public class QuizQuestion {
 
     public void setGenerationType(QuizGenerationType generationType) {
         this.generationType = generationType;
+    }
+
+    public LocalDate getQuestDate() {
+        return questDate;
+    }
+
+    public void setQuestDate(LocalDate questDate) {
+        this.questDate = questDate;
     }
 
     public String getSourceRefsJson() {

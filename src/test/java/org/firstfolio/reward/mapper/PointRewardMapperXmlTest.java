@@ -14,9 +14,10 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class QuizRewardMapperXmlTest {
+class PointRewardMapperXmlTest {
 
-    private static final String RESOURCE = "mappers/reward/QuizRewardMapper.xml";
+    private static final String RESOURCE =
+            "mappers/reward/PointRewardMapper.xml";
 
     @Test
     void parsesPolicyBalanceAndLedgerStatements() throws IOException {
@@ -30,7 +31,7 @@ class QuizRewardMapperXmlTest {
             ).parse();
         }
 
-        assertTrue(configuration.hasMapper(QuizRewardMapper.class));
+        assertTrue(configuration.hasMapper(PointRewardMapper.class));
         assertTrue(configuration.hasStatement(id("findActivePolicyAt")));
         assertTrue(configuration.hasStatement(id("findTransactionById")));
         assertTrue(configuration.hasStatement(id("increasePointBalance")));
@@ -41,11 +42,13 @@ class QuizRewardMapperXmlTest {
                         id("findActivePolicyAt")
                 )
                 .getBoundSql(Map.of(
-                        "policyKey", "QUIZ_REWARD",
-                        "effectiveAt", LocalDateTime.of(2026, 8, 11, 1, 30)
+                        "policyKey", "DAILY_QUEST_REWARD",
+                        "effectiveAt",
+                        LocalDateTime.of(2026, 8, 13, 1, 30)
                 ));
         assertTrue(normalize(policySql.getSql()).contains(
-                "AND effective_from <= ? AND (effective_to IS NULL OR effective_to > ?)"
+                "AND effective_from <= ? "
+                        + "AND (effective_to IS NULL OR effective_to > ?)"
         ));
         assertTrue(normalize(policySql.getSql()).endsWith(
                 "ORDER BY version_no DESC LIMIT 1 FOR SHARE"
@@ -56,11 +59,13 @@ class QuizRewardMapperXmlTest {
                 )
                 .getBoundSql(Map.of(
                         "userId", 11L,
-                        "amount", 200,
-                        "updatedAt", LocalDateTime.of(2026, 8, 11, 1, 30)
+                        "amount", 400,
+                        "updatedAt",
+                        LocalDateTime.of(2026, 8, 13, 1, 30)
                 ));
         assertTrue(normalize(balanceSql.getSql()).contains(
-                "SET point_balance = point_balance + ?, updated_at = ? WHERE user_id = ?"
+                "SET point_balance = point_balance + ?, "
+                        + "updated_at = ? WHERE user_id = ?"
         ));
 
         BoundSql insertSql = configuration.getMappedStatement(
@@ -73,7 +78,7 @@ class QuizRewardMapperXmlTest {
     }
 
     private String id(String statement) {
-        return QuizRewardMapper.class.getName() + "." + statement;
+        return PointRewardMapper.class.getName() + "." + statement;
     }
 
     private String normalize(String sql) {

@@ -22,6 +22,7 @@
         <result property="correctAnswerJson" column="correct_answer_json" />
         <result property="explanation" column="explanation" />
         <result property="generationType" column="generation_type" />
+        <result property="questDate" column="quest_date" />
         <result property="sourceRefsJson" column="source_refs_json" />
         <result property="status" column="status" />
         <result property="createdBy" column="created_by" />
@@ -53,6 +54,7 @@
         correct_answer_json,
         explanation,
         generation_type,
+        quest_date,
         source_refs_json,
         status,
         created_by,
@@ -147,6 +149,7 @@
             question.correct_answer_json,
             question.explanation,
             question.generation_type,
+            question.quest_date,
             question.source_refs_json,
             question.status,
             question.created_by,
@@ -172,6 +175,40 @@
                  question.question_id
     </select>
 
+    <select id="findLatestPublishedDailyGeneralQuestions"
+            resultMap="questionResultMap">
+        SELECT <include refid="questionColumns" />
+        FROM quiz_questions question
+        WHERE question.usage_type = 'DAILY_GENERAL'
+          AND question.status = 'PUBLISHED'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM quiz_questions newer
+              WHERE newer.question_key = question.question_key
+                AND newer.version_no &gt; question.version_no
+                AND newer.status IN ('PUBLISHED', 'RETIRED')
+          )
+        ORDER BY question.question_id
+    </select>
+
+    <select id="findLatestPublishedDailyNewsByQuestDate"
+            resultMap="questionResultMap">
+        SELECT <include refid="questionColumns" />
+        FROM quiz_questions question
+        WHERE question.usage_type = 'DAILY_NEWS'
+          AND question.quest_date = #{questDate}
+          AND question.status = 'PUBLISHED'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM quiz_questions newer
+              WHERE newer.question_key = question.question_key
+                AND newer.version_no &gt; question.version_no
+                AND newer.status IN ('PUBLISHED', 'RETIRED')
+          )
+        ORDER BY question.published_at DESC, question.question_id DESC
+        LIMIT 1
+    </select>
+
     <insert id="insert"
             parameterType="org.firstfolio.quiz.domain.QuizQuestion"
             useGeneratedKeys="true"
@@ -192,6 +229,7 @@
             correct_answer_json,
             explanation,
             generation_type,
+            quest_date,
             source_refs_json,
             status,
             created_by,
@@ -212,6 +250,7 @@
             #{correctAnswerJson,jdbcType=VARCHAR},
             #{explanation},
             #{generationType},
+            #{questDate,jdbcType=DATE},
             #{sourceRefsJson,jdbcType=VARCHAR},
             #{status},
             #{createdBy},
