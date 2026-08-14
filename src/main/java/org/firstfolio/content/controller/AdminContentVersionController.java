@@ -12,6 +12,7 @@ import org.firstfolio.content.dto.request.LessonContentUploadRequest;
 import org.firstfolio.content.dto.response.ContentVersionCreateResponse;
 import org.firstfolio.content.dto.response.ContentVersionListResponse;
 import org.firstfolio.content.dto.response.ContentVersionPublishResponse;
+import org.firstfolio.content.dto.response.ContentVersionRetireResponse;
 import org.firstfolio.content.service.ContentVersionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,7 +27,7 @@ import javax.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/admin")
-@Tag(name = "관리자 학습 콘텐츠", description = "관리자용 강좌 콘텐츠 버전 업로드·조회·게시 API")
+@Tag(name = "관리자 학습 콘텐츠", description = "관리자용 강좌 콘텐츠 버전 업로드·조회·게시·비공개 API")
 public class AdminContentVersionController {
 
     private final ContentVersionService contentVersionService;
@@ -144,6 +145,43 @@ public class AdminContentVersionController {
     ) {
         return ApiResponse.of(ContentVersionPublishResponse.from(
                 contentVersionService.publishContentVersion(
+                        contentVersionId,
+                        currentUser.userId(),
+                        RequestIdFilter.currentRequestId(servletRequest)
+                )
+        ));
+    }
+
+    @PostMapping("/content-versions/{contentVersionId}/retire")
+    @Operation(
+            summary = "강좌 콘텐츠 버전 수동 비공개",
+            description = "현재 공개 중인 PUBLISHED 버전을 RETIRED로 전환하고 소단원의 현재 공개 버전 연결을 해제합니다. "
+                    + "저장소 객체와 과거 학습 이력은 삭제하지 않으며 상태 전환, 연결 해제와 감사 이력을 하나의 트랜잭션으로 처리합니다.",
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "200", description = "콘텐츠 버전 비공개 성공",
+                            content = @io.swagger.v3.oas.annotations.media.Content(mediaType = "application/json",
+                                    schema = @io.swagger.v3.oas.annotations.media.Schema(
+                                            implementation = OpenApiResponseSchemas.ContentVersionRetire.class
+                                    )
+                            )
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "404", description = "CONTENT_VERSION_NOT_FOUND - 콘텐츠 버전을 찾을 수 없음"
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "409", description = "CONTENT_NOT_RETIRABLE - 현재 공개 중인 버전이 아님"
+                    )
+            }
+    )
+    public ApiResponse<ContentVersionRetireResponse> retireContentVersion(
+            @Parameter(description = "비공개할 콘텐츠 버전 ID", example = "301", required = true)
+            @PathVariable long contentVersionId,
+            @CurrentUser AuthenticatedUser currentUser,
+            HttpServletRequest servletRequest
+    ) {
+        return ApiResponse.of(ContentVersionRetireResponse.from(
+                contentVersionService.retireContentVersion(
                         contentVersionId,
                         currentUser.userId(),
                         RequestIdFilter.currentRequestId(servletRequest)

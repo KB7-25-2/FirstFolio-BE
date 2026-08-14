@@ -10,6 +10,7 @@ import org.firstfolio.content.dto.response.ContentVersionCreateResponse;
 import org.firstfolio.dashboard.dto.response.DashboardResponse;
 import org.firstfolio.content.dto.response.ContentVersionListResponse;
 import org.firstfolio.content.dto.response.ContentVersionPublishResponse;
+import org.firstfolio.content.dto.response.ContentVersionRetireResponse;
 import org.firstfolio.curriculum.dto.response.CurriculumConfirmResponse;
 import org.firstfolio.curriculum.dto.response.CurriculumDraftEditResponse;
 import org.firstfolio.curriculum.dto.response.CurriculumDraftResponse;
@@ -129,6 +130,9 @@ public final class OpenApiResponseSchemas {
 
     @Schema(name = "ContentVersionPublishApiResponse")
     public record ContentVersionPublish(ContentVersionPublishResponse data) { }
+
+    @Schema(name = "ContentVersionRetireApiResponse")
+    public record ContentVersionRetire(ContentVersionRetireResponse data) { }
 
     @Schema(name = "QuizQuestionCreateApiResponse")
     public record QuizQuestionCreate(QuizQuestionCreateResponse data) { }
