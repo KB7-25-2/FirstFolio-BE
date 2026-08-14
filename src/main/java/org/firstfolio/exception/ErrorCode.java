@@ -106,6 +106,10 @@ public enum ErrorCode {
     EVENT_NOT_FOUND(HttpStatus.NOT_FOUND, "이벤트를 찾을 수 없습니다."),
     EVENT_NOT_RETRYABLE(HttpStatus.CONFLICT, "재처리할 수 없는 상태입니다."),
 
+    // AI 퀴즈 배치 (docs/api/quiz-question-batch-api.md)
+    INVALID_BATCH_REQUEST(HttpStatus.BAD_REQUEST, "최상위 요청 구조, UUID 형식 또는 중복 item_id가 올바르지 않습니다."),
+    BATCH_SIZE_EXCEEDED(HttpStatus.BAD_REQUEST, "items는 최대 100건까지 허용합니다."),
+
     // 공통 - API_DOCS에 개별 정의가 없는 경우의 기본 코드
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청 형식이 올바르지 않습니다."),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "허용되지 않은 HTTP 메서드입니다."),
