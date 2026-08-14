@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UserCurriculumMapperXmlTest {
@@ -97,6 +98,41 @@ class UserCurriculumMapperXmlTest {
         assertTrue(normalized.endsWith(
                 "ORDER BY curriculum.display_order, curriculum.curriculum_item_id"
         ));
+    }
+
+    @Test
+    void parsesSoftRemovalAndUpsertForCurriculumUpdate() throws IOException {
+        Configuration configuration = configuration();
+        String namespace = UserCurriculumMapper.class.getName();
+
+        BoundSql removeSql = configuration.getMappedStatement(
+                namespace + ".markActiveAsRemoved"
+        ).getBoundSql(Map.of("userId", 11L));
+        assertTrue(normalize(removeSql.getSql()).contains(
+                "SET status = 'REMOVED' WHERE user_id = ? AND status = 'ACTIVE'"
+        ));
+
+        CurriculumDraftItem foundation = new CurriculumDraftItem(
+                1L,
+                "포트폴리오 기초",
+                CurriculumSourceType.FOUNDATION,
+                1,
+                false
+        );
+        BoundSql upsertSql = configuration.getMappedStatement(
+                namespace + ".upsertAll"
+        ).getBoundSql(Map.of(
+                "userId", 11L,
+                "items", List.of(foundation),
+                "confirmedAt", LocalDateTime.of(2026, 8, 14, 1, 2)
+        ));
+        String normalized = normalize(upsertSql.getSql());
+        assertTrue(normalized.startsWith(
+                "INSERT INTO user_curriculum_items"
+        ));
+        assertTrue(normalized.contains("ON DUPLICATE KEY UPDATE"));
+        assertTrue(normalized.contains("status = 'ACTIVE'"));
+        assertFalse(normalized.contains("completed_at = VALUES"));
     }
 
     private Configuration configuration() throws IOException {
