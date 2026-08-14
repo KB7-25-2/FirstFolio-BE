@@ -194,7 +194,31 @@ class OpenApiConfigTest {
                 ).value("#/components/schemas/SignupResponse"))
                 .andExpect(jsonPath(
                         "$.components.schemas.TradeRequest.properties.amount.type"
-                ).value("string"));
+                ).value("string"))
+                .andExpect(jsonPath(
+                        "$.components.schemas.TradeRequest.properties.idempotency_key"
+                ).exists())
+                .andExpect(jsonPath(
+                        "$.components.schemas.TradeRequest.properties.idempotencyKey"
+                ).doesNotExist())
+                .andExpect(jsonPath(
+                        "$.components.schemas.TradeResponse.properties.portfolio_transaction_id"
+                ).exists())
+                .andExpect(jsonPath(
+                        "$.components.schemas.TradeResponse.properties.portfolioTransactionId"
+                ).doesNotExist())
+                .andExpect(jsonPath(
+                        "$.components.schemas.PriceRefreshRequest.properties.reference_at"
+                ).exists())
+                .andExpect(jsonPath(
+                        "$.components.schemas.PriceRefreshRequest.properties.referenceAt"
+                ).doesNotExist())
+                .andExpect(jsonPath(
+                        "$.components.schemas.Error.properties.request_id"
+                ).exists())
+                .andExpect(jsonPath(
+                        "$.components.schemas.Error.properties.requestId"
+                ).doesNotExist());
     }
 
     @Test
