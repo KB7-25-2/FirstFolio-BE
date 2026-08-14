@@ -1,6 +1,7 @@
 package org.firstfolio.config;
 
 import io.swagger.v3.core.converter.ModelConverters;
+import io.swagger.v3.core.jackson.ModelResolver;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.firstfolio.auth.domain.AuthenticatedUser;
+import org.firstfolio.common.json.ApiObjectMapperFactory;
 import org.firstfolio.common.response.ErrorResponse;
 import org.firstfolio.common.security.InternalCallInterceptor;
 import org.springdoc.core.SpringDocConfigProperties;
@@ -78,6 +80,18 @@ public class OpenApiConfig {
                         .description("FirstFolio 금융 학습 및 모의 자산 관리 API")
                         .version("v1"))
                 .components(components);
+    }
+
+    /**
+     * 런타임 API와 OpenAPI가 같은 JSON 필드명 규칙을 사용하게 한다.
+     *
+     * <p>Spring MVC는 {@link ApiObjectMapperFactory}의 {@code snake_case} ObjectMapper로
+     * 요청과 응답을 변환한다. Swagger의 기본 ModelResolver는 별도 ObjectMapper를 사용하므로
+     * 이 Bean이 없으면 실제 JSON은 {@code snake_case}, 문서 스키마는 {@code camelCase}가 될 수 있다.</p>
+     */
+    @Bean
+    public ModelResolver apiModelResolver() {
+        return new ModelResolver(ApiObjectMapperFactory.create());
     }
 
     @Bean
