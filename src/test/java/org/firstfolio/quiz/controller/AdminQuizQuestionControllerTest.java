@@ -81,6 +81,7 @@ class AdminQuizQuestionControllerTest {
                 .andExpect(jsonPath("$.data.question_id").value(1201))
                 .andExpect(jsonPath("$.data.question_key").value("deposit-basic-001"))
                 .andExpect(jsonPath("$.data.version_no").value(1))
+                .andExpect(jsonPath("$.data.display_order").value(1))
                 .andExpect(jsonPath("$.data.generation_type").value("HUMAN"))
                 .andExpect(jsonPath("$.data.status").value("DRAFT"));
 
@@ -122,6 +123,7 @@ class AdminQuizQuestionControllerTest {
 
         verify(service).createQuestion(captor.capture(), eq(900L), anyString());
         assertEquals("SUB_CHAPTER", captor.getValue().usageType());
+        assertEquals(1, captor.getValue().displayOrder());
         assertEquals("SINGLE_CHOICE", captor.getValue().questionType());
         assertEquals("1", captor.getValue().correctAnswerJson().path("key").textValue());
         assertEquals(2, captor.getValue().optionsJson().size());
@@ -235,7 +237,7 @@ class AdminQuizQuestionControllerTest {
                 QuizUsageType.SUB_CHAPTER,
                 2L,
                 101L,
-                null,
+                1,
                 QuizQuestionType.SINGLE_CHOICE,
                 QuizDifficulty.EASY,
                 "질문",
@@ -260,6 +262,7 @@ class AdminQuizQuestionControllerTest {
                   "usage_type": "SUB_CHAPTER",
                   "main_chapter_id": null,
                   "sub_chapter_id": 101,
+                  "display_order": 1,
                   "question_type": "SINGLE_CHOICE",
                   "difficulty": "EASY",
                   "prompt": "예금의 특징으로 적절한 것은?",

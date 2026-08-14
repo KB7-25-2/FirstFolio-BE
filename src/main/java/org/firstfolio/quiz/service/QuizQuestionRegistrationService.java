@@ -77,11 +77,13 @@ public class QuizQuestionRegistrationService {
         ObjectNode candidate = firstVersionCandidate(request);
         requireValidQuestion(candidate);
 
+        QuizUsageType usageType = QuizUsageType.valueOf(request.usageType());
+        requireValidDisplayOrder(usageType, request.displayOrder());
+
         if (questionMapper.countByQuestionKey(request.questionKey()) > 0) {
             throw new ApiException(ErrorCode.QUESTION_KEY_CONFLICT);
         }
 
-        QuizUsageType usageType = QuizUsageType.valueOf(request.usageType());
         QuizQuestionType questionType = QuizQuestionType.valueOf(request.questionType());
         QuizDifficulty difficulty = request.difficulty() == null
                 ? null
@@ -98,7 +100,7 @@ public class QuizQuestionRegistrationService {
                 usageType,
                 scope.mainChapterId(),
                 scope.subChapterId(),
-                null,
+                request.displayOrder(),
                 questionType,
                 difficulty,
                 request.prompt(),
@@ -198,6 +200,7 @@ public class QuizQuestionRegistrationService {
         putText(candidate, "usage_type", request.usageType());
         putLong(candidate, "main_chapter_id", request.mainChapterId());
         putLong(candidate, "sub_chapter_id", request.subChapterId());
+        putInteger(candidate, "display_order", request.displayOrder());
         putText(candidate, "question_type", request.questionType());
         putText(candidate, "difficulty", request.difficulty());
         putText(candidate, "prompt", request.prompt());
@@ -220,6 +223,7 @@ public class QuizQuestionRegistrationService {
         candidate.put("usage_type", base.getUsageType().name());
         putLong(candidate, "main_chapter_id", base.getMainChapterId());
         putLong(candidate, "sub_chapter_id", base.getSubChapterId());
+        putInteger(candidate, "display_order", base.getDisplayOrder());
         candidate.put("question_type", base.getQuestionType().name());
         putEnum(candidate, "difficulty", base.getDifficulty());
         putText(candidate, "prompt", request.prompt());
@@ -298,6 +302,26 @@ public class QuizQuestionRegistrationService {
         throw validationFailure(firstError.path(), firstError.message());
     }
 
+    private void requireValidDisplayOrder(
+            QuizUsageType usageType,
+            Integer displayOrder
+    ) {
+        if (displayOrder != null && displayOrder <= 0) {
+            throw validationFailure(
+                    "/display_order",
+                    "표시 순서는 1 이상의 정수여야 합니다."
+            );
+        }
+        if ((usageType == QuizUsageType.LEVEL_TEST
+                || usageType == QuizUsageType.MAIN_CHAPTER)
+                && displayOrder == null) {
+            throw validationFailure(
+                    "/display_order",
+                    "레벨 테스트와 대단원 퀴즈 문항에는 표시 순서가 필요합니다."
+            );
+        }
+    }
+
     private ApiException validationFailure(String path, String message) {
         String location = path == null || path.isBlank() ? "" : " (" + path + ")";
         return new ApiException(
@@ -343,6 +367,7 @@ public class QuizQuestionRegistrationService {
         snapshot.put("usage_type", question.getUsageType());
         snapshot.put("main_chapter_id", question.getMainChapterId());
         snapshot.put("sub_chapter_id", question.getSubChapterId());
+        snapshot.put("display_order", question.getDisplayOrder());
         snapshot.put("question_type", question.getQuestionType());
         snapshot.put("difficulty", question.getDifficulty());
         snapshot.put("prompt", question.getPrompt());
@@ -388,6 +413,14 @@ public class QuizQuestionRegistrationService {
     }
 
     private void putLong(ObjectNode target, String field, Long value) {
+        if (value == null) {
+            target.putNull(field);
+        } else {
+            target.put(field, value);
+        }
+    }
+
+    private void putInteger(ObjectNode target, String field, Integer value) {
         if (value == null) {
             target.putNull(field);
         } else {

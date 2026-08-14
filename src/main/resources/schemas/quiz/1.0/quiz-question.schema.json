@@ -41,6 +41,9 @@
     "sub_chapter_id": {
       "$ref": "#/$defs/nullablePositiveId"
     },
+    "display_order": {
+      "$ref": "#/$defs/nullablePositiveId"
+    },
     "question_type": {
       "enum": [
         "SINGLE_CHOICE",
@@ -199,12 +202,18 @@
         }
       },
       "then": {
+        "required": [
+          "display_order"
+        ],
         "properties": {
           "main_chapter_id": {
             "$ref": "#/$defs/positiveId"
           },
           "sub_chapter_id": {
             "type": "null"
+          },
+          "display_order": {
+            "$ref": "#/$defs/positiveId"
           }
         }
       }
