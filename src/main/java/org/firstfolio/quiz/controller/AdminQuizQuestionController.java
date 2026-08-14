@@ -45,7 +45,8 @@ public class AdminQuizQuestionController {
     @Operation(
             summary = "신규 퀴즈 문항 등록",
             description = "JSON Schema와 단원 참조를 검증하고 새 논리 문항의 첫 버전을 "
-                    + "version_no=1, generation_type=HUMAN, DRAFT 상태로 등록합니다.",
+                    + "version_no=1, generation_type=HUMAN, DRAFT 상태로 등록합니다. "
+                    + "LEVEL_TEST와 MAIN_CHAPTER 문항은 양수 display_order가 필수입니다.",
             responses = {
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(
                             responseCode = "201", description = "퀴즈 문항 생성 성공",

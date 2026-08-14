@@ -59,6 +59,35 @@ class QuizQuestionSchemaValidatorTest {
     }
 
     @Test
+    void allowsSubChapterQuestionWithoutDisplayOrder() throws IOException {
+        ObjectNode omitted = humanSingleChoice();
+        ObjectNode nullable = humanSingleChoice();
+        nullable.putNull("display_order");
+
+        assertTrue(validate(omitted).isValid());
+        assertTrue(validate(nullable).isValid());
+    }
+
+    @Test
+    void requiresPositiveDisplayOrderForMainChapterAndLevelTestQuestions()
+            throws IOException {
+        ObjectNode missing = aiScenario();
+        missing.remove("display_order");
+        ObjectNode nullable = aiScenario();
+        nullable.putNull("display_order");
+        ObjectNode nonPositive = aiScenario();
+        nonPositive.put("display_order", 0);
+        ObjectNode levelTest = humanSingleChoice();
+        levelTest.put("usage_type", "LEVEL_TEST");
+        levelTest.putNull("sub_chapter_id");
+
+        assertSchemaViolation(validate(missing));
+        assertSchemaViolation(validate(nullable));
+        assertSchemaViolation(validate(nonPositive));
+        assertSchemaViolation(validate(levelTest));
+    }
+
+    @Test
     void rejectsDailyNewsWithoutQuestDateOrAiScenarioContract()
             throws IOException {
         ObjectNode missingDate = aiScenario();

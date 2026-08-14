@@ -171,6 +171,7 @@ public class QuizQuestionPublicationService {
         candidate.put("usage_type", question.getUsageType().name());
         putLong(candidate, "main_chapter_id", question.getMainChapterId());
         putLong(candidate, "sub_chapter_id", question.getSubChapterId());
+        putInteger(candidate, "display_order", question.getDisplayOrder());
         candidate.put("question_type", question.getQuestionType().name());
         if (question.getDifficulty() == null) {
             candidate.putNull("difficulty");
@@ -316,6 +317,14 @@ public class QuizQuestionPublicationService {
     }
 
     private void putLong(ObjectNode target, String field, Long value) {
+        if (value == null) {
+            target.putNull(field);
+        } else {
+            target.put(field, value);
+        }
+    }
+
+    private void putInteger(ObjectNode target, String field, Integer value) {
         if (value == null) {
             target.putNull(field);
         } else {
