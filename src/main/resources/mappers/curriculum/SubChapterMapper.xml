@@ -133,4 +133,12 @@
         WHERE sub_chapter_id = #{subChapterId}
     </update>
 
+    <update id="clearCurrentContentVersion">
+        UPDATE sub_chapters
+        SET current_content_version_id = NULL,
+            updated_at = #{updatedAt}
+        WHERE sub_chapter_id = #{subChapterId}
+          AND current_content_version_id = #{expectedContentVersionId}
+    </update>
+
 </mapper>

@@ -176,6 +176,38 @@ class AdminContentVersionControllerTest {
                         .value("CONTENT_NOT_PUBLISHABLE"));
     }
 
+    @Test
+    void retiresCurrentPublishedContentVersion() throws Exception {
+        ContentVersion retired = publishedContentVersion();
+        retired.retire();
+        when(service.retireContentVersion(eq(301L), eq(900L), anyString()))
+                .thenReturn(retired);
+
+        mockMvc.perform(post("/api/admin/content-versions/301/retire")
+                        .requestAttr(AuthenticationRequestAttributes.CURRENT_USER, ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content_version_id").value(301))
+                .andExpect(jsonPath("$.data.sub_chapter_id").value(103))
+                .andExpect(jsonPath("$.data.status").value("RETIRED"))
+                .andExpect(jsonPath("$.data.published_at")
+                        .value("2026-08-06T02:00:00Z"))
+                .andExpect(jsonPath("$.data.current").value(false));
+
+        verify(service).retireContentVersion(eq(301L), eq(900L), anyString());
+    }
+
+    @Test
+    void returnsConflictForNonRetirableContentVersion() throws Exception {
+        when(service.retireContentVersion(eq(302L), eq(900L), anyString()))
+                .thenThrow(new ApiException(ErrorCode.CONTENT_NOT_RETIRABLE));
+
+        mockMvc.perform(post("/api/admin/content-versions/302/retire")
+                        .requestAttr(AuthenticationRequestAttributes.CURRENT_USER, ADMIN))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code")
+                        .value("CONTENT_NOT_RETIRABLE"));
+    }
+
     private ContentVersion contentVersion() {
         ContentVersion version = ContentVersion.draft(
                 103L,

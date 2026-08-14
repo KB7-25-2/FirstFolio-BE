@@ -217,6 +217,67 @@ public class ContentVersionService {
         return target;
     }
 
+    @Transactional
+    public ContentVersion retireContentVersion(
+            long contentVersionId,
+            long actorUserId,
+            String requestId
+    ) {
+        ContentVersion reference = contentVersionMapper.findById(contentVersionId);
+        if (reference == null) {
+            throw new ApiException(ErrorCode.CONTENT_VERSION_NOT_FOUND);
+        }
+
+        SubChapter subChapter = subChapterMapper.findByIdForUpdate(
+                reference.getSubChapterId()
+        );
+        if (subChapter == null) {
+            throw new ApiException(ErrorCode.SUB_CHAPTER_NOT_FOUND);
+        }
+
+        ContentVersion target = contentVersionMapper.findByIdForUpdate(
+                contentVersionId
+        );
+        if (target == null) {
+            throw new ApiException(ErrorCode.CONTENT_VERSION_NOT_FOUND);
+        }
+        if (target.getStatus() != ContentVersionStatus.PUBLISHED
+                || !target.getContentVersionId().equals(
+                subChapter.getCurrentContentVersionId()
+        )) {
+            throw new ApiException(ErrorCode.CONTENT_NOT_RETIRABLE);
+        }
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        String beforeRetire = snapshot(target);
+        if (contentVersionMapper.retirePublished(contentVersionId) != 1) {
+            throw new ApiException(ErrorCode.CONTENT_NOT_RETIRABLE);
+        }
+        target.retire();
+
+        if (subChapterMapper.clearCurrentContentVersion(
+                subChapter.getSubChapterId(),
+                contentVersionId,
+                now
+        ) != 1) {
+            throw new IllegalStateException("소단원의 현재 콘텐츠 버전 연결을 해제하지 못했습니다.");
+        }
+
+        if (auditLogMapper.insert(
+                actorUserId,
+                "RETIRE",
+                AUDIT_ENTITY_TYPE,
+                contentVersionId,
+                beforeRetire,
+                snapshot(target),
+                requestId,
+                now
+        ) != 1) {
+            throw new IllegalStateException("콘텐츠 버전 폐기 감사 이력을 저장하지 못했습니다.");
+        }
+        return target;
+    }
+
     private void retireCurrentVersion(
             SubChapter subChapter,
             ContentVersion target,

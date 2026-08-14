@@ -426,6 +426,107 @@ class ContentVersionServiceTest {
         );
     }
 
+    @Test
+    void retiresCurrentPublishedVersionAndClearsCurrentConnection() {
+        LocalDateTime publishedAt = NOW.minusDays(1);
+        ContentVersion target = contentVersion(
+                301L,
+                1,
+                ContentVersionStatus.PUBLISHED,
+                publishedAt
+        );
+        when(contentVersionMapper.findById(301L)).thenReturn(target);
+        when(subChapterMapper.findByIdForUpdate(SUB_CHAPTER_ID))
+                .thenReturn(subChapter(301L));
+        when(contentVersionMapper.findByIdForUpdate(301L)).thenReturn(target);
+        when(contentVersionMapper.retirePublished(301L)).thenReturn(1);
+        when(subChapterMapper.clearCurrentContentVersion(
+                SUB_CHAPTER_ID,
+                301L,
+                NOW
+        )).thenReturn(1);
+        when(auditLogMapper.insert(
+                anyLong(), anyString(), anyString(), anyLong(),
+                anyString(), anyString(), anyString(), any()
+        )).thenReturn(1);
+
+        ContentVersion retired = service.retireContentVersion(
+                301L,
+                ACTOR_ID,
+                REQUEST_ID
+        );
+
+        assertEquals(ContentVersionStatus.RETIRED, retired.getStatus());
+        assertEquals(publishedAt, retired.getPublishedAt());
+        verify(subChapterMapper).clearCurrentContentVersion(
+                SUB_CHAPTER_ID,
+                301L,
+                NOW
+        );
+        verify(auditLogMapper).insert(
+                eq(ACTOR_ID),
+                eq("RETIRE"),
+                eq("CONTENT_VERSION"),
+                eq(301L),
+                anyString(),
+                anyString(),
+                eq(REQUEST_ID),
+                eq(NOW)
+        );
+    }
+
+    @Test
+    void rejectsRetiringVersionThatIsNotCurrentPublishedVersion() {
+        ContentVersion published = contentVersion(
+                301L,
+                1,
+                ContentVersionStatus.PUBLISHED,
+                NOW.minusDays(1)
+        );
+        when(contentVersionMapper.findById(301L)).thenReturn(published);
+        when(subChapterMapper.findByIdForUpdate(SUB_CHAPTER_ID))
+                .thenReturn(subChapter(302L));
+        when(contentVersionMapper.findByIdForUpdate(301L)).thenReturn(published);
+
+        ApiException notCurrent = assertThrows(
+                ApiException.class,
+                () -> service.retireContentVersion(301L, ACTOR_ID, REQUEST_ID)
+        );
+
+        assertEquals(ErrorCode.CONTENT_NOT_RETIRABLE, notCurrent.getErrorCode());
+        verify(contentVersionMapper, never()).retirePublished(anyLong());
+        verify(subChapterMapper, never()).clearCurrentContentVersion(
+                anyLong(), anyLong(), any()
+        );
+    }
+
+    @Test
+    void rejectsRetiringDraftOrMissingContentVersion() {
+        when(contentVersionMapper.findById(999L)).thenReturn(null);
+        ApiException missing = assertThrows(
+                ApiException.class,
+                () -> service.retireContentVersion(999L, ACTOR_ID, REQUEST_ID)
+        );
+        assertEquals(ErrorCode.CONTENT_VERSION_NOT_FOUND, missing.getErrorCode());
+
+        ContentVersion draft = contentVersion(
+                302L,
+                2,
+                ContentVersionStatus.DRAFT,
+                null
+        );
+        when(contentVersionMapper.findById(302L)).thenReturn(draft);
+        when(subChapterMapper.findByIdForUpdate(SUB_CHAPTER_ID))
+                .thenReturn(subChapter(302L));
+        when(contentVersionMapper.findByIdForUpdate(302L)).thenReturn(draft);
+
+        ApiException notRetirable = assertThrows(
+                ApiException.class,
+                () -> service.retireContentVersion(302L, ACTOR_ID, REQUEST_ID)
+        );
+        assertEquals(ErrorCode.CONTENT_NOT_RETIRABLE, notRetirable.getErrorCode());
+    }
+
     private LessonContentUploadRequest uploadRequest() throws IOException {
         try (InputStream inputStream = getClass().getClassLoader()
                 .getResourceAsStream(VALID_LESSON_RESOURCE)) {
