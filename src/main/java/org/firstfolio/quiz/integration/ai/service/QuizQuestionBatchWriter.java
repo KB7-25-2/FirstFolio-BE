@@ -47,6 +47,10 @@ public class QuizQuestionBatchWriter {
 
     @Transactional
     public List<QuizQuestion> saveAll(List<QuizQuestionRequest> validQuizzes) {
+        if (validQuizzes.isEmpty()) {
+            return List.of();
+        }
+
         long aiCreatedBy = resolveAiCreatedBy();
         LocalDateTime now = LocalDateTime.now(clock);
 
