@@ -7,6 +7,7 @@ import org.firstfolio.common.json.ApiObjectMapperFactory;
 import org.firstfolio.curriculum.controller.CurriculumConfirmController;
 import org.firstfolio.curriculum.controller.CurriculumController;
 import org.firstfolio.curriculum.controller.CurriculumDraftController;
+import org.firstfolio.curriculum.controller.CurriculumUpdateController;
 import org.firstfolio.curriculum.domain.AssetType;
 import org.firstfolio.curriculum.domain.ChapterType;
 import org.firstfolio.curriculum.domain.CurriculumDraftItem;
@@ -18,6 +19,7 @@ import org.firstfolio.curriculum.mapper.MainChapterMapper;
 import org.firstfolio.curriculum.mapper.UserCurriculumMapper;
 import org.firstfolio.curriculum.service.CurriculumConfirmService;
 import org.firstfolio.curriculum.service.CurriculumDraftService;
+import org.firstfolio.curriculum.service.CurriculumUpdateService;
 import org.firstfolio.curriculum.service.UserCurriculumQueryService;
 import org.firstfolio.exception.CommonExceptionAdvice;
 import org.firstfolio.quiz.controller.LevelTestAnswerController;
@@ -145,6 +147,12 @@ class OnboardingFlowIntegrationTest {
                         draftService,
                         CLOCK
                 );
+        CurriculumUpdateService updateService =
+                new CurriculumUpdateService(
+                        curriculumMapper,
+                        draftService,
+                        CLOCK
+                );
         UserCurriculumQueryService queryService =
                 new UserCurriculumQueryService(
                         curriculumMapper,
@@ -157,7 +165,8 @@ class OnboardingFlowIntegrationTest {
                         new LevelTestSubmitController(submitService),
                         new CurriculumDraftController(draftService),
                         new CurriculumConfirmController(confirmService),
-                        new CurriculumController(queryService)
+                        new CurriculumController(queryService),
+                        new CurriculumUpdateController(updateService)
                 )
                 .setCustomArgumentResolvers(new CurrentUserArgumentResolver())
                 .setControllerAdvice(new CommonExceptionAdvice())
@@ -241,6 +250,24 @@ class OnboardingFlowIntegrationTest {
                         .value(3))
                 .andExpect(jsonPath("$.data.items[2].progress_percent")
                         .value(0));
+
+        mockMvc.perform(authenticated(put("/api/curriculum"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"main_chapter_ids\":[2]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                .andExpect(jsonPath("$.data.items[0].main_chapter_id")
+                        .value(1))
+                .andExpect(jsonPath("$.data.items[1].main_chapter_id")
+                        .value(2));
+
+        mockMvc.perform(authenticated(get("/api/curriculum")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                .andExpect(jsonPath("$.data.items[1].main_chapter_id")
+                        .value(2))
+                .andExpect(jsonPath("$.data.items[1].display_order")
+                        .value(2));
     }
 
     @Test
@@ -459,7 +486,13 @@ class OnboardingFlowIntegrationTest {
         UserCurriculumMapper mapper = mock(UserCurriculumMapper.class);
         when(mapper.findUserIdForUpdate(USER_ID)).thenReturn(USER_ID);
         when(mapper.findActiveByUserId(USER_ID))
-                .thenAnswer(ignored -> List.copyOf(curriculum));
+                .thenAnswer(ignored -> curriculum.stream()
+                        .filter(item -> item.getStatus()
+                                == CurriculumItemStatus.ACTIVE)
+                        .sorted(java.util.Comparator.comparingInt(
+                                UserCurriculumItem::getDisplayOrder
+                        ))
+                        .toList());
         when(mapper.insertAll(
                 eq(USER_ID),
                 anyList(),
@@ -482,8 +515,55 @@ class OnboardingFlowIntegrationTest {
             curriculumInsertCount.incrementAndGet();
             return items.size();
         });
+        when(mapper.markActiveAsRemoved(USER_ID)).thenAnswer(ignored -> {
+            int removed = 0;
+            for (UserCurriculumItem saved : curriculum) {
+                if (saved.getStatus() == CurriculumItemStatus.ACTIVE) {
+                    saved.setStatus(CurriculumItemStatus.REMOVED);
+                    removed++;
+                }
+            }
+            return removed;
+        });
+        when(mapper.upsertAll(
+                eq(USER_ID),
+                anyList(),
+                any(LocalDateTime.class)
+        )).thenAnswer(invocation -> {
+            @SuppressWarnings("unchecked")
+            List<CurriculumDraftItem> items = invocation.getArgument(1);
+            LocalDateTime confirmedAt = invocation.getArgument(2);
+            for (CurriculumDraftItem item : items) {
+                UserCurriculumItem saved = curriculum.stream()
+                        .filter(existing -> existing.getMainChapterId()
+                                == item.mainChapterId())
+                        .findFirst()
+                        .orElseGet(() -> {
+                            UserCurriculumItem created =
+                                    new UserCurriculumItem();
+                            created.setCurriculumItemId(
+                                    5000L + curriculum.size() + 1
+                            );
+                            created.setUserId(USER_ID);
+                            created.setMainChapterId(item.mainChapterId());
+                            created.setConfirmedAt(confirmedAt);
+                            curriculum.add(created);
+                            return created;
+                        });
+                saved.setDisplayOrder(item.displayOrder());
+                saved.setSourceType(item.sourceType());
+                saved.setStatus(CurriculumItemStatus.ACTIVE);
+            }
+            return items.size();
+        });
         when(mapper.findOverviewByUserId(USER_ID)).thenAnswer(ignored ->
-                curriculum.stream().map(saved -> {
+                curriculum.stream()
+                .filter(saved -> saved.getStatus()
+                        == CurriculumItemStatus.ACTIVE)
+                .sorted(java.util.Comparator.comparingInt(
+                        UserCurriculumItem::getDisplayOrder
+                ))
+                .map(saved -> {
                     MainChapter chapter = chapter(saved.getMainChapterId());
                     return new CurriculumOverviewItem(
                             saved.getCurriculumItemId(),

@@ -27,4 +27,12 @@ public interface UserCurriculumMapper {
             @Param("items") List<CurriculumDraftItem> items,
             @Param("confirmedAt") LocalDateTime confirmedAt
     );
+
+    int markActiveAsRemoved(@Param("userId") long userId);
+
+    int upsertAll(
+            @Param("userId") long userId,
+            @Param("items") List<CurriculumDraftItem> items,
+            @Param("confirmedAt") LocalDateTime confirmedAt
+    );
 }
