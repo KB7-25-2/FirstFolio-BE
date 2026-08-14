@@ -29,6 +29,7 @@ import org.firstfolio.learning.dto.response.LessonContentResponse;
 import org.firstfolio.learning.dto.response.LearningProgressResponse;
 import org.firstfolio.learning.dto.response.LearningProgressUpdateResponse;
 import org.firstfolio.learning.dto.response.LearningContinueResponse;
+import org.firstfolio.learning.dto.response.LearningRoadmapResponse;
 import org.firstfolio.learning.dto.response.PublicMainChapterListResponse;
 import org.firstfolio.learning.dto.response.PublicSubChapterListResponse;
 import org.firstfolio.portfolio.dto.response.PortfolioDetailResponse;
@@ -86,6 +87,9 @@ public final class OpenApiResponseSchemas {
 
     @Schema(name = "LearningContinueApiResponse")
     public record LearningContinue(LearningContinueResponse data) { }
+
+    @Schema(name = "LearningRoadmapApiResponse")
+    public record LearningRoadmap(LearningRoadmapResponse data) { }
 
     @Schema(name = "PublicMainChapterListApiResponse")
     public record PublicMainChapterList(PublicMainChapterListResponse data) { }

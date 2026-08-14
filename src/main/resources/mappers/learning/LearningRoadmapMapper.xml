@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.learning.mapper.LearningRoadmapMapper">
+
+    <resultMap id="chapterRowResultMap"
+               type="org.firstfolio.learning.mapper.LearningRoadmapMapper$ChapterRow">
+        <constructor>
+            <arg column="curriculum_item_id" javaType="_long" />
+            <arg column="main_chapter_id" javaType="_long" />
+            <arg column="title" javaType="java.lang.String" />
+            <arg column="description" javaType="java.lang.String" />
+            <arg column="chapter_type"
+                 javaType="org.firstfolio.curriculum.domain.ChapterType" />
+            <arg column="display_order" javaType="_int" />
+            <arg column="source_type"
+                 javaType="org.firstfolio.curriculum.domain.CurriculumSourceType" />
+            <arg column="curriculum_status"
+                 javaType="org.firstfolio.curriculum.domain.CurriculumItemStatus" />
+            <arg column="chapter_completed_at"
+                 javaType="java.time.LocalDateTime" />
+            <arg column="progress_percent" javaType="_int" />
+        </constructor>
+    </resultMap>
+
+    <resultMap id="subChapterRowResultMap"
+               type="org.firstfolio.learning.mapper.LearningRoadmapMapper$SubChapterRow">
+        <constructor>
+            <arg column="main_chapter_id" javaType="_long" />
+            <arg column="sub_chapter_id" javaType="_long" />
+            <arg column="title" javaType="java.lang.String" />
+            <arg column="description" javaType="java.lang.String" />
+            <arg column="display_order" javaType="_int" />
+            <arg column="current_content_version_id"
+                 javaType="java.lang.Long" />
+            <arg column="progress_id" javaType="java.lang.Long" />
+            <arg column="progress_content_version_id"
+                 javaType="java.lang.Long" />
+            <arg column="progress_status"
+                 javaType="org.firstfolio.learning.domain.LearningProgressStatus" />
+            <arg column="last_page_id" javaType="java.lang.String" />
+            <arg column="started_at" javaType="java.time.LocalDateTime" />
+            <arg column="progress_completed_at"
+                 javaType="java.time.LocalDateTime" />
+            <arg column="updated_at" javaType="java.time.LocalDateTime" />
+        </constructor>
+    </resultMap>
+
+    <resultMap id="quizRowResultMap"
+               type="org.firstfolio.learning.mapper.LearningRoadmapMapper$QuizRow">
+        <constructor>
+            <arg column="main_chapter_id" javaType="_long" />
+            <arg column="question_available" javaType="_boolean" />
+            <arg column="all_sub_chapters_completed" javaType="_boolean" />
+            <arg column="attempt_id" javaType="java.lang.Long" />
+            <arg column="attempt_status"
+                 javaType="org.firstfolio.quiz.domain.QuizAttemptStatus" />
+            <arg column="total_count" javaType="java.lang.Integer" />
+            <arg column="correct_count" javaType="java.lang.Integer" />
+            <arg column="score" javaType="java.lang.Integer" />
+            <arg column="started_at" javaType="java.time.LocalDateTime" />
+            <arg column="submitted_at" javaType="java.time.LocalDateTime" />
+        </constructor>
+    </resultMap>
+
+    <select id="findChaptersByUserId" resultMap="chapterRowResultMap">
+        SELECT
+            curriculum.curriculum_item_id,
+            curriculum.main_chapter_id,
+            chapter.title,
+            chapter.description,
+            chapter.chapter_type,
+            curriculum.display_order,
+            curriculum.source_type,
+            curriculum.status AS curriculum_status,
+            curriculum.completed_at AS chapter_completed_at,
+            CASE
+                WHEN curriculum.completed_at IS NOT NULL THEN 100
+                WHEN NOT EXISTS (
+                    SELECT 1
+                    FROM sub_chapters active_sub
+                    WHERE active_sub.main_chapter_id = curriculum.main_chapter_id
+                      AND active_sub.is_active = TRUE
+                ) THEN 0
+                ELSE CAST(FLOOR(
+                    100.0 * (
+                        SELECT COUNT(*)
+                        FROM sub_chapters completed_sub
+                        INNER JOIN user_learning_progress progress
+                            ON progress.sub_chapter_id = completed_sub.sub_chapter_id
+                           AND progress.user_id = curriculum.user_id
+                           AND progress.status = 'COMPLETED'
+                        WHERE completed_sub.main_chapter_id = curriculum.main_chapter_id
+                          AND completed_sub.is_active = TRUE
+                    ) / (
+                        SELECT COUNT(*)
+                        FROM sub_chapters active_sub
+                        WHERE active_sub.main_chapter_id = curriculum.main_chapter_id
+                          AND active_sub.is_active = TRUE
+                    )
+                ) AS SIGNED)
+            END AS progress_percent
+        FROM user_curriculum_items curriculum
+        INNER JOIN main_chapters chapter
+            ON chapter.main_chapter_id = curriculum.main_chapter_id
+        WHERE curriculum.user_id = #{userId}
+          AND curriculum.status = 'ACTIVE'
+        ORDER BY curriculum.display_order, curriculum.curriculum_item_id
+    </select>
+
+    <select id="findSubChaptersByUserId"
+            resultMap="subChapterRowResultMap">
+        SELECT
+            sub.main_chapter_id,
+            sub.sub_chapter_id,
+            sub.title,
+            sub.description,
+            sub.display_order,
+            published.content_version_id AS current_content_version_id,
+            progress.progress_id,
+            progress.content_version_id AS progress_content_version_id,
+            progress.status AS progress_status,
+            progress.last_page_id,
+            progress.started_at,
+            progress.completed_at AS progress_completed_at,
+            progress.updated_at
+        FROM user_curriculum_items curriculum
+        INNER JOIN sub_chapters sub
+            ON sub.main_chapter_id = curriculum.main_chapter_id
+           AND sub.is_active = TRUE
+        LEFT JOIN content_versions published
+            ON published.content_version_id = sub.current_content_version_id
+           AND published.sub_chapter_id = sub.sub_chapter_id
+           AND published.status = 'PUBLISHED'
+        LEFT JOIN user_learning_progress progress
+            ON progress.user_id = curriculum.user_id
+           AND progress.sub_chapter_id = sub.sub_chapter_id
+        WHERE curriculum.user_id = #{userId}
+          AND curriculum.status = 'ACTIVE'
+        ORDER BY curriculum.display_order,
+                 sub.display_order,
+                 sub.sub_chapter_id
+    </select>
+
+    <select id="findMainChapterQuizzesByUserId"
+            resultMap="quizRowResultMap">
+        SELECT
+            curriculum.main_chapter_id,
+            EXISTS (
+                SELECT 1
+                FROM quiz_questions question
+                WHERE question.usage_type = 'MAIN_CHAPTER'
+                  AND question.main_chapter_id = curriculum.main_chapter_id
+                  AND question.status = 'PUBLISHED'
+                  AND question.display_order IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM quiz_questions newer
+                      WHERE newer.question_key = question.question_key
+                        AND newer.version_no &gt; question.version_no
+                        AND newer.status IN ('PUBLISHED', 'RETIRED')
+                  )
+            ) AS question_available,
+            (
+                EXISTS (
+                    SELECT 1
+                    FROM sub_chapters active_sub
+                    WHERE active_sub.main_chapter_id = curriculum.main_chapter_id
+                      AND active_sub.is_active = TRUE
+                )
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM sub_chapters incomplete_sub
+                    WHERE incomplete_sub.main_chapter_id = curriculum.main_chapter_id
+                      AND incomplete_sub.is_active = TRUE
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM user_learning_progress completed_progress
+                          WHERE completed_progress.user_id = curriculum.user_id
+                            AND completed_progress.sub_chapter_id = incomplete_sub.sub_chapter_id
+                            AND completed_progress.status = 'COMPLETED'
+                      )
+                )
+            ) AS all_sub_chapters_completed,
+            attempt.attempt_id,
+            attempt.status AS attempt_status,
+            attempt.total_count,
+            attempt.correct_count,
+            attempt.score,
+            attempt.started_at,
+            attempt.submitted_at
+        FROM user_curriculum_items curriculum
+        LEFT JOIN quiz_attempts attempt
+            ON attempt.user_id = curriculum.user_id
+           AND attempt.quiz_type = 'MAIN_CHAPTER'
+           AND attempt.main_chapter_id = curriculum.main_chapter_id
+           AND NOT EXISTS (
+               SELECT 1
+               FROM quiz_attempts newer_attempt
+               WHERE newer_attempt.user_id = attempt.user_id
+                 AND newer_attempt.quiz_type = 'MAIN_CHAPTER'
+                 AND newer_attempt.main_chapter_id = attempt.main_chapter_id
+                 AND (
+                     newer_attempt.attempt_no &gt; attempt.attempt_no
+                     OR (
+                         newer_attempt.attempt_no = attempt.attempt_no
+                         AND newer_attempt.attempt_id &gt; attempt.attempt_id
+                     )
+                 )
+           )
+        WHERE curriculum.user_id = #{userId}
+          AND curriculum.status = 'ACTIVE'
+        ORDER BY curriculum.display_order, curriculum.curriculum_item_id
+    </select>
+
+</mapper>
