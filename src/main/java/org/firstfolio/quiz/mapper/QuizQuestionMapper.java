@@ -13,7 +13,13 @@ public interface QuizQuestionMapper {
 
     QuizQuestion findById(@Param("questionId") long questionId);
 
+    QuizQuestion findByIdForUpdate(@Param("questionId") long questionId);
+
     QuizQuestion findLatestByQuestionKeyForUpdate(
+            @Param("questionKey") String questionKey
+    );
+
+    List<QuizQuestion> findPublishedByQuestionKeyForUpdate(
             @Param("questionKey") String questionKey
     );
 
@@ -38,6 +44,13 @@ public interface QuizQuestionMapper {
     QuizQuestion findLatestPublishedDailyNewsByQuestDate(
             @Param("questDate") LocalDate questDate
     );
+
+    int publishDraft(
+            @Param("questionId") long questionId,
+            @Param("publishedAt") java.time.LocalDateTime publishedAt
+    );
+
+    int retirePublished(@Param("questionId") long questionId);
 
     int insert(QuizQuestion question);
 }

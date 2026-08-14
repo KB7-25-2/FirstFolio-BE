@@ -39,6 +39,8 @@ public enum ErrorCode {
     QUESTION_NOT_FOUND(HttpStatus.NOT_FOUND, "퀴즈 문항을 찾을 수 없습니다."),
     QUESTION_KEY_CONFLICT(HttpStatus.CONFLICT, "이미 존재하는 퀴즈 문항 논리 키입니다."),
     QUESTION_VERSION_CONFLICT(HttpStatus.CONFLICT, "퀴즈 문항 버전을 생성할 수 없습니다."),
+    QUESTION_NOT_PUBLISHABLE(HttpStatus.CONFLICT, "공개할 수 없는 퀴즈 문항 버전입니다."),
+    QUESTION_NOT_RETIRABLE(HttpStatus.CONFLICT, "폐기할 수 없는 퀴즈 문항 버전입니다."),
     QUESTION_VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "퀴즈 문항 검증에 실패했습니다."),
 
     // 퀴즈 응시

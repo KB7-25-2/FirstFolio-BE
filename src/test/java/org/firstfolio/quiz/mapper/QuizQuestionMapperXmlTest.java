@@ -38,13 +38,26 @@ class QuizQuestionMapperXmlTest {
                 QuizQuestionMapper.class.getName() + ".findById"
         ));
         assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName() + ".findByIdForUpdate"
+        ));
+        assertTrue(configuration.hasStatement(
                 QuizQuestionMapper.class.getName() + ".findLatestByQuestionKeyForUpdate"
+        ));
+        assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName()
+                        + ".findPublishedByQuestionKeyForUpdate"
         ));
         assertTrue(configuration.hasStatement(
                 QuizQuestionMapper.class.getName() + ".countByQuestionKey"
         ));
         assertTrue(configuration.hasStatement(
                 QuizQuestionMapper.class.getName() + ".insert"
+        ));
+        assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName() + ".publishDraft"
+        ));
+        assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName() + ".retirePublished"
         ));
         assertTrue(configuration.hasStatement(
                 QuizQuestionMapper.class.getName() + ".findAllByIds"
@@ -95,8 +108,43 @@ class QuizQuestionMapperXmlTest {
         assertTrue(normalizedMainQuestionSql.contains(
                 "newer.version_no > question.version_no"
         ));
+        assertTrue(normalizedMainQuestionSql.contains(
+                "newer.status IN ('PUBLISHED', 'RETIRED')"
+        ));
         assertTrue(normalizedMainQuestionSql.endsWith(
                 "ORDER BY question.display_order, question.question_id"
+        ));
+
+        BoundSql publishedLockSql = configuration.getMappedStatement(
+                        QuizQuestionMapper.class.getName()
+                                + ".findPublishedByQuestionKeyForUpdate"
+                )
+                .getBoundSql(Map.of("questionKey", "deposit-basic-001"));
+        assertTrue(normalize(publishedLockSql.getSql()).contains(
+                "WHERE question_key = ? AND status = 'PUBLISHED'"
+        ));
+        assertTrue(normalize(publishedLockSql.getSql()).endsWith("FOR UPDATE"));
+
+        BoundSql publishSql = configuration.getMappedStatement(
+                        QuizQuestionMapper.class.getName() + ".publishDraft"
+                )
+                .getBoundSql(Map.of(
+                        "questionId", 1202L,
+                        "publishedAt", java.time.LocalDateTime.of(2026, 8, 14, 6, 0)
+                ));
+        assertTrue(normalize(publishSql.getSql()).contains(
+                "SET status = 'PUBLISHED', published_at = ?"
+        ));
+        assertTrue(normalize(publishSql.getSql()).endsWith(
+                "WHERE question_id = ? AND status = 'DRAFT'"
+        ));
+
+        BoundSql retireSql = configuration.getMappedStatement(
+                        QuizQuestionMapper.class.getName() + ".retirePublished"
+                )
+                .getBoundSql(Map.of("questionId", 1201L));
+        assertTrue(normalize(retireSql.getSql()).endsWith(
+                "WHERE question_id = ? AND status = 'PUBLISHED'"
         ));
 
         BoundSql levelTestSql = configuration.getMappedStatement(

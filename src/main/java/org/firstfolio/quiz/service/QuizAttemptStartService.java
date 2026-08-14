@@ -227,11 +227,16 @@ public class QuizAttemptStartService {
             if (question == null
                     || question.getUsageType() != QuizUsageType.SUB_CHAPTER
                     || !Objects.equals(question.getSubChapterId(), subChapterId)
-                    || question.getStatus() != QuizQuestionStatus.PUBLISHED) {
+                    || !isUsablePinnedQuestion(question.getStatus())) {
                 throw new ApiException(ErrorCode.QUIZ_NOT_AVAILABLE);
             }
         }
         return questions;
+    }
+
+    private boolean isUsablePinnedQuestion(QuizQuestionStatus status) {
+        return status == QuizQuestionStatus.PUBLISHED
+                || status == QuizQuestionStatus.RETIRED;
     }
 
     private QuizAttempt createAttempt(
