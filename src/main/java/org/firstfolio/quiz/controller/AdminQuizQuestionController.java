@@ -11,6 +11,8 @@ import org.firstfolio.config.OpenApiResponseSchemas;
 import org.firstfolio.quiz.dto.request.QuizQuestionCreateRequest;
 import org.firstfolio.quiz.dto.request.QuizQuestionVersionCreateRequest;
 import org.firstfolio.quiz.dto.response.QuizQuestionCreateResponse;
+import org.firstfolio.quiz.dto.response.QuizQuestionStatusResponse;
+import org.firstfolio.quiz.service.QuizQuestionPublicationService;
 import org.firstfolio.quiz.service.QuizQuestionRegistrationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,11 +30,14 @@ import javax.servlet.http.HttpServletRequest;
 public class AdminQuizQuestionController {
 
     private final QuizQuestionRegistrationService registrationService;
+    private final QuizQuestionPublicationService publicationService;
 
     public AdminQuizQuestionController(
-            QuizQuestionRegistrationService registrationService
+            QuizQuestionRegistrationService registrationService,
+            QuizQuestionPublicationService publicationService
     ) {
         this.registrationService = registrationService;
+        this.publicationService = publicationService;
     }
 
     @PostMapping
@@ -117,6 +122,83 @@ public class AdminQuizQuestionController {
                 registrationService.createVersion(
                         questionId,
                         request,
+                        currentUser.userId(),
+                        RequestIdFilter.currentRequestId(servletRequest)
+                )
+        ));
+    }
+
+    @PostMapping("/{questionId}/publish")
+    @Operation(
+            summary = "퀴즈 문항 버전 공개",
+            description = "최신 DRAFT 문항 버전을 PUBLISHED로 전환합니다. 같은 논리 키의 기존 공개 버전은 RETIRED로 보존하고 모든 상태 변경을 하나의 트랜잭션으로 처리합니다.",
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "200", description = "퀴즈 문항 공개 성공",
+                            content = @io.swagger.v3.oas.annotations.media.Content(
+                                    mediaType = "application/json",
+                                    schema = @io.swagger.v3.oas.annotations.media.Schema(
+                                            implementation = OpenApiResponseSchemas.QuizQuestionStatus.class
+                                    )
+                            )
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "404", description = "QUESTION_NOT_FOUND - 문항을 찾을 수 없음"
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "409", description = "QUESTION_NOT_PUBLISHABLE - 최신 DRAFT가 아니거나 공개할 수 없는 상태"
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "422", description = "QUESTION_VALIDATION_FAILED - 문항 또는 단원 참조 재검증 실패"
+                    )
+            }
+    )
+    public ApiResponse<QuizQuestionStatusResponse> publishQuestion(
+            @Parameter(description = "공개할 문항 버전 ID", example = "1201", required = true)
+            @PathVariable long questionId,
+            @CurrentUser AuthenticatedUser currentUser,
+            HttpServletRequest servletRequest
+    ) {
+        return ApiResponse.of(QuizQuestionStatusResponse.from(
+                publicationService.publish(
+                        questionId,
+                        currentUser.userId(),
+                        RequestIdFilter.currentRequestId(servletRequest)
+                )
+        ));
+    }
+
+    @PostMapping("/{questionId}/retire")
+    @Operation(
+            summary = "퀴즈 문항 버전 폐기",
+            description = "PUBLISHED 문항을 RETIRED로 전환해 신규 퀴즈 배정과 새 강좌 참조 대상에서 제외합니다. 기존 강좌와 응시가 고정 참조한 문항 이력은 보존합니다.",
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "200", description = "퀴즈 문항 폐기 성공",
+                            content = @io.swagger.v3.oas.annotations.media.Content(
+                                    mediaType = "application/json",
+                                    schema = @io.swagger.v3.oas.annotations.media.Schema(
+                                            implementation = OpenApiResponseSchemas.QuizQuestionStatus.class
+                                    )
+                            )
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "404", description = "QUESTION_NOT_FOUND - 문항을 찾을 수 없음"
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "409", description = "QUESTION_NOT_RETIRABLE - 공개 상태가 아닌 문항"
+                    )
+            }
+    )
+    public ApiResponse<QuizQuestionStatusResponse> retireQuestion(
+            @Parameter(description = "폐기할 문항 버전 ID", example = "1201", required = true)
+            @PathVariable long questionId,
+            @CurrentUser AuthenticatedUser currentUser,
+            HttpServletRequest servletRequest
+    ) {
+        return ApiResponse.of(QuizQuestionStatusResponse.from(
+                publicationService.retire(
+                        questionId,
                         currentUser.userId(),
                         RequestIdFilter.currentRequestId(servletRequest)
                 )
