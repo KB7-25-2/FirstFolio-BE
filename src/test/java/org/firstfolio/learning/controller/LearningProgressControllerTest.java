@@ -176,6 +176,27 @@ class LearningProgressControllerTest {
                         .value("CONTENT_VERSION_MISMATCH"));
     }
 
+    @Test
+    void returnsForbiddenWhenPreviousSubChapterQuizIsIncomplete()
+            throws Exception {
+        when(service.save(eq(USER_ID), eq(SUB_CHAPTER_ID), any()))
+                .thenThrow(new ApiException(ErrorCode.SUB_CHAPTER_LOCKED));
+
+        mockMvc.perform(authenticated(put(
+                        "/api/learning/sub-chapters/101/progress"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "content_version_id": 301,
+                                  "last_page_id": "page-1",
+                                  "status": "IN_PROGRESS"
+                                }
+                                """))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error.code")
+                        .value("SUB_CHAPTER_LOCKED"));
+    }
+
     private static MockHttpServletRequestBuilder authenticated(
             MockHttpServletRequestBuilder builder
     ) {

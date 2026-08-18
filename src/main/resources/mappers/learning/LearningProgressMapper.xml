@@ -53,6 +53,37 @@
         FOR UPDATE
     </select>
 
+    <select id="countIncompletePreviousSubChapters" resultType="int">
+        SELECT COUNT(*)
+        FROM sub_chapters previous_sub
+        WHERE previous_sub.main_chapter_id = #{mainChapterId}
+          AND previous_sub.is_active = TRUE
+          AND (
+              previous_sub.display_order &lt; #{displayOrder}
+              OR (
+                  previous_sub.display_order = #{displayOrder}
+                  AND previous_sub.sub_chapter_id &lt; #{subChapterId}
+              )
+          )
+          AND (
+              NOT EXISTS (
+                  SELECT 1
+                  FROM user_learning_progress completed_progress
+                  WHERE completed_progress.user_id = #{userId}
+                    AND completed_progress.sub_chapter_id = previous_sub.sub_chapter_id
+                    AND completed_progress.status = 'COMPLETED'
+              )
+              OR NOT EXISTS (
+                  SELECT 1
+                  FROM quiz_attempts completed_quiz
+                  WHERE completed_quiz.user_id = #{userId}
+                    AND completed_quiz.quiz_type = 'SUB_CHAPTER'
+                    AND completed_quiz.sub_chapter_id = previous_sub.sub_chapter_id
+                    AND completed_quiz.status = 'GRADED'
+              )
+          )
+    </select>
+
     <insert id="insertIfAbsent"
             parameterType="org.firstfolio.learning.domain.LearningProgress"
             useGeneratedKeys="true"

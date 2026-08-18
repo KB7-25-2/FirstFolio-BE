@@ -162,7 +162,13 @@ public class LearningRoadmapService {
                     && row.progressStatus() != null)
                     || (row.progressId() != null
                     && (row.progressStatus() == null
-                    || row.progressContentVersionId() == null))) {
+                    || row.progressContentVersionId() == null))
+                    || row.quizAnsweredCount() < 0
+                    || row.quizTotalCount() < 0
+                    || row.quizAnsweredCount() > row.quizTotalCount()
+                    || (row.activeQuizAttemptId() == null
+                    && (row.quizAnsweredCount() != 0
+                    || row.quizTotalCount() != 0))) {
                 throw invalidConfiguration();
             }
             lastOrders.put(row.mainChapterId(), row.displayOrder());
@@ -216,8 +222,12 @@ public class LearningRoadmapService {
             LearningRoadmapStatus.Schedule scheduleStatus;
             if (chapterStatus == LearningRoadmapStatus.Chapter.LOCKED) {
                 scheduleStatus = LearningRoadmapStatus.Schedule.LOCKED;
-            } else if (progressStatus == LearningProgressStatus.COMPLETED) {
+            } else if (progressStatus == LearningProgressStatus.COMPLETED
+                    && row.quizCompleted()) {
                 scheduleStatus = LearningRoadmapStatus.Schedule.COMPLETED;
+            } else if (progressStatus == LearningProgressStatus.COMPLETED) {
+                scheduleStatus = LearningRoadmapStatus.Schedule.IN_PROGRESS;
+                nextAssigned = true;
             } else if (!row.contentAvailable()) {
                 scheduleStatus = LearningRoadmapStatus.Schedule.UNAVAILABLE;
                 nextAssigned = true;
@@ -245,6 +255,12 @@ public class LearningRoadmapService {
                     row.startedAt(),
                     row.completedAt(),
                     row.updatedAt(),
+                    new LearningRoadmapResponse.SubChapterQuiz(
+                            row.quizCompleted(),
+                            row.activeQuizAttemptId(),
+                            row.quizAnsweredCount(),
+                            row.quizTotalCount()
+                    ),
                     scheduleStatus
             ));
         }

@@ -17,6 +17,7 @@ import org.firstfolio.learning.domain.LearningContinueResult;
 import org.firstfolio.learning.domain.LearningContinueTarget;
 import org.firstfolio.learning.domain.MainChapterQuizContinueCandidate;
 import org.firstfolio.learning.mapper.LearningContinueMapper;
+import org.firstfolio.learning.mapper.LearningContinueMapper.SubChapterQuizContinueCandidate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,7 +54,7 @@ public class LearningContinueService {
         LearningContinueCandidate candidate = learningContinueMapper
                 .findLatestInProgress(userId);
         if (candidate == null) {
-            return mainChapterQuizPosition(userId);
+            return pendingQuizPosition(userId);
         }
         requireCurrentPublishedPosition(candidate);
 
@@ -80,6 +81,25 @@ public class LearningContinueService {
                 progressPercent,
                 route(candidate.getSubChapterId(), lastPageId)
         );
+    }
+
+    private LearningContinueResult pendingQuizPosition(long userId) {
+        SubChapterQuizContinueCandidate subChapterQuiz = learningContinueMapper
+                .findSubChapterQuizCandidate(userId);
+        if (subChapterQuiz != null) {
+            return new LearningContinueResult(
+                    LearningContinueTarget.SUB_CHAPTER_QUIZ,
+                    subChapterQuiz.curriculumItemId(),
+                    subChapterQuiz.mainChapterId(),
+                    subChapterQuiz.subChapterId(),
+                    null,
+                    subChapterQuiz.attemptId(),
+                    null,
+                    100,
+                    subChapterQuizRoute(subChapterQuiz.subChapterId())
+            );
+        }
+        return mainChapterQuizPosition(userId);
     }
 
     private LearningContinueResult mainChapterQuizPosition(long userId) {
@@ -187,6 +207,10 @@ public class LearningContinueService {
     private String mainChapterQuizRoute(long mainChapterId) {
         return "/learning/main-chapters/" + mainChapterId
                 + "/scenario-quiz";
+    }
+
+    private String subChapterQuizRoute(long subChapterId) {
+        return "/learning/sub-chapters/" + subChapterId + "/quiz";
     }
 
     private boolean isJson(String contentType) {

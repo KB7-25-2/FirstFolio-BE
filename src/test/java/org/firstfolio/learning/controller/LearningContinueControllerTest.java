@@ -111,6 +111,36 @@ class LearningContinueControllerTest {
     }
 
     @Test
+    void returnsSubChapterQuizContinuePosition() throws Exception {
+        when(service.getContinuePosition(USER_ID)).thenReturn(
+                new LearningContinueResult(
+                        LearningContinueTarget.SUB_CHAPTER_QUIZ,
+                        502L,
+                        2L,
+                        101L,
+                        null,
+                        3001L,
+                        null,
+                        100,
+                        "/learning/sub-chapters/101/quiz"
+                )
+        );
+
+        mockMvc.perform(authenticated(get("/api/learning/continue")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.target_type")
+                        .value("SUB_CHAPTER_QUIZ"))
+                .andExpect(jsonPath("$.data.sub_chapter_id").value(101))
+                .andExpect(jsonPath("$.data.content_version_id")
+                        .doesNotExist())
+                .andExpect(jsonPath("$.data.attempt_id").value(3001))
+                .andExpect(jsonPath("$.data.progress_percent").value(100))
+                .andExpect(jsonPath("$.data.route").value(
+                        "/learning/sub-chapters/101/quiz"
+                ));
+    }
+
+    @Test
     void returnsNotFoundWhenThereIsNoContinuePosition() throws Exception {
         when(service.getContinuePosition(USER_ID)).thenThrow(
                 new ApiException(ErrorCode.CONTINUE_POSITION_NOT_FOUND)

@@ -12,7 +12,19 @@ public interface LearningContinueMapper {
             @Param("userId") long userId
     );
 
+    SubChapterQuizContinueCandidate findSubChapterQuizCandidate(
+            @Param("userId") long userId
+    );
+
     MainChapterQuizContinueCandidate findMainChapterQuizCandidate(
             @Param("userId") long userId
     );
+
+    record SubChapterQuizContinueCandidate(
+            long curriculumItemId,
+            long mainChapterId,
+            long subChapterId,
+            Long attemptId
+    ) {
+    }
 }

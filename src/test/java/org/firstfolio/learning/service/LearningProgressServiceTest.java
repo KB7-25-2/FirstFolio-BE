@@ -119,6 +119,29 @@ class LearningProgressServiceTest {
     }
 
     @Test
+    void rejectsSavingLockedSubChapterBeforePreviousQuizCompletion() {
+        when(learningProgressMapper.countIncompletePreviousSubChapters(
+                USER_ID,
+                8L,
+                2,
+                SUB_CHAPTER_ID
+        )).thenReturn(1);
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> service.save(
+                        USER_ID,
+                        SUB_CHAPTER_ID,
+                        command("page-1", LearningProgressStatus.IN_PROGRESS)
+                )
+        );
+
+        assertEquals(ErrorCode.SUB_CHAPTER_LOCKED, exception.getErrorCode());
+        verify(learningProgressMapper, never())
+                .findByUserIdAndSubChapterIdForUpdate(USER_ID, SUB_CHAPTER_ID);
+    }
+
+    @Test
     void existingPutUpdatesPageAndWritesHistory() {
         LearningProgress existing = progress(
                 LearningProgressStatus.IN_PROGRESS,
@@ -416,6 +439,8 @@ class LearningProgressServiceTest {
     private SubChapter activeSubChapter() {
         SubChapter subChapter = new SubChapter();
         subChapter.setSubChapterId(SUB_CHAPTER_ID);
+        subChapter.setMainChapterId(8L);
+        subChapter.setDisplayOrder(2);
         subChapter.setActive(true);
         return subChapter;
     }

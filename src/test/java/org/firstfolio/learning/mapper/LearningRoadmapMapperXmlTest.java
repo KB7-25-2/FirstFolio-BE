@@ -41,6 +41,12 @@ class LearningRoadmapMapperXmlTest {
                 "FROM user_curriculum_items curriculum"
         ));
         assertTrue(chapterSql.contains("END AS progress_percent"));
+        assertTrue(chapterSql.contains(
+                "completed_quiz.quiz_type = 'SUB_CHAPTER'"
+        ));
+        assertTrue(chapterSql.contains(
+                "completed_quiz.status = 'GRADED'"
+        ));
         assertTrue(chapterSql.endsWith(
                 "ORDER BY curriculum.display_order, curriculum.curriculum_item_id"
         ));
@@ -54,6 +60,10 @@ class LearningRoadmapMapperXmlTest {
                 "published.status = 'PUBLISHED'"
         ));
         assertTrue(subChapterSql.contains("sub.is_active = TRUE"));
+        assertTrue(subChapterSql.contains("AS quiz_completed"));
+        assertTrue(subChapterSql.contains("AS active_quiz_attempt_id"));
+        assertTrue(subChapterSql.contains("AS quiz_answered_count"));
+        assertTrue(subChapterSql.contains("AS quiz_total_count"));
     }
 
     @Test
@@ -64,6 +74,8 @@ class LearningRoadmapMapperXmlTest {
         assertTrue(sql.contains("question.usage_type = 'MAIN_CHAPTER'"));
         assertTrue(sql.contains("AS question_available"));
         assertTrue(sql.contains("AS all_sub_chapters_completed"));
+        assertTrue(sql.contains("completed_quiz.quiz_type = 'SUB_CHAPTER'"));
+        assertTrue(sql.contains("completed_quiz.status = 'GRADED'"));
         assertTrue(sql.contains("LEFT JOIN quiz_attempts attempt"));
         assertTrue(sql.contains("newer_attempt.attempt_no > attempt.attempt_no"));
     }

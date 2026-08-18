@@ -47,12 +47,22 @@
         FROM sub_chapters sub
         WHERE sub.main_chapter_id = #{mainChapterId}
           AND sub.is_active = TRUE
-          AND NOT EXISTS (
-              SELECT 1
-              FROM user_learning_progress progress
-              WHERE progress.user_id = #{userId}
-                AND progress.sub_chapter_id = sub.sub_chapter_id
-                AND progress.status = 'COMPLETED'
+          AND (
+              NOT EXISTS (
+                  SELECT 1
+                  FROM user_learning_progress progress
+                  WHERE progress.user_id = #{userId}
+                    AND progress.sub_chapter_id = sub.sub_chapter_id
+                    AND progress.status = 'COMPLETED'
+              )
+              OR NOT EXISTS (
+                  SELECT 1
+                  FROM quiz_attempts completed_quiz
+                  WHERE completed_quiz.user_id = #{userId}
+                    AND completed_quiz.quiz_type = 'SUB_CHAPTER'
+                    AND completed_quiz.sub_chapter_id = sub.sub_chapter_id
+                    AND completed_quiz.status = 'GRADED'
+              )
           )
     </select>
 
