@@ -53,7 +53,11 @@ public interface LearningRoadmapMapper {
             String lastPageId,
             LocalDateTime startedAt,
             LocalDateTime completedAt,
-            LocalDateTime updatedAt
+            LocalDateTime updatedAt,
+            boolean quizCompleted,
+            Long activeQuizAttemptId,
+            int quizAnsweredCount,
+            int quizTotalCount
     ) {
         public boolean contentAvailable() {
             return currentContentVersionId != null;

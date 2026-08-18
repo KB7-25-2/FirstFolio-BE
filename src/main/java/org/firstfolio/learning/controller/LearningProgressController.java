@@ -33,7 +33,8 @@ public class LearningProgressController {
     @Operation(
             summary = "소단원 학습 진도 저장",
             description = "진도가 없으면 현재 공개 콘텐츠 버전으로 최초 생성하고, 있으면 마지막 페이지 또는 완료 상태를 갱신합니다. "
-                    + "동일 요청과 최초 완료 이후 요청은 기존 상태를 변경하지 않습니다.",
+                    + "동일 요청과 최초 완료 이후 요청은 기존 상태를 변경하지 않습니다. "
+                    + "이전 소단원 강좌와 퀴즈를 완료하기 전에는 다음 소단원 진도를 저장할 수 없습니다.",
             responses = {
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(
                             responseCode = "200",
@@ -44,6 +45,10 @@ public class LearningProgressController {
                                             implementation = OpenApiResponseSchemas.LearningProgressUpdate.class
                                     )
                             )
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "403",
+                            description = "SUB_CHAPTER_LOCKED - 이전 소단원 강좌 또는 퀴즈 미완료"
                     ),
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(
                             responseCode = "404",

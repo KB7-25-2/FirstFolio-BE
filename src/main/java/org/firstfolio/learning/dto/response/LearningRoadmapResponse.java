@@ -32,7 +32,7 @@ public record LearningRoadmapResponse(
             LearningRoadmapStatus.Chapter status,
             @Schema(description = "대단원 최초 완료 일시", nullable = true)
             LocalDateTime completedAt,
-            @Schema(description = "활성 소단원 완료율", example = "50")
+            @Schema(description = "강좌와 퀴즈를 모두 마친 활성 소단원 완료율", example = "50")
             int progressPercent,
             @Schema(description = "활성 소단원 목록")
             List<SubChapter> subChapters,
@@ -73,8 +73,24 @@ public record LearningRoadmapResponse(
             LocalDateTime completedAt,
             @Schema(description = "마지막 진도 갱신 일시", nullable = true)
             LocalDateTime updatedAt,
+            @Schema(description = "소단원 퀴즈 완료·이어풀기 상태")
+            SubChapterQuiz quiz,
             @Schema(description = "로드맵 표시·접근 상태", example = "NEXT")
             LearningRoadmapStatus.Schedule scheduleStatus
+    ) {
+    }
+
+    @Schema(description = "소단원 퀴즈 완료·이어풀기 상태")
+    public record SubChapterQuiz(
+            @Schema(description = "최초 소단원 퀴즈 완료 여부", example = "false")
+            boolean completed,
+            @Schema(description = "현재 진행 중인 응시 ID", nullable = true,
+                    example = "3001")
+            Long activeAttemptId,
+            @Schema(description = "현재 진행 중인 응시의 답변 수", example = "1")
+            int answeredCount,
+            @Schema(description = "현재 진행 중인 응시의 전체 문항 수", example = "3")
+            int totalCount
     ) {
     }
 

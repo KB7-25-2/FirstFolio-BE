@@ -39,9 +39,28 @@ class LearningContinueMapperXmlTest {
         assertTrue(sql.contains("progress.status = 'IN_PROGRESS'"));
         assertTrue(sql.contains("curriculum.status = 'ACTIVE'"));
         assertTrue(sql.contains("curriculum.completed_at IS NULL"));
+        assertTrue(sql.contains("completed_quiz.quiz_type = 'SUB_CHAPTER'"));
+        assertTrue(sql.contains("completed_quiz.status = 'GRADED'"));
         assertTrue(sql.endsWith(
                 "ORDER BY progress.updated_at DESC, progress.progress_id DESC LIMIT 1"
         ));
+
+        String subQuizStatement = LearningContinueMapper.class.getName()
+                + ".findSubChapterQuizCandidate";
+        assertTrue(configuration.hasStatement(subQuizStatement));
+        String subQuizSql = configuration.getMappedStatement(subQuizStatement)
+                .getBoundSql(Map.of("userId", 11L))
+                .getSql()
+                .replaceAll("\\s+", " ")
+                .trim();
+        assertTrue(subQuizSql.contains("progress.status = 'COMPLETED'"));
+        assertTrue(subQuizSql.contains(
+                "completed_quiz.quiz_type = 'SUB_CHAPTER'"
+        ));
+        assertTrue(subQuizSql.contains(
+                "completed_quiz.status = 'GRADED'"
+        ));
+        assertTrue(subQuizSql.contains("AS attempt_id"));
 
         String quizStatement = LearningContinueMapper.class.getName()
                 + ".findMainChapterQuizCandidate";
@@ -60,6 +79,9 @@ class LearningContinueMapperXmlTest {
                 "attempt.status = 'GRADED' AND attempt.correct_count < attempt.total_count"
         ));
         assertTrue(quizSql.contains("question.usage_type = 'MAIN_CHAPTER'"));
+        assertTrue(quizSql.contains(
+                "completed_quiz.quiz_type = 'SUB_CHAPTER'"
+        ));
         assertTrue(quizSql.endsWith(
                 "ORDER BY curriculum.display_order, curriculum.curriculum_item_id LIMIT 1"
         ));

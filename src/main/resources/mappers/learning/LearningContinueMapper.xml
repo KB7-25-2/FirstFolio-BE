@@ -26,6 +26,16 @@
         <result property="attemptStatus" column="attempt_status" />
     </resultMap>
 
+    <resultMap id="subChapterQuizContinueCandidateResultMap"
+               type="org.firstfolio.learning.mapper.LearningContinueMapper$SubChapterQuizContinueCandidate">
+        <constructor>
+            <arg column="curriculum_item_id" javaType="_long" />
+            <arg column="main_chapter_id" javaType="_long" />
+            <arg column="sub_chapter_id" javaType="_long" />
+            <arg column="attempt_id" javaType="java.lang.Long" />
+        </constructor>
+    </resultMap>
+
     <select id="findLatestInProgress"
             resultMap="learningContinueCandidateResultMap">
         SELECT
@@ -50,7 +60,140 @@
            AND curriculum.completed_at IS NULL
         WHERE progress.user_id = #{userId}
           AND progress.status = 'IN_PROGRESS'
+          AND NOT EXISTS (
+              SELECT 1
+              FROM user_curriculum_items earlier_curriculum
+              WHERE earlier_curriculum.user_id = curriculum.user_id
+                AND earlier_curriculum.status = 'ACTIVE'
+                AND earlier_curriculum.completed_at IS NULL
+                AND (
+                    earlier_curriculum.display_order &lt; curriculum.display_order
+                    OR (
+                        earlier_curriculum.display_order = curriculum.display_order
+                        AND earlier_curriculum.curriculum_item_id &lt; curriculum.curriculum_item_id
+                    )
+                )
+          )
+          AND NOT EXISTS (
+              SELECT 1
+              FROM sub_chapters previous_sub
+              WHERE previous_sub.main_chapter_id = sub.main_chapter_id
+                AND previous_sub.is_active = TRUE
+                AND (
+                    previous_sub.display_order &lt; sub.display_order
+                    OR (
+                        previous_sub.display_order = sub.display_order
+                        AND previous_sub.sub_chapter_id &lt; sub.sub_chapter_id
+                    )
+                )
+                AND (
+                    NOT EXISTS (
+                        SELECT 1
+                        FROM user_learning_progress completed_progress
+                        WHERE completed_progress.user_id = progress.user_id
+                          AND completed_progress.sub_chapter_id = previous_sub.sub_chapter_id
+                          AND completed_progress.status = 'COMPLETED'
+                    )
+                    OR NOT EXISTS (
+                        SELECT 1
+                        FROM quiz_attempts completed_quiz
+                        WHERE completed_quiz.user_id = progress.user_id
+                          AND completed_quiz.quiz_type = 'SUB_CHAPTER'
+                          AND completed_quiz.sub_chapter_id = previous_sub.sub_chapter_id
+                          AND completed_quiz.status = 'GRADED'
+                    )
+                )
+          )
         ORDER BY progress.updated_at DESC, progress.progress_id DESC
+        LIMIT 1
+    </select>
+
+    <select id="findSubChapterQuizCandidate"
+            resultMap="subChapterQuizContinueCandidateResultMap">
+        SELECT
+            curriculum.curriculum_item_id,
+            curriculum.main_chapter_id,
+            sub.sub_chapter_id,
+            (
+                SELECT active_attempt.attempt_id
+                FROM quiz_attempts active_attempt
+                WHERE active_attempt.user_id = curriculum.user_id
+                  AND active_attempt.quiz_type = 'SUB_CHAPTER'
+                  AND active_attempt.sub_chapter_id = sub.sub_chapter_id
+                  AND active_attempt.status = 'IN_PROGRESS'
+                ORDER BY active_attempt.attempt_no DESC, active_attempt.attempt_id DESC
+                LIMIT 1
+            ) AS attempt_id
+        FROM user_curriculum_items curriculum
+        INNER JOIN main_chapters main
+            ON main.main_chapter_id = curriculum.main_chapter_id
+           AND main.is_active = TRUE
+        INNER JOIN sub_chapters sub
+            ON sub.main_chapter_id = curriculum.main_chapter_id
+           AND sub.is_active = TRUE
+        INNER JOIN user_learning_progress progress
+            ON progress.user_id = curriculum.user_id
+           AND progress.sub_chapter_id = sub.sub_chapter_id
+           AND progress.status = 'COMPLETED'
+        WHERE curriculum.user_id = #{userId}
+          AND curriculum.status = 'ACTIVE'
+          AND curriculum.completed_at IS NULL
+          AND NOT EXISTS (
+              SELECT 1
+              FROM user_curriculum_items earlier_curriculum
+              WHERE earlier_curriculum.user_id = curriculum.user_id
+                AND earlier_curriculum.status = 'ACTIVE'
+                AND earlier_curriculum.completed_at IS NULL
+                AND (
+                    earlier_curriculum.display_order &lt; curriculum.display_order
+                    OR (
+                        earlier_curriculum.display_order = curriculum.display_order
+                        AND earlier_curriculum.curriculum_item_id &lt; curriculum.curriculum_item_id
+                    )
+                )
+          )
+          AND NOT EXISTS (
+              SELECT 1
+              FROM quiz_attempts completed_quiz
+              WHERE completed_quiz.user_id = curriculum.user_id
+                AND completed_quiz.quiz_type = 'SUB_CHAPTER'
+                AND completed_quiz.sub_chapter_id = sub.sub_chapter_id
+                AND completed_quiz.status = 'GRADED'
+          )
+          AND NOT EXISTS (
+              SELECT 1
+              FROM sub_chapters previous_sub
+              WHERE previous_sub.main_chapter_id = sub.main_chapter_id
+                AND previous_sub.is_active = TRUE
+                AND (
+                    previous_sub.display_order &lt; sub.display_order
+                    OR (
+                        previous_sub.display_order = sub.display_order
+                        AND previous_sub.sub_chapter_id &lt; sub.sub_chapter_id
+                    )
+                )
+                AND (
+                    NOT EXISTS (
+                        SELECT 1
+                        FROM user_learning_progress previous_progress
+                        WHERE previous_progress.user_id = curriculum.user_id
+                          AND previous_progress.sub_chapter_id = previous_sub.sub_chapter_id
+                          AND previous_progress.status = 'COMPLETED'
+                    )
+                    OR NOT EXISTS (
+                        SELECT 1
+                        FROM quiz_attempts previous_quiz
+                        WHERE previous_quiz.user_id = curriculum.user_id
+                          AND previous_quiz.quiz_type = 'SUB_CHAPTER'
+                          AND previous_quiz.sub_chapter_id = previous_sub.sub_chapter_id
+                          AND previous_quiz.status = 'GRADED'
+                    )
+                )
+          )
+        ORDER BY curriculum.display_order,
+                 curriculum.curriculum_item_id,
+                 sub.display_order,
+                 sub.sub_chapter_id
         LIMIT 1
     </select>
 
@@ -111,12 +254,22 @@
               FROM sub_chapters incomplete_sub
               WHERE incomplete_sub.main_chapter_id = curriculum.main_chapter_id
                 AND incomplete_sub.is_active = TRUE
-                AND NOT EXISTS (
-                    SELECT 1
-                    FROM user_learning_progress completed_progress
-                    WHERE completed_progress.user_id = curriculum.user_id
-                      AND completed_progress.sub_chapter_id = incomplete_sub.sub_chapter_id
-                      AND completed_progress.status = 'COMPLETED'
+                AND (
+                    NOT EXISTS (
+                        SELECT 1
+                        FROM user_learning_progress completed_progress
+                        WHERE completed_progress.user_id = curriculum.user_id
+                          AND completed_progress.sub_chapter_id = incomplete_sub.sub_chapter_id
+                          AND completed_progress.status = 'COMPLETED'
+                    )
+                    OR NOT EXISTS (
+                        SELECT 1
+                        FROM quiz_attempts completed_quiz
+                        WHERE completed_quiz.user_id = curriculum.user_id
+                          AND completed_quiz.quiz_type = 'SUB_CHAPTER'
+                          AND completed_quiz.sub_chapter_id = incomplete_sub.sub_chapter_id
+                          AND completed_quiz.status = 'GRADED'
+                    )
                 )
           )
           AND EXISTS (

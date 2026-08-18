@@ -149,6 +149,11 @@ class OpenApiConfigTest {
                         "$.paths['/api/learning/sub-chapters/{subChapterId}/progress'].put.responses['200'].content['application/json'].schema['$ref']"
                 ).value("#/components/schemas/LearningProgressUpdateApiResponse"))
                 .andExpect(jsonPath(
+                        "$.paths['/api/learning/sub-chapters/{subChapterId}/progress'].put.responses['403'].description"
+                ).value(org.hamcrest.Matchers.containsString(
+                        "SUB_CHAPTER_LOCKED"
+                )))
+                .andExpect(jsonPath(
                         "$.paths['/api/learning/sub-chapters/{subChapterId}/progress'].post"
                 ).doesNotExist())
                 .andExpect(jsonPath(

@@ -18,6 +18,13 @@ public interface LearningProgressMapper {
             @Param("subChapterId") long subChapterId
     );
 
+    int countIncompletePreviousSubChapters(
+            @Param("userId") long userId,
+            @Param("mainChapterId") long mainChapterId,
+            @Param("displayOrder") int displayOrder,
+            @Param("subChapterId") long subChapterId
+    );
+
     int insertIfAbsent(LearningProgress progress);
 
     int updateProgress(LearningProgress progress);

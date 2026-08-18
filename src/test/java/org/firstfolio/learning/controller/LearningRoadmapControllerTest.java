@@ -86,6 +86,18 @@ class LearningRoadmapControllerTest {
                         "$.data.items[0].sub_chapters[0].schedule_status"
                 ).value("IN_PROGRESS"))
                 .andExpect(jsonPath(
+                        "$.data.items[0].sub_chapters[0].quiz.completed"
+                ).value(false))
+                .andExpect(jsonPath(
+                        "$.data.items[0].sub_chapters[0].quiz.active_attempt_id"
+                ).value(3001))
+                .andExpect(jsonPath(
+                        "$.data.items[0].sub_chapters[0].quiz.answered_count"
+                ).value(1))
+                .andExpect(jsonPath(
+                        "$.data.items[0].sub_chapters[0].quiz.total_count"
+                ).value(3))
+                .andExpect(jsonPath(
                         "$.data.items[0].main_chapter_quiz.question_available"
                 ).value(true))
                 .andExpect(jsonPath(
@@ -135,6 +147,12 @@ class LearningRoadmapControllerTest {
                         NOW.minusDays(1),
                         null,
                         NOW,
+                        new LearningRoadmapResponse.SubChapterQuiz(
+                                false,
+                                3001L,
+                                1,
+                                3
+                        ),
                         LearningRoadmapStatus.Schedule.IN_PROGRESS
                 );
         LearningRoadmapResponse.MainChapterQuiz quiz =
