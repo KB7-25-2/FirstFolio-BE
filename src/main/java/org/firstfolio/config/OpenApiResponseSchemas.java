@@ -26,6 +26,7 @@ import org.firstfolio.dailyquest.dto.response.DailyQuestAnswerSaveResponse;
 import org.firstfolio.dailyquest.dto.response.DailyQuestSubmitResponse;
 import org.firstfolio.dailyquest.dto.response.DailyQuestTodayResponse;
 import org.firstfolio.learning.dto.response.LessonContentResponse;
+import org.firstfolio.news.dto.response.FinancialNewsListResponse;
 import org.firstfolio.learning.dto.response.LearningProgressResponse;
 import org.firstfolio.learning.dto.response.LearningProgressUpdateResponse;
 import org.firstfolio.learning.dto.response.LearningContinueResponse;
@@ -210,4 +211,7 @@ public final class OpenApiResponseSchemas {
 
     @Schema(name = "DashboardApiResponse")
     public record Dashboard(DashboardResponse data) { }
+
+    @Schema(name = "FinancialNewsApiResponse")
+    public record FinancialNews(FinancialNewsListResponse data) { }
 }
