@@ -10,4 +10,6 @@ import java.util.List;
 public interface NewsMapper {
 
     List<NewsArticle> findLatest(@Param("limit") int limit);
+
+    int insert(NewsArticle article);
 }
