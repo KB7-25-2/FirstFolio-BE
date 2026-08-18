@@ -25,6 +25,17 @@ import org.firstfolio.curriculum.dto.response.SubChapterPatchResponse;
 import org.firstfolio.dailyquest.dto.response.DailyQuestAnswerSaveResponse;
 import org.firstfolio.dailyquest.dto.response.DailyQuestSubmitResponse;
 import org.firstfolio.dailyquest.dto.response.DailyQuestTodayResponse;
+import org.firstfolio.gifticon.dto.response.AdminGifticonCodeBatchResponse;
+import org.firstfolio.gifticon.dto.response.AdminGifticonCodePageResponse;
+import org.firstfolio.gifticon.dto.response.AdminGifticonCodeVoidResponse;
+import org.firstfolio.gifticon.dto.response.AdminGifticonProductPageResponse;
+import org.firstfolio.gifticon.dto.response.AdminGifticonProductResponse;
+import org.firstfolio.gifticon.dto.response.GifticonCodeDisclosureResponse;
+import org.firstfolio.gifticon.dto.response.GifticonExchangeResponse;
+import org.firstfolio.gifticon.dto.response.GifticonProductPageResponse;
+import org.firstfolio.gifticon.dto.response.GifticonProductResponse;
+import org.firstfolio.gifticon.dto.response.MyGifticonPageResponse;
+import org.firstfolio.gifticon.dto.response.MyGifticonResponse;
 import org.firstfolio.learning.dto.response.LessonContentResponse;
 import org.firstfolio.news.dto.response.FinancialNewsItemResponse;
 import org.firstfolio.news.dto.response.FinancialNewsListResponse;
@@ -213,6 +224,39 @@ public final class OpenApiResponseSchemas {
 
     @Schema(name = "AdminProductApiResponse")
     public record AdminProduct(AdminProductResponse data) { }
+
+    @Schema(name = "AdminGifticonProductPageApiResponse")
+    public record AdminGifticonProductPage(AdminGifticonProductPageResponse data) { }
+
+    @Schema(name = "AdminGifticonProductApiResponse")
+    public record AdminGifticonProduct(AdminGifticonProductResponse data) { }
+
+    @Schema(name = "AdminGifticonCodePageApiResponse")
+    public record AdminGifticonCodePage(AdminGifticonCodePageResponse data) { }
+
+    @Schema(name = "AdminGifticonCodeBatchApiResponse")
+    public record AdminGifticonCodeBatch(AdminGifticonCodeBatchResponse data) { }
+
+    @Schema(name = "AdminGifticonCodeVoidApiResponse")
+    public record AdminGifticonCodeVoid(AdminGifticonCodeVoidResponse data) { }
+
+    @Schema(name = "GifticonProductPageApiResponse")
+    public record GifticonProductPage(GifticonProductPageResponse data) { }
+
+    @Schema(name = "GifticonProductApiResponse")
+    public record GifticonProduct(GifticonProductResponse data) { }
+
+    @Schema(name = "GifticonExchangeApiResponse")
+    public record GifticonExchange(GifticonExchangeResponse data) { }
+
+    @Schema(name = "MyGifticonPageApiResponse")
+    public record MyGifticonPage(MyGifticonPageResponse data) { }
+
+    @Schema(name = "MyGifticonApiResponse")
+    public record MyGifticon(MyGifticonResponse data) { }
+
+    @Schema(name = "GifticonCodeDisclosureApiResponse")
+    public record GifticonCodeDisclosure(GifticonCodeDisclosureResponse data) { }
 
     @Schema(name = "DashboardApiResponse")
     public record Dashboard(DashboardResponse data) { }

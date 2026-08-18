@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.gifticon.mapper.GifticonExchangeMapper">
+
+    <resultMap id="orderResult" type="org.firstfolio.gifticon.domain.GifticonOrder">
+        <id property="gifticonOrderId" column="gifticon_order_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="gifticonProductId" column="gifticon_product_id"/>
+        <result property="gifticonCodeId" column="gifticon_code_id"/>
+        <result property="pointTransactionId" column="point_transaction_id"/>
+        <result property="spentPoints" column="spent_points"/>
+        <result property="productSnapshotJson" column="product_snapshot_json"/>
+        <result property="idempotencyKey" column="idempotency_key"/>
+        <result property="requestFingerprint" column="request_fingerprint"/>
+        <result property="firstDisclosedAt" column="first_disclosed_at"/>
+        <result property="completedAt" column="completed_at"/>
+    </resultMap>
+
+    <resultMap id="orderViewResult"
+               type="org.firstfolio.gifticon.domain.GifticonOrderView"
+               extends="orderResult">
+        <result property="balanceAfter" column="balance_after"/>
+        <result property="codeMasked" column="code_masked"/>
+        <result property="codeStatus" column="code_status"/>
+        <result property="expiresAt" column="expires_at"/>
+    </resultMap>
+
+    <resultMap id="disclosureResult"
+               type="org.firstfolio.gifticon.domain.GifticonDisclosureData"
+               extends="orderViewResult">
+        <result property="codeCiphertext" column="code_ciphertext"/>
+        <result property="encryptionKeyVersion" column="encryption_key_version"/>
+    </resultMap>
+
+    <resultMap id="allocationCodeResult" type="org.firstfolio.gifticon.domain.GifticonCode">
+        <id property="gifticonCodeId" column="gifticon_code_id"/>
+        <result property="gifticonProductId" column="gifticon_product_id"/>
+        <result property="codeMasked" column="code_masked"/>
+        <result property="expiresAt" column="expires_at"/>
+        <result property="status" column="status"/>
+    </resultMap>
+
+    <sql id="orderViewColumns">
+        o.gifticon_order_id,
+        o.user_id,
+        o.gifticon_product_id,
+        o.gifticon_code_id,
+        o.point_transaction_id,
+        o.spent_points,
+        o.product_snapshot_json,
+        o.idempotency_key,
+        o.request_fingerprint,
+        o.first_disclosed_at,
+        o.completed_at,
+        pt.balance_after,
+        c.code_masked,
+        c.status AS code_status,
+        c.expires_at
+    </sql>
+
+    <!-- 같은 사용자의 교환을 직렬화해 잔액 이중 차감과 멱등 경합을 함께 막는다. -->
+    <select id="findPointBalanceForUpdate" resultType="java.lang.Integer">
+        SELECT point_balance
+        FROM users
+        WHERE user_id = #{userId}
+        FOR UPDATE
+    </select>
+
+    <select id="findPointBalance" resultType="java.lang.Integer">
+        SELECT point_balance
+        FROM users
+        WHERE user_id = #{userId}
+    </select>
+
+    <update id="decreasePointBalance">
+        UPDATE users
+        SET point_balance = point_balance - #{amount},
+            updated_at = #{updatedAt}
+        WHERE user_id = #{userId}
+          AND point_balance &gt;= #{amount}
+    </update>
+
+    <insert id="insertPointTransaction"
+            parameterType="org.firstfolio.reward.domain.PointTransaction"
+            useGeneratedKeys="true"
+            keyProperty="pointTransactionId"
+            keyColumn="point_transaction_id">
+        INSERT INTO point_transactions (
+            user_id, transaction_type, amount, reason_type, reason_id,
+            balance_after, idempotency_key, occurred_at, created_at
+        ) VALUES (
+            #{userId}, #{transactionType}, #{amount}, #{reasonType},
+            #{reasonId,jdbcType=BIGINT}, #{balanceAfter}, #{idempotencyKey},
+            #{occurredAt}, #{createdAt}
+        )
+    </insert>
+
+    <update id="linkPointTransactionReason">
+        UPDATE point_transactions
+        SET reason_id = #{gifticonOrderId}
+        WHERE point_transaction_id = #{pointTransactionId}
+          AND reason_type = 'GIFTICON'
+          AND reason_id IS NULL
+    </update>
+
+    <!-- 서로 다른 사용자는 잠기지 않은 재고 행을 동시에 가져갈 수 있다. -->
+    <select id="lockNextAvailableCode" resultMap="allocationCodeResult">
+        SELECT gifticon_code_id, gifticon_product_id, code_masked, expires_at, status
+        FROM gifticon_codes
+        WHERE gifticon_product_id = #{gifticonProductId}
+          AND status = 'AVAILABLE'
+          AND expires_at &gt; #{now}
+        ORDER BY expires_at, gifticon_code_id
+        LIMIT 1
+        FOR UPDATE SKIP LOCKED
+    </select>
+
+    <!-- 모든 후보가 다른 교환에 잠긴 순간에는 기다려 롤백 재고를 품절로 오판하지 않는다. -->
+    <select id="lockNextAvailableCodeWaiting" resultMap="allocationCodeResult">
+        SELECT gifticon_code_id, gifticon_product_id, code_masked, expires_at, status
+        FROM gifticon_codes
+        WHERE gifticon_product_id = #{gifticonProductId}
+          AND status = 'AVAILABLE'
+          AND expires_at &gt; #{now}
+        ORDER BY expires_at, gifticon_code_id
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <update id="assignCode">
+        UPDATE gifticon_codes
+        SET status = 'ASSIGNED'
+        WHERE gifticon_code_id = #{gifticonCodeId}
+          AND status = 'AVAILABLE'
+    </update>
+
+    <insert id="insertOrder"
+            parameterType="org.firstfolio.gifticon.domain.GifticonOrder"
+            useGeneratedKeys="true"
+            keyProperty="gifticonOrderId"
+            keyColumn="gifticon_order_id">
+        INSERT INTO gifticon_orders (
+            user_id, gifticon_product_id, gifticon_code_id,
+            point_transaction_id, spent_points, product_snapshot_json,
+            idempotency_key, request_fingerprint, first_disclosed_at, completed_at
+        ) VALUES (
+            #{userId}, #{gifticonProductId}, #{gifticonCodeId},
+            #{pointTransactionId}, #{spentPoints}, #{productSnapshotJson},
+            #{idempotencyKey}, #{requestFingerprint},
+            #{firstDisclosedAt,jdbcType=TIMESTAMP}, #{completedAt}
+        )
+    </insert>
+
+    <select id="findByUserAndIdempotency" resultMap="orderViewResult">
+        SELECT <include refid="orderViewColumns"/>
+        FROM gifticon_orders o
+        JOIN point_transactions pt
+          ON pt.point_transaction_id = o.point_transaction_id
+        JOIN gifticon_codes c
+          ON c.gifticon_code_id = o.gifticon_code_id
+        WHERE o.user_id = #{userId}
+          AND o.idempotency_key = #{idempotencyKey}
+    </select>
+
+    <select id="findOrdersByUser" resultMap="orderViewResult">
+        SELECT <include refid="orderViewColumns"/>
+        FROM gifticon_orders o
+        JOIN point_transactions pt
+          ON pt.point_transaction_id = o.point_transaction_id
+        JOIN gifticon_codes c
+          ON c.gifticon_code_id = o.gifticon_code_id
+        WHERE o.user_id = #{userId}
+        <if test="cursor != null">AND o.gifticon_order_id &lt; #{cursor}</if>
+        ORDER BY o.gifticon_order_id DESC
+        LIMIT #{size}
+    </select>
+
+    <select id="findOrderByUser" resultMap="orderViewResult">
+        SELECT <include refid="orderViewColumns"/>
+        FROM gifticon_orders o
+        JOIN point_transactions pt
+          ON pt.point_transaction_id = o.point_transaction_id
+        JOIN gifticon_codes c
+          ON c.gifticon_code_id = o.gifticon_code_id
+        WHERE o.user_id = #{userId}
+          AND o.gifticon_order_id = #{gifticonOrderId}
+    </select>
+
+    <select id="findDisclosureForUpdate" resultMap="disclosureResult">
+        SELECT
+            <include refid="orderViewColumns"/>,
+            c.code_ciphertext,
+            c.encryption_key_version
+        FROM gifticon_orders o
+        JOIN point_transactions pt
+          ON pt.point_transaction_id = o.point_transaction_id
+        JOIN gifticon_codes c
+          ON c.gifticon_code_id = o.gifticon_code_id
+        WHERE o.user_id = #{userId}
+          AND o.gifticon_order_id = #{gifticonOrderId}
+        FOR UPDATE
+    </select>
+
+    <update id="markFirstDisclosed">
+        UPDATE gifticon_orders
+        SET first_disclosed_at = #{disclosedAt}
+        WHERE gifticon_order_id = #{gifticonOrderId}
+          AND first_disclosed_at IS NULL
+    </update>
+
+    <insert id="insertAccessLog">
+        INSERT INTO gifticon_code_access_logs (
+            gifticon_order_id, actor_user_id, access_type, request_id, occurred_at
+        ) VALUES (
+            #{gifticonOrderId}, #{actorUserId}, 'DISCLOSE', #{requestId}, #{occurredAt}
+        )
+    </insert>
+
+</mapper>

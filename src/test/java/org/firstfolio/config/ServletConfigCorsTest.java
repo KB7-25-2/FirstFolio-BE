@@ -40,6 +40,7 @@ class ServletConfigCorsTest {
         );
         assertEquals(Boolean.FALSE, configuration.getAllowCredentials());
         assertEquals(3600L, configuration.getMaxAge());
+        assertTrue(configuration.getAllowedHeaders().contains("Idempotency-Key"));
     }
 
     @Test
