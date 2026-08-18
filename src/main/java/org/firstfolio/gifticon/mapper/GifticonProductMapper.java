@@ -16,5 +16,13 @@ public interface GifticonProductMapper {
             @Param("cursor") Long cursor,
             @Param("size") int size
     );
+    List<GifticonProductInventory> findMarketPage(
+            @Param("category") String category,
+            @Param("cursor") Long cursor,
+            @Param("size") int size
+    );
+    GifticonProductInventory findOnSaleInventoryById(
+            @Param("gifticonProductId") long gifticonProductId
+    );
     int update(GifticonProduct product);
 }

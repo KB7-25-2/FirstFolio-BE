@@ -79,6 +79,14 @@ public class GifticonCryptoService {
         }
     }
 
+    public String decrypt(byte[] stored, String storedKeyVersion) {
+        if (storedKeyVersion == null
+                || !keyVersion().equals(storedKeyVersion.trim())) {
+            throw cryptoUnavailable(null);
+        }
+        return decrypt(stored);
+    }
+
     public byte[] fingerprint(String code) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");

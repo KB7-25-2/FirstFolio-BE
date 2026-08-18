@@ -111,6 +111,12 @@ public enum ErrorCode {
     GIFTICON_CODE_ALREADY_ASSIGNED(HttpStatus.CONFLICT, "이미 지급된 기프티콘 코드는 폐기할 수 없습니다."),
     GIFTICON_CODE_ALREADY_VOID(HttpStatus.CONFLICT, "이미 폐기된 기프티콘 코드입니다."),
     GIFTICON_CRYPTO_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "기프티콘 코드 보호 설정을 사용할 수 없습니다."),
+    INSUFFICIENT_POINTS(HttpStatus.UNPROCESSABLE_ENTITY, "기프티콘 교환에 필요한 포인트가 부족합니다."),
+    GIFTICON_SOLD_OUT(HttpStatus.CONFLICT, "교환 가능한 기프티콘 재고가 없습니다."),
+    GIFTICON_ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "내 기프티콘을 찾을 수 없습니다."),
+    GIFTICON_NOT_ON_SALE(HttpStatus.CONFLICT, "현재 판매 중인 기프티콘 상품이 아닙니다."),
+    INVALID_GIFTICON_ORDER_CURSOR(HttpStatus.BAD_REQUEST, "내 기프티콘 페이지 조건이 올바르지 않습니다."),
+    GIFTICON_CODE_DECRYPTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "기프티콘 코드를 공개할 수 없습니다."),
 
     // 내부 배치 (FUNC-040, 041, 042)
     INTERNAL_CALL_REQUIRED(HttpStatus.FORBIDDEN, "허용된 내부 호출이 아닙니다."),

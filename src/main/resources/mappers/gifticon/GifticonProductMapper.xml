@@ -82,6 +82,51 @@
         LIMIT #{size}
     </select>
 
+    <select id="findMarketPage" resultMap="inventoryResult">
+        SELECT
+            p.gifticon_product_id, p.name, p.brand_name, p.category,
+            p.face_value_krw, p.required_points, p.status, p.image_url,
+            p.created_at, p.updated_at,
+            COALESCE(SUM(CASE
+                WHEN c.status = 'AVAILABLE' AND c.expires_at &gt; UTC_TIMESTAMP()
+                THEN 1 ELSE 0 END), 0) AS available_code_count,
+            0 AS assigned_code_count,
+            0 AS void_code_count
+        FROM gifticon_products p
+        LEFT JOIN gifticon_codes c
+          ON c.gifticon_product_id = p.gifticon_product_id
+        WHERE p.status = 'ON_SALE'
+        <if test="category != null">AND p.category = #{category}</if>
+        <if test="cursor != null">AND p.gifticon_product_id &gt; #{cursor}</if>
+        GROUP BY
+            p.gifticon_product_id, p.name, p.brand_name, p.category,
+            p.face_value_krw, p.required_points, p.status, p.image_url,
+            p.created_at, p.updated_at
+        ORDER BY p.gifticon_product_id
+        LIMIT #{size}
+    </select>
+
+    <select id="findOnSaleInventoryById" resultMap="inventoryResult">
+        SELECT
+            p.gifticon_product_id, p.name, p.brand_name, p.category,
+            p.face_value_krw, p.required_points, p.status, p.image_url,
+            p.created_at, p.updated_at,
+            COALESCE(SUM(CASE
+                WHEN c.status = 'AVAILABLE' AND c.expires_at &gt; UTC_TIMESTAMP()
+                THEN 1 ELSE 0 END), 0) AS available_code_count,
+            0 AS assigned_code_count,
+            0 AS void_code_count
+        FROM gifticon_products p
+        LEFT JOIN gifticon_codes c
+          ON c.gifticon_product_id = p.gifticon_product_id
+        WHERE p.gifticon_product_id = #{gifticonProductId}
+          AND p.status = 'ON_SALE'
+        GROUP BY
+            p.gifticon_product_id, p.name, p.brand_name, p.category,
+            p.face_value_krw, p.required_points, p.status, p.image_url,
+            p.created_at, p.updated_at
+    </select>
+
     <update id="update">
         UPDATE gifticon_products
         SET name = #{name},
