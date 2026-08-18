@@ -218,6 +218,12 @@ WAR 결과물은 `build/libs/firstfolio.war`입니다.
 
 ### API 문서 (Swagger)
 
+FirstFolio가 제공하는 API의 JSON 요청·응답 필드명은 모두 `snake_case`를 사용합니다.
+Java 코드 내부의 필드와 메서드는 Java 관례에 따라 `camelCase`를 유지하며, 공통 API
+`ObjectMapper`가 API 경계에서 변환합니다. 외부 데이터 제공처와 통신하는 전용 DTO는
+상대 API의 필드명 규칙을 따르며 FirstFolio API DTO와 분리합니다. 버전형 정적 학습
+콘텐츠 JSON도 각 버전의 JSON Schema를 따릅니다.
+
 Tomcat에 배포한 뒤 다음 주소에서 Swagger UI와 OpenAPI 3 명세를 확인할 수 있습니다.
 
 ```text

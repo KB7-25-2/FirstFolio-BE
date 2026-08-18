@@ -182,6 +182,7 @@ class QuizQuestionRegistrationServiceTest {
                 "SUB_CHAPTER",
                 2L,
                 101L,
+                null,
                 "SINGLE_CHOICE",
                 "EASY",
                 "질문",
@@ -207,6 +208,7 @@ class QuizQuestionRegistrationServiceTest {
                 "LEVEL_TEST",
                 1L,
                 null,
+                1,
                 "SINGLE_CHOICE",
                 "EASY",
                 "질문",
@@ -225,6 +227,46 @@ class QuizQuestionRegistrationServiceTest {
 
         assertEquals(ErrorCode.QUESTION_VALIDATION_FAILED, exception.getErrorCode());
         verify(questionMapper, never()).insert(any());
+    }
+
+    @Test
+    void requiresPositiveDisplayOrderForMainChapterAndLevelTestQuestions()
+            throws Exception {
+        QuizQuestionCreateRequest missing = mainChapterRequest(null);
+        QuizQuestionCreateRequest nonPositive = mainChapterRequest(0);
+
+        ApiException missingException = assertThrows(
+                ApiException.class,
+                () -> service.createQuestion(missing, ACTOR_ID, REQUEST_ID)
+        );
+        ApiException nonPositiveException = assertThrows(
+                ApiException.class,
+                () -> service.createQuestion(nonPositive, ACTOR_ID, REQUEST_ID)
+        );
+
+        assertEquals(ErrorCode.QUESTION_VALIDATION_FAILED,
+                missingException.getErrorCode());
+        assertEquals(ErrorCode.QUESTION_VALIDATION_FAILED,
+                nonPositiveException.getErrorCode());
+        verify(questionMapper, never()).insert(any());
+    }
+
+    @Test
+    void storesDisplayOrderForMainChapterQuestion() throws Exception {
+        when(mainChapterMapper.findById(2L))
+                .thenReturn(mainChapter(2L, ChapterType.ASSET));
+
+        QuizQuestion created = service.createQuestion(
+                mainChapterRequest(2),
+                ACTOR_ID,
+                REQUEST_ID
+        );
+
+        assertEquals(2, created.getDisplayOrder());
+        ArgumentCaptor<QuizQuestion> questionCaptor =
+                ArgumentCaptor.forClass(QuizQuestion.class);
+        verify(questionMapper).insert(questionCaptor.capture());
+        assertEquals(2, questionCaptor.getValue().getDisplayOrder());
     }
 
     @Test
@@ -247,6 +289,7 @@ class QuizQuestionRegistrationServiceTest {
         assertEquals(base.getUsageType(), created.getUsageType());
         assertEquals(base.getMainChapterId(), created.getMainChapterId());
         assertEquals(base.getSubChapterId(), created.getSubChapterId());
+        assertEquals(base.getDisplayOrder(), created.getDisplayOrder());
         assertEquals(base.getQuestionType(), created.getQuestionType());
         assertEquals(base.getDifficulty(), created.getDifficulty());
         assertEquals(base.getGenerationType(), created.getGenerationType());
@@ -345,6 +388,7 @@ class QuizQuestionRegistrationServiceTest {
                 "SUB_CHAPTER",
                 null,
                 101L,
+                null,
                 "SINGLE_CHOICE",
                 "EASY",
                 "예금의 특징으로 적절한 것은?",
@@ -352,6 +396,24 @@ class QuizQuestionRegistrationServiceTest {
                 options(),
                 correctAnswer(),
                 "정답 해설"
+        );
+    }
+
+    private QuizQuestionCreateRequest mainChapterRequest(Integer displayOrder)
+            throws Exception {
+        return new QuizQuestionCreateRequest(
+                "deposit-final-001",
+                "MAIN_CHAPTER",
+                2L,
+                null,
+                displayOrder,
+                "SINGLE_CHOICE",
+                "EASY",
+                "대단원 질문",
+                null,
+                options(),
+                correctAnswer(),
+                "대단원 해설"
         );
     }
 
@@ -414,7 +476,7 @@ class QuizQuestionRegistrationServiceTest {
                 QuizUsageType.SUB_CHAPTER,
                 2L,
                 101L,
-                null,
+                4,
                 QuizQuestionType.SINGLE_CHOICE,
                 QuizDifficulty.EASY,
                 "기존 질문",

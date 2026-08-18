@@ -3,6 +3,7 @@
   "usage_type": "MAIN_CHAPTER",
   "main_chapter_id": 5,
   "sub_chapter_id": null,
+  "display_order": 1,
   "question_type": "SCENARIO",
   "difficulty": "MEDIUM",
   "prompt": "제시된 조건에 가장 적절한 선택은 무엇인가요?",

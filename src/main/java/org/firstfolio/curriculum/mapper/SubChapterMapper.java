@@ -45,4 +45,10 @@ public interface SubChapterMapper {
             @Param("contentVersionId") long contentVersionId,
             @Param("updatedAt") LocalDateTime updatedAt
     );
+
+    int clearCurrentContentVersion(
+            @Param("subChapterId") long subChapterId,
+            @Param("expectedContentVersionId") long expectedContentVersionId,
+            @Param("updatedAt") LocalDateTime updatedAt
+    );
 }

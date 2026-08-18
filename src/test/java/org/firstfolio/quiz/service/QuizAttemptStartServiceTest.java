@@ -192,7 +192,7 @@ class QuizAttemptStartServiceTest {
     }
 
     @Test
-    void rejectsQuestionThatIsNoLongerPublished() {
+    void allowsRetiredQuestionPinnedByAlreadyPublishedLessonVersion() {
         arrangeNewAttempt();
         QuizQuestion retired = question(1001L, QuizQuestionType.SINGLE_CHOICE);
         retired.setStatus(QuizQuestionStatus.RETIRED);
@@ -202,13 +202,23 @@ class QuizAttemptStartServiceTest {
                         question(1002L, QuizQuestionType.TRUE_FALSE)
                 ));
 
-        ApiException exception = assertThrows(
-                ApiException.class,
-                () -> service.start(USER_ID, SUB_CHAPTER_ID)
-        );
+        when(quizAttemptMapper.findMaxAttemptNoByUserIdAndSubChapterId(
+                USER_ID, SUB_CHAPTER_ID
+        )).thenReturn(0);
+        when(quizAttemptMapper.insertAttempt(any())).thenAnswer(invocation -> {
+            QuizAttempt attempt = invocation.getArgument(0);
+            attempt.setAttemptId(3001L);
+            return 1;
+        });
+        when(quizAttemptMapper.insertAnswer(any())).thenReturn(1);
 
-        assertEquals(ErrorCode.QUIZ_NOT_AVAILABLE, exception.getErrorCode());
-        verify(quizAttemptMapper, never()).insertAttempt(any());
+        QuizAttemptStartResult result = service.start(USER_ID, SUB_CHAPTER_ID);
+
+        assertEquals(3001L, result.attempt().getAttemptId());
+        assertEquals(List.of(1001L, 1002L), result.questions().stream()
+                .map(question -> question.questionId())
+                .toList());
+        verify(quizAttemptMapper, org.mockito.Mockito.times(2)).insertAnswer(any());
     }
 
     @Test

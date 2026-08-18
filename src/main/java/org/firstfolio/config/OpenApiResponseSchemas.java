@@ -10,10 +10,12 @@ import org.firstfolio.content.dto.response.ContentVersionCreateResponse;
 import org.firstfolio.dashboard.dto.response.DashboardResponse;
 import org.firstfolio.content.dto.response.ContentVersionListResponse;
 import org.firstfolio.content.dto.response.ContentVersionPublishResponse;
+import org.firstfolio.content.dto.response.ContentVersionRetireResponse;
 import org.firstfolio.curriculum.dto.response.CurriculumConfirmResponse;
 import org.firstfolio.curriculum.dto.response.CurriculumDraftEditResponse;
 import org.firstfolio.curriculum.dto.response.CurriculumDraftResponse;
 import org.firstfolio.curriculum.dto.response.CurriculumOverviewResponse;
+import org.firstfolio.curriculum.dto.response.CurriculumUpdateResponse;
 import org.firstfolio.curriculum.dto.response.MainChapterCreateResponse;
 import org.firstfolio.curriculum.dto.response.MainChapterListResponse;
 import org.firstfolio.curriculum.dto.response.MainChapterPatchResponse;
@@ -27,6 +29,7 @@ import org.firstfolio.learning.dto.response.LessonContentResponse;
 import org.firstfolio.learning.dto.response.LearningProgressResponse;
 import org.firstfolio.learning.dto.response.LearningProgressUpdateResponse;
 import org.firstfolio.learning.dto.response.LearningContinueResponse;
+import org.firstfolio.learning.dto.response.LearningRoadmapResponse;
 import org.firstfolio.learning.dto.response.PublicMainChapterListResponse;
 import org.firstfolio.learning.dto.response.PublicSubChapterListResponse;
 import org.firstfolio.portfolio.dto.response.PortfolioDetailResponse;
@@ -41,6 +44,7 @@ import org.firstfolio.quiz.dto.response.LevelTestSubmitResponse;
 import org.firstfolio.quiz.dto.response.QuizAttemptStartResponse;
 import org.firstfolio.quiz.dto.response.QuizAnswerGradingResponse;
 import org.firstfolio.quiz.dto.response.QuizQuestionCreateResponse;
+import org.firstfolio.quiz.dto.response.QuizQuestionStatusResponse;
 import org.firstfolio.simulation.dto.response.PriceRefreshResponse;
 import org.firstfolio.simulation.dto.response.ProductDetailResponse;
 import org.firstfolio.simulation.dto.response.ProductPageResponse;
@@ -84,6 +88,9 @@ public final class OpenApiResponseSchemas {
     @Schema(name = "LearningContinueApiResponse")
     public record LearningContinue(LearningContinueResponse data) { }
 
+    @Schema(name = "LearningRoadmapApiResponse")
+    public record LearningRoadmap(LearningRoadmapResponse data) { }
+
     @Schema(name = "PublicMainChapterListApiResponse")
     public record PublicMainChapterList(PublicMainChapterListResponse data) { }
 
@@ -120,6 +127,9 @@ public final class OpenApiResponseSchemas {
     @Schema(name = "CurriculumOverviewApiResponse")
     public record CurriculumOverview(CurriculumOverviewResponse data) { }
 
+    @Schema(name = "CurriculumUpdateApiResponse")
+    public record CurriculumUpdate(CurriculumUpdateResponse data) { }
+
     @Schema(name = "ContentVersionListApiResponse")
     public record ContentVersionList(ContentVersionListResponse data) { }
 
@@ -129,8 +139,14 @@ public final class OpenApiResponseSchemas {
     @Schema(name = "ContentVersionPublishApiResponse")
     public record ContentVersionPublish(ContentVersionPublishResponse data) { }
 
+    @Schema(name = "ContentVersionRetireApiResponse")
+    public record ContentVersionRetire(ContentVersionRetireResponse data) { }
+
     @Schema(name = "QuizQuestionCreateApiResponse")
     public record QuizQuestionCreate(QuizQuestionCreateResponse data) { }
+
+    @Schema(name = "QuizQuestionStatusApiResponse")
+    public record QuizQuestionStatus(QuizQuestionStatusResponse data) { }
 
     @Schema(name = "QuizAttemptStartApiResponse")
     public record QuizAttemptStart(QuizAttemptStartResponse data) { }

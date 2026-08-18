@@ -217,6 +217,15 @@ public class QuizQuestion {
         this.status = status;
     }
 
+    public void publish(LocalDateTime publishedAt) {
+        this.status = QuizQuestionStatus.PUBLISHED;
+        this.publishedAt = publishedAt;
+    }
+
+    public void retire() {
+        this.status = QuizQuestionStatus.RETIRED;
+    }
+
     public long getCreatedBy() {
         return createdBy;
     }

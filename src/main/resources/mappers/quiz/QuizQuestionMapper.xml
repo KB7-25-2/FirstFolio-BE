@@ -68,6 +68,13 @@
         WHERE question_id = #{questionId}
     </select>
 
+    <select id="findByIdForUpdate" resultMap="questionResultMap">
+        SELECT <include refid="questionColumns" />
+        FROM quiz_questions
+        WHERE question_id = #{questionId}
+        FOR UPDATE
+    </select>
+
     <select id="findLatestByQuestionKeyForUpdate"
             resultMap="questionResultMap">
         SELECT <include refid="questionColumns" />
@@ -75,6 +82,16 @@
         WHERE question_key = #{questionKey}
         ORDER BY version_no DESC
         LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="findPublishedByQuestionKeyForUpdate"
+            resultMap="questionResultMap">
+        SELECT <include refid="questionColumns" />
+        FROM quiz_questions
+        WHERE question_key = #{questionKey}
+          AND status = 'PUBLISHED'
+        ORDER BY version_no, question_id
         FOR UPDATE
     </select>
 
@@ -125,8 +142,8 @@
               SELECT 1
               FROM quiz_questions newer
               WHERE newer.question_key = question.question_key
-                AND newer.status = 'PUBLISHED'
                 AND newer.version_no &gt; question.version_no
+                AND newer.status IN ('PUBLISHED', 'RETIRED')
           )
         ORDER BY question.display_order, question.question_id
     </select>
@@ -208,6 +225,21 @@
         ORDER BY question.published_at DESC, question.question_id DESC
         LIMIT 1
     </select>
+
+    <update id="publishDraft">
+        UPDATE quiz_questions
+        SET status = 'PUBLISHED',
+            published_at = #{publishedAt}
+        WHERE question_id = #{questionId}
+          AND status = 'DRAFT'
+    </update>
+
+    <update id="retirePublished">
+        UPDATE quiz_questions
+        SET status = 'RETIRED'
+        WHERE question_id = #{questionId}
+          AND status = 'PUBLISHED'
+    </update>
 
     <insert id="insert"
             parameterType="org.firstfolio.quiz.domain.QuizQuestion"

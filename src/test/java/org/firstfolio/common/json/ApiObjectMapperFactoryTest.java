@@ -31,6 +31,29 @@ class ApiObjectMapperFactoryTest {
     }
 
     @Test
+    @DisplayName("snake_case 요청 필드를 역직렬화한다")
+    void deserializesFieldNamesInSnakeCase() throws Exception {
+        Sample sample = objectMapper.readValue(
+                "{\"portfolio_transaction_id\":8201}",
+                Sample.class
+        );
+
+        assertEquals(8201L, sample.getPortfolioTransactionId());
+    }
+
+    @Test
+    @DisplayName("camelCase 요청 필드를 허용하지 않는다")
+    void rejectsFieldNamesInCamelCase() {
+        assertThrows(
+                Exception.class,
+                () -> objectMapper.readValue(
+                        "{\"portfolioTransactionId\":8201}",
+                        Sample.class
+                )
+        );
+    }
+
+    @Test
     @DisplayName("금액은 자릿수를 유지한 문자열로 직렬화한다")
     void serializesBigDecimalAsStringKeepingScale() throws Exception {
         Sample sample = new Sample();

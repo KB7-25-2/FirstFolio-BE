@@ -127,4 +127,38 @@
         </foreach>
     </insert>
 
+    <update id="markActiveAsRemoved">
+        UPDATE user_curriculum_items
+        SET status = 'REMOVED'
+        WHERE user_id = #{userId}
+          AND status = 'ACTIVE'
+    </update>
+
+    <insert id="upsertAll">
+        INSERT INTO user_curriculum_items (
+            user_id,
+            main_chapter_id,
+            display_order,
+            source_type,
+            status,
+            confirmed_at,
+            completed_at
+        ) VALUES
+        <foreach collection="items" item="item" separator=",">
+            (
+                #{userId},
+                #{item.mainChapterId},
+                #{item.displayOrder},
+                #{item.sourceType},
+                'ACTIVE',
+                #{confirmedAt},
+                NULL
+            )
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+            display_order = VALUES(display_order),
+            source_type = VALUES(source_type),
+            status = 'ACTIVE'
+    </insert>
+
 </mapper>

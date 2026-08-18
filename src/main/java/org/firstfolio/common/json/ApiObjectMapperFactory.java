@@ -3,7 +3,7 @@ package org.firstfolio.common.json;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.PropertyNamingStrategy;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
@@ -32,7 +32,7 @@ public final class ApiObjectMapperFactory {
     public static ObjectMapper create() {
         ObjectMapper objectMapper = new ObjectMapper();
 
-        objectMapper.setPropertyNamingStrategy(PropertyNamingStrategy.SNAKE_CASE);
+        objectMapper.setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
         objectMapper.registerModule(new JavaTimeModule());
         objectMapper.registerModule(new UtcDateTimeModule());
         objectMapper.registerModule(new DecimalAsStringModule());

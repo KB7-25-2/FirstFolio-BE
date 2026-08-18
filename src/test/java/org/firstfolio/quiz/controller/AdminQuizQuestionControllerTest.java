@@ -14,6 +14,7 @@ import org.firstfolio.quiz.domain.QuizQuestion;
 import org.firstfolio.quiz.domain.QuizQuestionType;
 import org.firstfolio.quiz.domain.QuizUsageType;
 import org.firstfolio.quiz.service.QuizQuestionRegistrationService;
+import org.firstfolio.quiz.service.QuizQuestionPublicationService;
 import org.firstfolio.user.domain.UserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,15 +47,20 @@ class AdminQuizQuestionControllerTest {
     );
 
     private QuizQuestionRegistrationService service;
+    private QuizQuestionPublicationService publicationService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         service = mock(QuizQuestionRegistrationService.class);
+        publicationService = mock(QuizQuestionPublicationService.class);
         MappingJackson2HttpMessageConverter converter =
                 new MappingJackson2HttpMessageConverter(ApiObjectMapperFactory.create());
         mockMvc = MockMvcBuilders
-                .standaloneSetup(new AdminQuizQuestionController(service))
+                .standaloneSetup(new AdminQuizQuestionController(
+                        service,
+                        publicationService
+                ))
                 .setControllerAdvice(new CommonExceptionAdvice())
                 .setCustomArgumentResolvers(new CurrentUserArgumentResolver())
                 .setMessageConverters(converter)
@@ -75,6 +81,7 @@ class AdminQuizQuestionControllerTest {
                 .andExpect(jsonPath("$.data.question_id").value(1201))
                 .andExpect(jsonPath("$.data.question_key").value("deposit-basic-001"))
                 .andExpect(jsonPath("$.data.version_no").value(1))
+                .andExpect(jsonPath("$.data.display_order").value(1))
                 .andExpect(jsonPath("$.data.generation_type").value("HUMAN"))
                 .andExpect(jsonPath("$.data.status").value("DRAFT"));
 
@@ -116,6 +123,7 @@ class AdminQuizQuestionControllerTest {
 
         verify(service).createQuestion(captor.capture(), eq(900L), anyString());
         assertEquals("SUB_CHAPTER", captor.getValue().usageType());
+        assertEquals(1, captor.getValue().displayOrder());
         assertEquals("SINGLE_CHOICE", captor.getValue().questionType());
         assertEquals("1", captor.getValue().correctAnswerJson().path("key").textValue());
         assertEquals(2, captor.getValue().optionsJson().size());
@@ -163,6 +171,65 @@ class AdminQuizQuestionControllerTest {
                 .andExpect(jsonPath("$.error.code").value("QUESTION_NOT_FOUND"));
     }
 
+    @Test
+    void publishesLatestDraftQuestionVersion() throws Exception {
+        QuizQuestion published = question(1202L, 2);
+        published.publish(LocalDateTime.of(2026, 8, 14, 6, 0));
+        when(publicationService.publish(eq(1202L), eq(900L), anyString()))
+                .thenReturn(published);
+
+        mockMvc.perform(post("/api/admin/quiz-questions/1202/publish")
+                        .requestAttr(AuthenticationRequestAttributes.CURRENT_USER, ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.question_id").value(1202))
+                .andExpect(jsonPath("$.data.question_key").value("deposit-basic-001"))
+                .andExpect(jsonPath("$.data.version_no").value(2))
+                .andExpect(jsonPath("$.data.status").value("PUBLISHED"))
+                .andExpect(jsonPath("$.data.published_at")
+                        .value("2026-08-14T06:00:00Z"));
+
+        verify(publicationService).publish(eq(1202L), eq(900L), anyString());
+    }
+
+    @Test
+    void retiresPublishedQuestionVersion() throws Exception {
+        QuizQuestion retired = question(1201L, 1);
+        retired.publish(LocalDateTime.of(2026, 8, 13, 6, 0));
+        retired.retire();
+        when(publicationService.retire(eq(1201L), eq(900L), anyString()))
+                .thenReturn(retired);
+
+        mockMvc.perform(post("/api/admin/quiz-questions/1201/retire")
+                        .requestAttr(AuthenticationRequestAttributes.CURRENT_USER, ADMIN))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.question_id").value(1201))
+                .andExpect(jsonPath("$.data.status").value("RETIRED"))
+                .andExpect(jsonPath("$.data.published_at")
+                        .value("2026-08-13T06:00:00Z"));
+
+        verify(publicationService).retire(eq(1201L), eq(900L), anyString());
+    }
+
+    @Test
+    void returnsQuestionStateTransitionErrors() throws Exception {
+        when(publicationService.publish(eq(1201L), eq(900L), anyString()))
+                .thenThrow(new ApiException(ErrorCode.QUESTION_NOT_PUBLISHABLE));
+        when(publicationService.retire(eq(1202L), eq(900L), anyString()))
+                .thenThrow(new ApiException(ErrorCode.QUESTION_NOT_RETIRABLE));
+
+        mockMvc.perform(post("/api/admin/quiz-questions/1201/publish")
+                        .requestAttr(AuthenticationRequestAttributes.CURRENT_USER, ADMIN))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code")
+                        .value("QUESTION_NOT_PUBLISHABLE"));
+
+        mockMvc.perform(post("/api/admin/quiz-questions/1202/retire")
+                        .requestAttr(AuthenticationRequestAttributes.CURRENT_USER, ADMIN))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code")
+                        .value("QUESTION_NOT_RETIRABLE"));
+    }
+
     private QuizQuestion question(long id, int versionNo) {
         QuizQuestion question = QuizQuestion.draft(
                 "deposit-basic-001",
@@ -170,7 +237,7 @@ class AdminQuizQuestionControllerTest {
                 QuizUsageType.SUB_CHAPTER,
                 2L,
                 101L,
-                null,
+                1,
                 QuizQuestionType.SINGLE_CHOICE,
                 QuizDifficulty.EASY,
                 "질문",
@@ -195,6 +262,7 @@ class AdminQuizQuestionControllerTest {
                   "usage_type": "SUB_CHAPTER",
                   "main_chapter_id": null,
                   "sub_chapter_id": 101,
+                  "display_order": 1,
                   "question_type": "SINGLE_CHOICE",
                   "difficulty": "EASY",
                   "prompt": "예금의 특징으로 적절한 것은?",

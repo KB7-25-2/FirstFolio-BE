@@ -13,6 +13,12 @@ public record QuizQuestionCreateRequest(
         Long mainChapterId,
         @Schema(description = "소단원 ID", nullable = true, example = "101")
         Long subChapterId,
+        @Schema(
+                description = "문항 표시 순서. LEVEL_TEST와 MAIN_CHAPTER는 필수",
+                nullable = true,
+                example = "1"
+        )
+        Integer displayOrder,
         @Schema(description = "문항 유형", example = "SINGLE_CHOICE")
         String questionType,
         @Schema(description = "난이도", nullable = true, example = "EASY")
