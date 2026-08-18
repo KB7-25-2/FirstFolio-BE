@@ -18,6 +18,14 @@
         <result property="updatedAt" column="updated_at" />
     </resultMap>
 
+    <resultMap id="mainChapterQuizContinueCandidateResultMap"
+               type="org.firstfolio.learning.domain.MainChapterQuizContinueCandidate">
+        <id property="curriculumItemId" column="curriculum_item_id" />
+        <result property="mainChapterId" column="main_chapter_id" />
+        <result property="attemptId" column="attempt_id" />
+        <result property="attemptStatus" column="attempt_status" />
+    </resultMap>
+
     <select id="findLatestInProgress"
             resultMap="learningContinueCandidateResultMap">
         SELECT
@@ -43,6 +51,98 @@
         WHERE progress.user_id = #{userId}
           AND progress.status = 'IN_PROGRESS'
         ORDER BY progress.updated_at DESC, progress.progress_id DESC
+        LIMIT 1
+    </select>
+
+    <select id="findMainChapterQuizCandidate"
+            resultMap="mainChapterQuizContinueCandidateResultMap">
+        SELECT
+            curriculum.curriculum_item_id,
+            curriculum.main_chapter_id,
+            attempt.attempt_id,
+            attempt.status AS attempt_status
+        FROM user_curriculum_items curriculum
+        INNER JOIN main_chapters main
+            ON main.main_chapter_id = curriculum.main_chapter_id
+           AND main.is_active = TRUE
+        LEFT JOIN quiz_attempts attempt
+            ON attempt.user_id = curriculum.user_id
+           AND attempt.quiz_type = 'MAIN_CHAPTER'
+           AND attempt.main_chapter_id = curriculum.main_chapter_id
+           AND NOT EXISTS (
+               SELECT 1
+               FROM quiz_attempts newer_attempt
+               WHERE newer_attempt.user_id = attempt.user_id
+                 AND newer_attempt.quiz_type = 'MAIN_CHAPTER'
+                 AND newer_attempt.main_chapter_id = attempt.main_chapter_id
+                 AND (
+                     newer_attempt.attempt_no &gt; attempt.attempt_no
+                     OR (
+                         newer_attempt.attempt_no = attempt.attempt_no
+                         AND newer_attempt.attempt_id &gt; attempt.attempt_id
+                     )
+                 )
+           )
+        WHERE curriculum.user_id = #{userId}
+          AND curriculum.status = 'ACTIVE'
+          AND curriculum.completed_at IS NULL
+          AND NOT EXISTS (
+              SELECT 1
+              FROM user_curriculum_items earlier
+              WHERE earlier.user_id = curriculum.user_id
+                AND earlier.status = 'ACTIVE'
+                AND earlier.completed_at IS NULL
+                AND (
+                    earlier.display_order &lt; curriculum.display_order
+                    OR (
+                        earlier.display_order = curriculum.display_order
+                        AND earlier.curriculum_item_id &lt; curriculum.curriculum_item_id
+                    )
+                )
+          )
+          AND EXISTS (
+              SELECT 1
+              FROM sub_chapters active_sub
+              WHERE active_sub.main_chapter_id = curriculum.main_chapter_id
+                AND active_sub.is_active = TRUE
+          )
+          AND NOT EXISTS (
+              SELECT 1
+              FROM sub_chapters incomplete_sub
+              WHERE incomplete_sub.main_chapter_id = curriculum.main_chapter_id
+                AND incomplete_sub.is_active = TRUE
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM user_learning_progress completed_progress
+                    WHERE completed_progress.user_id = curriculum.user_id
+                      AND completed_progress.sub_chapter_id = incomplete_sub.sub_chapter_id
+                      AND completed_progress.status = 'COMPLETED'
+                )
+          )
+          AND EXISTS (
+              SELECT 1
+              FROM quiz_questions question
+              WHERE question.usage_type = 'MAIN_CHAPTER'
+                AND question.main_chapter_id = curriculum.main_chapter_id
+                AND question.status = 'PUBLISHED'
+                AND question.display_order IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM quiz_questions newer
+                    WHERE newer.question_key = question.question_key
+                      AND newer.version_no &gt; question.version_no
+                      AND newer.status IN ('PUBLISHED', 'RETIRED')
+                )
+          )
+          AND (
+              attempt.attempt_id IS NULL
+              OR attempt.status = 'IN_PROGRESS'
+              OR (
+                  attempt.status = 'GRADED'
+                  AND attempt.correct_count &lt; attempt.total_count
+              )
+          )
+        ORDER BY curriculum.display_order, curriculum.curriculum_item_id
         LIMIT 1
     </select>
 

@@ -25,6 +25,7 @@ import java.time.ZoneOffset;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -243,7 +244,7 @@ class QuizAnswerGradingServiceTest {
     }
 
     @Test
-    void completesMainChapterAfterAllAnswersRegardlessOfScore() {
+    void leavesMainChapterIncompleteWhenGradedAttemptIsNotPerfect() {
         QuizAttempt attempt = inProgressAttempt(1);
         attempt.setQuizType(QuizType.MAIN_CHAPTER);
         attempt.setMainChapterId(10L);
@@ -260,6 +261,43 @@ class QuizAnswerGradingServiceTest {
                 0,
                 NOW
         )).thenReturn(new QuizRewardResult(91L, 0, null));
+        when(quizAttemptMapper.completeAttemptIfInProgress(any())).thenReturn(1);
+
+        QuizAnswerGradingResult result = service.grade(
+                USER_ID,
+                ATTEMPT_ID,
+                QUESTION_ID,
+                "B"
+        );
+
+        assertFalse(result.correct());
+        assertEquals(QuizAttemptStatus.GRADED, result.attemptStatus());
+        assertEquals(0, result.correctCount());
+        assertEquals(0, result.score());
+        assertNull(result.mainChapterCompletion());
+        assertEquals("RETRY_MAIN_CHAPTER_QUIZ", result.nextAction());
+        verify(mainChapterCompletionService, never())
+                .complete(USER_ID, 10L, NOW);
+    }
+
+    @Test
+    void completesMainChapterWhenGradedAttemptIsPerfect() {
+        QuizAttempt attempt = inProgressAttempt(1);
+        attempt.setQuizType(QuizType.MAIN_CHAPTER);
+        attempt.setMainChapterId(10L);
+        attempt.setSubChapterId(null);
+        attempt.setContentVersionId(null);
+        arrange(attempt, unanswered());
+        when(quizAttemptMapper.gradeAnswerIfUnanswered(any())).thenReturn(1);
+        when(quizAttemptMapper.countAnsweredByAttemptId(ATTEMPT_ID)).thenReturn(1);
+        when(quizAttemptMapper.countCorrectByAttemptId(ATTEMPT_ID)).thenReturn(1);
+        when(quizRewardService.grantForCompletedAttempt(
+                USER_ID,
+                ATTEMPT_ID,
+                1,
+                1,
+                NOW
+        )).thenReturn(new QuizRewardResult(91L, 100, 7001L));
         MainChapterCompletionResult completion =
                 new MainChapterCompletionResult(
                         ChapterType.ASSET,
@@ -274,15 +312,50 @@ class QuizAnswerGradingServiceTest {
                 USER_ID,
                 ATTEMPT_ID,
                 QUESTION_ID,
-                "B"
+                "C"
         );
 
-        assertFalse(result.correct());
-        assertEquals(0, result.correctCount());
-        assertEquals(0, result.score());
+        assertEquals(1, result.correctCount());
+        assertEquals(100, result.score());
         assertEquals(completion, result.mainChapterCompletion());
         assertEquals("NEXT_MAIN_CHAPTER", result.nextAction());
         verify(mainChapterCompletionService).complete(USER_ID, 10L, NOW);
+    }
+
+    @Test
+    void restoresFailedMainChapterResultWithoutCompletingChapter() {
+        QuizAttempt attempt = inProgressAttempt(2);
+        attempt.setQuizType(QuizType.MAIN_CHAPTER);
+        attempt.setMainChapterId(10L);
+        attempt.setSubChapterId(null);
+        attempt.setContentVersionId(null);
+        attempt.setStatus(QuizAttemptStatus.GRADED);
+        attempt.setCorrectCount(1);
+        attempt.setScore(50);
+        attempt.setRewardPolicyId(91L);
+        attempt.setPointTransactionId(7001L);
+        attempt.setSubmittedAt(NOW);
+        QuizAnswer answer = unanswered();
+        answer.setUserAnswerJson("{\"key\":\"B\"}");
+        answer.setCorrect(false);
+        answer.setAnsweredAt(NOW);
+        arrange(attempt, answer);
+        when(quizAttemptMapper.countAnsweredByAttemptId(ATTEMPT_ID)).thenReturn(2);
+        when(quizRewardService.restore(USER_ID, ATTEMPT_ID, 91L, 7001L))
+                .thenReturn(new QuizRewardResult(91L, 100, 7001L));
+
+        QuizAnswerGradingResult result = service.grade(
+                USER_ID,
+                ATTEMPT_ID,
+                QUESTION_ID,
+                "B"
+        );
+
+        assertEquals(QuizAttemptStatus.GRADED, result.attemptStatus());
+        assertNull(result.mainChapterCompletion());
+        assertEquals("RETRY_MAIN_CHAPTER_QUIZ", result.nextAction());
+        verify(mainChapterCompletionService, never())
+                .complete(USER_ID, 10L, NOW);
     }
 
     @Test

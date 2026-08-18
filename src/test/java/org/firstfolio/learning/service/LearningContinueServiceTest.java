@@ -12,6 +12,8 @@ import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.learning.domain.LearningContinueCandidate;
 import org.firstfolio.learning.domain.LearningContinueResult;
+import org.firstfolio.learning.domain.LearningContinueTarget;
+import org.firstfolio.learning.domain.MainChapterQuizContinueCandidate;
 import org.firstfolio.learning.mapper.LearningContinueMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -64,6 +66,7 @@ class LearningContinueServiceTest {
 
         LearningContinueResult result = service.getContinuePosition(USER_ID);
 
+        assertEquals(LearningContinueTarget.LESSON, result.targetType());
         assertEquals(502L, result.curriculumItemId());
         assertEquals(2L, result.mainChapterId());
         assertEquals(101L, result.subChapterId());
@@ -74,6 +77,35 @@ class LearningContinueServiceTest {
                 "/learning/sub-chapters/101?page=page-2",
                 result.route()
         );
+    }
+
+    @Test
+    void returnsMainChapterQuizWhenThereIsNoInProgressLesson() {
+        MainChapterQuizContinueCandidate candidate =
+                new MainChapterQuizContinueCandidate();
+        candidate.setCurriculumItemId(502L);
+        candidate.setMainChapterId(2L);
+        candidate.setAttemptId(3001L);
+        when(learningContinueMapper.findMainChapterQuizCandidate(USER_ID))
+                .thenReturn(candidate);
+
+        LearningContinueResult result = service.getContinuePosition(USER_ID);
+
+        assertEquals(LearningContinueTarget.MAIN_CHAPTER_QUIZ,
+                result.targetType());
+        assertEquals(502L, result.curriculumItemId());
+        assertEquals(2L, result.mainChapterId());
+        assertNull(result.subChapterId());
+        assertNull(result.contentVersionId());
+        assertEquals(3001L, result.attemptId());
+        assertNull(result.lastPageId());
+        assertEquals(100, result.progressPercent());
+        assertEquals(
+                "/learning/main-chapters/2/scenario-quiz",
+                result.route()
+        );
+        verify(contentVersionMapper, never()).findById(CONTENT_VERSION_ID);
+        verify(contentStorage, never()).load(STORED_OBJECT);
     }
 
     @Test
@@ -104,6 +136,8 @@ class LearningContinueServiceTest {
                 ErrorCode.CONTINUE_POSITION_NOT_FOUND,
                 exception.getErrorCode()
         );
+        verify(learningContinueMapper)
+                .findMainChapterQuizCandidate(USER_ID);
         verify(contentVersionMapper, never()).findById(CONTENT_VERSION_ID);
     }
 

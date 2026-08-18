@@ -142,6 +142,35 @@ class LearningRoadmapServiceTest {
     }
 
     @Test
+    void keepsMainChapterQuizAvailableAfterFailedGradedAttempt() {
+        when(roadmapMapper.findChaptersByUserId(USER_ID)).thenReturn(List.of(
+                chapter(501L, 8L, ChapterType.FOUNDATION,
+                        CurriculumSourceType.FOUNDATION, 1, null, 100)
+        ));
+        when(roadmapMapper.findSubChaptersByUserId(USER_ID)).thenReturn(List.of(
+                subChapter(8L, 101L, 1, 301L, 701L, 301L,
+                        LearningProgressStatus.COMPLETED)
+        ));
+        when(roadmapMapper.findMainChapterQuizzesByUserId(USER_ID))
+                .thenReturn(List.of(
+                        quiz(8L, true, true, 801L,
+                                QuizAttemptStatus.GRADED)
+                ));
+
+        LearningRoadmapResponse.Chapter chapter =
+                service.getRoadmap(USER_ID).items().get(0);
+
+        assertEquals(LearningRoadmapStatus.Chapter.IN_PROGRESS,
+                chapter.status());
+        assertEquals(LearningRoadmapStatus.Quiz.AVAILABLE,
+                chapter.mainChapterQuiz().status());
+        assertTrue(chapter.mainChapterQuiz().available());
+        assertEquals(QuizAttemptStatus.GRADED,
+                chapter.mainChapterQuiz().attemptStatus());
+        assertEquals(2, chapter.mainChapterQuiz().correctCount());
+    }
+
+    @Test
     void marksCompletedChapterAndQuizAsCompleted() {
         when(roadmapMapper.findChaptersByUserId(USER_ID)).thenReturn(List.of(
                 chapter(501L, 8L, ChapterType.FOUNDATION,
