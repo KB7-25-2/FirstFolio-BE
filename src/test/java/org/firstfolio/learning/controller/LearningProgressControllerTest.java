@@ -9,8 +9,10 @@ import org.firstfolio.exception.CommonExceptionAdvice;
 import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.learning.domain.LearningProgress;
 import org.firstfolio.learning.domain.LearningProgressStatus;
+import org.firstfolio.learning.domain.LearningProgressStatusResult;
 import org.firstfolio.learning.domain.LearningProgressUpdateCommand;
 import org.firstfolio.learning.domain.LearningProgressUpdateResult;
+import org.firstfolio.learning.domain.SubChapterQuizProgress;
 import org.firstfolio.learning.service.LearningProgressService;
 import org.firstfolio.user.domain.UserRole;
 import org.junit.jupiter.api.BeforeEach;
@@ -103,7 +105,13 @@ class LearningProgressControllerTest {
     void returnsNotStartedStatusWithoutCreatingProgress() throws Exception {
         LearningProgress progress = progress(LearningProgressStatus.NOT_STARTED);
         progress.setStartedAt(null);
-        when(service.getStatus(USER_ID, SUB_CHAPTER_ID)).thenReturn(progress);
+        SubChapterQuizProgress quizProgress = new SubChapterQuizProgress();
+        quizProgress.setActiveAttemptId(3001L);
+        quizProgress.setAnsweredCount(1);
+        quizProgress.setTotalCount(3);
+        when(service.getStatus(USER_ID, SUB_CHAPTER_ID)).thenReturn(
+                new LearningProgressStatusResult(progress, quizProgress)
+        );
 
         mockMvc.perform(authenticated(get(
                         "/api/learning/sub-chapters/101/progress")))
@@ -112,7 +120,11 @@ class LearningProgressControllerTest {
                 .andExpect(jsonPath("$.data.content_version_id").value(301))
                 .andExpect(jsonPath("$.data.status").value("NOT_STARTED"))
                 .andExpect(jsonPath("$.data.started_at").isEmpty())
-                .andExpect(jsonPath("$.data.completed_at").isEmpty());
+                .andExpect(jsonPath("$.data.completed_at").isEmpty())
+                .andExpect(jsonPath("$.data.quiz.completed").value(false))
+                .andExpect(jsonPath("$.data.quiz.active_attempt_id").value(3001))
+                .andExpect(jsonPath("$.data.quiz.answered_count").value(1))
+                .andExpect(jsonPath("$.data.quiz.total_count").value(3));
 
         verify(service).getStatus(USER_ID, SUB_CHAPTER_ID);
     }

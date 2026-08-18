@@ -85,7 +85,8 @@ public class LearningProgressController {
     @GetMapping
     @Operation(
             summary = "소단원 학습 진행 상태 조회",
-            description = "현재 사용자의 소단원 진도를 조회합니다. 저장된 진도가 없으면 현재 공개 콘텐츠 버전과 NOT_STARTED 상태를 반환합니다.",
+            description = "현재 사용자의 소단원 진도와 퀴즈 완료·이어풀기 상태를 조회합니다. "
+                    + "저장된 진도가 없으면 현재 공개 콘텐츠 버전과 NOT_STARTED 상태를 반환합니다.",
             responses = {
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(
                             responseCode = "200",

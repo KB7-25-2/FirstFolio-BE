@@ -17,9 +17,12 @@ import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.learning.domain.LearningProgress;
 import org.firstfolio.learning.domain.LearningProgressEvent;
 import org.firstfolio.learning.domain.LearningProgressStatus;
+import org.firstfolio.learning.domain.LearningProgressStatusResult;
 import org.firstfolio.learning.domain.LearningProgressUpdateCommand;
 import org.firstfolio.learning.domain.LearningProgressUpdateResult;
+import org.firstfolio.learning.domain.SubChapterQuizProgress;
 import org.firstfolio.learning.mapper.LearningProgressMapper;
+import org.firstfolio.quiz.mapper.QuizAttemptMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +41,7 @@ public class LearningProgressService {
     private final LearningProgressMapper learningProgressMapper;
     private final ContentVersionMapper contentVersionMapper;
     private final SubChapterMapper subChapterMapper;
+    private final QuizAttemptMapper quizAttemptMapper;
     private final StaticContentStorage contentStorage;
     private final Clock clock;
     private final ObjectMapper objectMapper;
@@ -46,12 +50,14 @@ public class LearningProgressService {
             LearningProgressMapper learningProgressMapper,
             ContentVersionMapper contentVersionMapper,
             SubChapterMapper subChapterMapper,
+            QuizAttemptMapper quizAttemptMapper,
             StaticContentStorage contentStorage,
             Clock clock
     ) {
         this.learningProgressMapper = learningProgressMapper;
         this.contentVersionMapper = contentVersionMapper;
         this.subChapterMapper = subChapterMapper;
+        this.quizAttemptMapper = quizAttemptMapper;
         this.contentStorage = contentStorage;
         this.clock = clock;
         this.objectMapper = new ObjectMapper();
@@ -84,13 +90,16 @@ public class LearningProgressService {
     }
 
     @Transactional(readOnly = true)
-    public LearningProgress getStatus(long userId, long subChapterId) {
+    public LearningProgressStatusResult getStatus(
+            long userId,
+            long subChapterId
+    ) {
         requireActiveSubChapter(subChapterId);
         LearningProgress progress = learningProgressMapper
                 .findByUserIdAndSubChapterId(userId, subChapterId);
 
         if (progress != null) {
-            return progress;
+            return statusResult(userId, subChapterId, progress);
         }
 
         PublishedLessonReference published = contentVersionMapper
@@ -104,7 +113,26 @@ public class LearningProgressService {
         notStarted.setSubChapterId(subChapterId);
         notStarted.setContentVersionId(published.getContentVersionId());
         notStarted.setStatus(LearningProgressStatus.NOT_STARTED);
-        return notStarted;
+        return statusResult(userId, subChapterId, notStarted);
+    }
+
+    private LearningProgressStatusResult statusResult(
+            long userId,
+            long subChapterId,
+            LearningProgress progress
+    ) {
+        SubChapterQuizProgress quizProgress = quizAttemptMapper
+                .findSubChapterQuizProgress(userId, subChapterId);
+        if (quizProgress == null
+                || quizProgress.getAnsweredCount() < 0
+                || quizProgress.getTotalCount() < 0
+                || quizProgress.getAnsweredCount() > quizProgress.getTotalCount()
+                || (quizProgress.getActiveAttemptId() == null
+                && (quizProgress.getAnsweredCount() != 0
+                || quizProgress.getTotalCount() != 0))) {
+            throw new ApiException(ErrorCode.INTERNAL_ERROR);
+        }
+        return new LearningProgressStatusResult(progress, quizProgress);
     }
 
     private LearningProgress createFirstProgress(

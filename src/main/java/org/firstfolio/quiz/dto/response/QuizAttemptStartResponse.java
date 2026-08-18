@@ -21,7 +21,8 @@ public record QuizAttemptStartResponse(
         @Schema(description = "학습한 강좌 콘텐츠 버전 ID", example = "301", nullable = true) Long contentVersionId,
         @Schema(description = "응시 상태", example = "IN_PROGRESS") QuizAttemptStatus status,
         @Schema(description = "문항 수", example = "3") int questionCount,
-        @Schema(description = "정답·해설을 제외한 출제 문항") List<QuizAttemptQuestionResponse> questions
+        @Schema(description = "문항 목록. 제출한 문항에만 기존 채점 결과 포함")
+        List<QuizAttemptQuestionResponse> questions
 ) {
     public QuizAttemptStartResponse {
         questions = List.copyOf(questions);
