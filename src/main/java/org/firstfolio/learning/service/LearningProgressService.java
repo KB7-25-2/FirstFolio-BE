@@ -69,7 +69,8 @@ public class LearningProgressService {
             long subChapterId,
             LearningProgressUpdateCommand command
     ) {
-        requireActiveSubChapter(subChapterId);
+        SubChapter subChapter = requireActiveSubChapter(subChapterId);
+        requireAccessibleSubChapter(userId, subChapter);
         LearningProgress progress = learningProgressMapper
                 .findByUserIdAndSubChapterIdForUpdate(userId, subChapterId);
 
@@ -352,10 +353,25 @@ public class LearningProgressService {
         );
     }
 
-    private void requireActiveSubChapter(long subChapterId) {
+    private SubChapter requireActiveSubChapter(long subChapterId) {
         SubChapter subChapter = subChapterMapper.findById(subChapterId);
         if (subChapter == null || !subChapter.isActive()) {
             throw new ApiException(ErrorCode.SUB_CHAPTER_NOT_FOUND);
+        }
+        return subChapter;
+    }
+
+    private void requireAccessibleSubChapter(
+            long userId,
+            SubChapter subChapter
+    ) {
+        if (learningProgressMapper.countIncompletePreviousSubChapters(
+                userId,
+                subChapter.getMainChapterId(),
+                subChapter.getDisplayOrder(),
+                subChapter.getSubChapterId()
+        ) > 0) {
+            throw new ApiException(ErrorCode.SUB_CHAPTER_LOCKED);
         }
     }
 }

@@ -15,6 +15,7 @@ import org.firstfolio.learning.domain.LearningContinueResult;
 import org.firstfolio.learning.domain.LearningContinueTarget;
 import org.firstfolio.learning.domain.MainChapterQuizContinueCandidate;
 import org.firstfolio.learning.mapper.LearningContinueMapper;
+import org.firstfolio.learning.mapper.LearningContinueMapper.SubChapterQuizContinueCandidate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -106,6 +107,31 @@ class LearningContinueServiceTest {
         );
         verify(contentVersionMapper, never()).findById(CONTENT_VERSION_ID);
         verify(contentStorage, never()).load(STORED_OBJECT);
+    }
+
+    @Test
+    void returnsPendingSubChapterQuizBeforeMainChapterQuiz() {
+        when(learningContinueMapper.findSubChapterQuizCandidate(USER_ID))
+                .thenReturn(new SubChapterQuizContinueCandidate(
+                        502L,
+                        2L,
+                        101L,
+                        3001L
+                ));
+
+        LearningContinueResult result = service.getContinuePosition(USER_ID);
+
+        assertEquals(LearningContinueTarget.SUB_CHAPTER_QUIZ,
+                result.targetType());
+        assertEquals(502L, result.curriculumItemId());
+        assertEquals(2L, result.mainChapterId());
+        assertEquals(101L, result.subChapterId());
+        assertNull(result.contentVersionId());
+        assertEquals(3001L, result.attemptId());
+        assertEquals(100, result.progressPercent());
+        assertEquals("/learning/sub-chapters/101/quiz", result.route());
+        verify(learningContinueMapper, never())
+                .findMainChapterQuizCandidate(USER_ID);
     }
 
     @Test

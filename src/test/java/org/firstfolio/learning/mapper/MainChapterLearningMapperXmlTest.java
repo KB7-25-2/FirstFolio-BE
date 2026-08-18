@@ -58,6 +58,12 @@ class MainChapterLearningMapperXmlTest {
         assertTrue(normalize(incompleteSql.getSql()).contains(
                 "progress.status = 'COMPLETED'"
         ));
+        assertTrue(normalize(incompleteSql.getSql()).contains(
+                "completed_quiz.quiz_type = 'SUB_CHAPTER'"
+        ));
+        assertTrue(normalize(incompleteSql.getSql()).contains(
+                "completed_quiz.status = 'GRADED'"
+        ));
 
         BoundSql completeSql = configuration.getMappedStatement(id(
                         "completeCurriculumItemIfIncomplete"

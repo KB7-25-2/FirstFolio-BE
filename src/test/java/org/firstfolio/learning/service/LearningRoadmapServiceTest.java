@@ -142,6 +142,38 @@ class LearningRoadmapServiceTest {
     }
 
     @Test
+    void keepsNextSubChapterLockedUntilCompletedLessonQuizIsGraded() {
+        when(roadmapMapper.findChaptersByUserId(USER_ID)).thenReturn(List.of(
+                chapter(501L, 8L, ChapterType.FOUNDATION,
+                        CurriculumSourceType.FOUNDATION, 1, null, 0)
+        ));
+        when(roadmapMapper.findSubChaptersByUserId(USER_ID)).thenReturn(List.of(
+                subChapter(8L, 101L, 1, 301L, 701L, 301L,
+                        LearningProgressStatus.COMPLETED,
+                        false, 3001L, 1, 3),
+                subChapter(8L, 102L, 2, 302L, null, null, null)
+        ));
+        when(roadmapMapper.findMainChapterQuizzesByUserId(USER_ID))
+                .thenReturn(List.of(quiz(8L, true, false, null, null)));
+
+        LearningRoadmapResponse.Chapter chapter =
+                service.getRoadmap(USER_ID).items().get(0);
+
+        LearningRoadmapResponse.SubChapter current =
+                chapter.subChapters().get(0);
+        assertEquals(LearningRoadmapStatus.Schedule.IN_PROGRESS,
+                current.scheduleStatus());
+        assertFalse(current.quiz().completed());
+        assertEquals(3001L, current.quiz().activeAttemptId());
+        assertEquals(1, current.quiz().answeredCount());
+        assertEquals(3, current.quiz().totalCount());
+        assertEquals(LearningRoadmapStatus.Schedule.LOCKED,
+                chapter.subChapters().get(1).scheduleStatus());
+        assertEquals(LearningRoadmapStatus.Quiz.LOCKED,
+                chapter.mainChapterQuiz().status());
+    }
+
+    @Test
     void keepsMainChapterQuizAvailableAfterFailedGradedAttempt() {
         when(roadmapMapper.findChaptersByUserId(USER_ID)).thenReturn(List.of(
                 chapter(501L, 8L, ChapterType.FOUNDATION,
@@ -260,6 +292,34 @@ class LearningRoadmapServiceTest {
             Long progressContentVersionId,
             LearningProgressStatus progressStatus
     ) {
+        return subChapter(
+                mainChapterId,
+                subChapterId,
+                displayOrder,
+                currentContentVersionId,
+                progressId,
+                progressContentVersionId,
+                progressStatus,
+                progressStatus == LearningProgressStatus.COMPLETED,
+                null,
+                0,
+                0
+        );
+    }
+
+    private SubChapterRow subChapter(
+            long mainChapterId,
+            long subChapterId,
+            int displayOrder,
+            Long currentContentVersionId,
+            Long progressId,
+            Long progressContentVersionId,
+            LearningProgressStatus progressStatus,
+            boolean quizCompleted,
+            Long activeQuizAttemptId,
+            int quizAnsweredCount,
+            int quizTotalCount
+    ) {
         return new SubChapterRow(
                 mainChapterId,
                 subChapterId,
@@ -273,7 +333,11 @@ class LearningRoadmapServiceTest {
                 progressId == null ? null : "page-1",
                 progressId == null ? null : NOW.minusDays(1),
                 progressStatus == LearningProgressStatus.COMPLETED ? NOW : null,
-                progressId == null ? null : NOW
+                progressId == null ? null : NOW,
+                quizCompleted,
+                activeQuizAttemptId,
+                quizAnsweredCount,
+                quizTotalCount
         );
     }
 

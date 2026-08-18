@@ -45,6 +45,11 @@
             <arg column="progress_completed_at"
                  javaType="java.time.LocalDateTime" />
             <arg column="updated_at" javaType="java.time.LocalDateTime" />
+            <arg column="quiz_completed" javaType="_boolean" />
+            <arg column="active_quiz_attempt_id"
+                 javaType="java.lang.Long" />
+            <arg column="quiz_answered_count" javaType="_int" />
+            <arg column="quiz_total_count" javaType="_int" />
         </constructor>
     </resultMap>
 
@@ -94,6 +99,14 @@
                            AND progress.status = 'COMPLETED'
                         WHERE completed_sub.main_chapter_id = curriculum.main_chapter_id
                           AND completed_sub.is_active = TRUE
+                          AND EXISTS (
+                              SELECT 1
+                              FROM quiz_attempts completed_quiz
+                              WHERE completed_quiz.user_id = curriculum.user_id
+                                AND completed_quiz.quiz_type = 'SUB_CHAPTER'
+                                AND completed_quiz.sub_chapter_id = completed_sub.sub_chapter_id
+                                AND completed_quiz.status = 'GRADED'
+                          )
                     ) / (
                         SELECT COUNT(*)
                         FROM sub_chapters active_sub
@@ -125,7 +138,50 @@
             progress.last_page_id,
             progress.started_at,
             progress.completed_at AS progress_completed_at,
-            progress.updated_at
+            progress.updated_at,
+            EXISTS (
+                SELECT 1
+                FROM quiz_attempts completed_quiz
+                WHERE completed_quiz.user_id = curriculum.user_id
+                  AND completed_quiz.quiz_type = 'SUB_CHAPTER'
+                  AND completed_quiz.sub_chapter_id = sub.sub_chapter_id
+                  AND completed_quiz.status = 'GRADED'
+            ) AS quiz_completed,
+            (
+                SELECT active_quiz.attempt_id
+                FROM quiz_attempts active_quiz
+                WHERE active_quiz.user_id = curriculum.user_id
+                  AND active_quiz.quiz_type = 'SUB_CHAPTER'
+                  AND active_quiz.sub_chapter_id = sub.sub_chapter_id
+                  AND active_quiz.status = 'IN_PROGRESS'
+                ORDER BY active_quiz.attempt_no DESC, active_quiz.attempt_id DESC
+                LIMIT 1
+            ) AS active_quiz_attempt_id,
+            COALESCE((
+                SELECT COUNT(*)
+                FROM quiz_answers active_answer
+                WHERE active_answer.attempt_id = (
+                    SELECT active_quiz.attempt_id
+                    FROM quiz_attempts active_quiz
+                    WHERE active_quiz.user_id = curriculum.user_id
+                      AND active_quiz.quiz_type = 'SUB_CHAPTER'
+                      AND active_quiz.sub_chapter_id = sub.sub_chapter_id
+                      AND active_quiz.status = 'IN_PROGRESS'
+                    ORDER BY active_quiz.attempt_no DESC, active_quiz.attempt_id DESC
+                    LIMIT 1
+                )
+                  AND active_answer.user_answer_json IS NOT NULL
+            ), 0) AS quiz_answered_count,
+            COALESCE((
+                SELECT active_quiz.total_count
+                FROM quiz_attempts active_quiz
+                WHERE active_quiz.user_id = curriculum.user_id
+                  AND active_quiz.quiz_type = 'SUB_CHAPTER'
+                  AND active_quiz.sub_chapter_id = sub.sub_chapter_id
+                  AND active_quiz.status = 'IN_PROGRESS'
+                ORDER BY active_quiz.attempt_no DESC, active_quiz.attempt_id DESC
+                LIMIT 1
+            ), 0) AS quiz_total_count
         FROM user_curriculum_items curriculum
         INNER JOIN sub_chapters sub
             ON sub.main_chapter_id = curriculum.main_chapter_id
@@ -175,12 +231,22 @@
                     FROM sub_chapters incomplete_sub
                     WHERE incomplete_sub.main_chapter_id = curriculum.main_chapter_id
                       AND incomplete_sub.is_active = TRUE
-                      AND NOT EXISTS (
-                          SELECT 1
-                          FROM user_learning_progress completed_progress
-                          WHERE completed_progress.user_id = curriculum.user_id
-                            AND completed_progress.sub_chapter_id = incomplete_sub.sub_chapter_id
-                            AND completed_progress.status = 'COMPLETED'
+                      AND (
+                          NOT EXISTS (
+                              SELECT 1
+                              FROM user_learning_progress completed_progress
+                              WHERE completed_progress.user_id = curriculum.user_id
+                                AND completed_progress.sub_chapter_id = incomplete_sub.sub_chapter_id
+                                AND completed_progress.status = 'COMPLETED'
+                          )
+                          OR NOT EXISTS (
+                              SELECT 1
+                              FROM quiz_attempts completed_quiz
+                              WHERE completed_quiz.user_id = curriculum.user_id
+                                AND completed_quiz.quiz_type = 'SUB_CHAPTER'
+                                AND completed_quiz.sub_chapter_id = incomplete_sub.sub_chapter_id
+                                AND completed_quiz.status = 'GRADED'
+                          )
                       )
                 )
             ) AS all_sub_chapters_completed,
