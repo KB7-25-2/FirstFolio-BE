@@ -37,6 +37,14 @@
         <result property="createdAt" column="created_at" />
     </resultMap>
 
+    <resultMap id="subChapterQuizProgressResultMap"
+               type="org.firstfolio.learning.domain.SubChapterQuizProgress">
+        <result property="completed" column="completed" />
+        <result property="activeAttemptId" column="active_attempt_id" />
+        <result property="answeredCount" column="answered_count" />
+        <result property="totalCount" column="total_count" />
+    </resultMap>
+
     <sql id="quizAttemptColumns">
         attempt_id,
         user_id,
@@ -98,6 +106,38 @@
         ORDER BY attempt_no DESC
         LIMIT 1
         FOR UPDATE
+    </select>
+
+    <select id="findSubChapterQuizProgress"
+            resultMap="subChapterQuizProgressResultMap">
+        SELECT
+            EXISTS(
+                SELECT 1
+                FROM quiz_attempts completed_attempt
+                WHERE completed_attempt.user_id = #{userId}
+                  AND completed_attempt.quiz_type = 'SUB_CHAPTER'
+                  AND completed_attempt.sub_chapter_id = #{subChapterId}
+                  AND completed_attempt.status = 'GRADED'
+            ) AS completed,
+            active_attempt.attempt_id AS active_attempt_id,
+            COALESCE(SUM(
+                CASE WHEN answer.user_answer_json IS NOT NULL THEN 1 ELSE 0 END
+            ), 0) AS answered_count,
+            COALESCE(active_attempt.total_count, 0) AS total_count
+        FROM (SELECT 1 AS singleton) base
+        LEFT JOIN (
+            SELECT attempt_id, total_count
+            FROM quiz_attempts
+            WHERE user_id = #{userId}
+              AND quiz_type = 'SUB_CHAPTER'
+              AND sub_chapter_id = #{subChapterId}
+              AND status = 'IN_PROGRESS'
+            ORDER BY attempt_no DESC
+            LIMIT 1
+        ) active_attempt ON 1 = 1
+        LEFT JOIN quiz_answers answer
+          ON answer.attempt_id = active_attempt.attempt_id
+        GROUP BY active_attempt.attempt_id, active_attempt.total_count
     </select>
 
     <select id="findInProgressByUserIdAndMainChapterIdForUpdate"

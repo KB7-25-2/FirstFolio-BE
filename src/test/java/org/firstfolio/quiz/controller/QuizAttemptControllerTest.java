@@ -83,6 +83,11 @@ class QuizAttemptControllerTest {
                         .value("A"))
                 .andExpect(jsonPath("$.data.questions[0].choices[0].label")
                         .value("선택지 A"))
+                .andExpect(jsonPath("$.data.questions[0].answered").value(false))
+                .andExpect(jsonPath("$.data.questions[0].selected_key")
+                        .doesNotExist())
+                .andExpect(jsonPath("$.data.questions[0].is_correct")
+                        .doesNotExist())
                 .andExpect(jsonPath("$.data.questions[0].correct_answer")
                         .doesNotExist())
                 .andExpect(jsonPath("$.data.questions[0].explanation")
@@ -111,6 +116,45 @@ class QuizAttemptControllerTest {
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.error.code")
                         .value("QUIZ_NOT_AVAILABLE"));
+    }
+
+    @Test
+    void restoresGradingResultForAnAlreadyAnsweredQuestion() throws Exception {
+        QuizAttemptStartResult result = result();
+        QuizAttemptQuestion answered = new QuizAttemptQuestion(
+                1001L,
+                1,
+                QuizQuestionType.SINGLE_CHOICE,
+                QuizGenerationType.HUMAN,
+                "예금에 대한 설명으로 올바른 것은?",
+                null,
+                List.of(
+                        new QuizChoice("A", "선택지 A"),
+                        new QuizChoice("B", "선택지 B")
+                ),
+                true,
+                "B",
+                false,
+                "A",
+                "정답 해설"
+        );
+        when(service.start(USER_ID, SUB_CHAPTER_ID)).thenReturn(
+                new QuizAttemptStartResult(
+                        result.attempt(),
+                        List.of(answered)
+                )
+        );
+
+        mockMvc.perform(authenticated(post(
+                        "/api/learning/sub-chapters/101/quiz-attempts")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.questions[0].answered").value(true))
+                .andExpect(jsonPath("$.data.questions[0].selected_key").value("B"))
+                .andExpect(jsonPath("$.data.questions[0].is_correct").value(false))
+                .andExpect(jsonPath("$.data.questions[0].correct_answer.key")
+                        .value("A"))
+                .andExpect(jsonPath("$.data.questions[0].explanation")
+                        .value("정답 해설"));
     }
 
     private QuizAttemptStartResult result() {

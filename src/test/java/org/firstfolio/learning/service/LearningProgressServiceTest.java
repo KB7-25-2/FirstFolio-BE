@@ -13,9 +13,12 @@ import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.learning.domain.LearningProgress;
 import org.firstfolio.learning.domain.LearningProgressEvent;
 import org.firstfolio.learning.domain.LearningProgressStatus;
+import org.firstfolio.learning.domain.LearningProgressStatusResult;
 import org.firstfolio.learning.domain.LearningProgressUpdateCommand;
 import org.firstfolio.learning.domain.LearningProgressUpdateResult;
+import org.firstfolio.learning.domain.SubChapterQuizProgress;
 import org.firstfolio.learning.mapper.LearningProgressMapper;
+import org.firstfolio.quiz.mapper.QuizAttemptMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -51,6 +54,7 @@ class LearningProgressServiceTest {
     private LearningProgressMapper learningProgressMapper;
     private ContentVersionMapper contentVersionMapper;
     private SubChapterMapper subChapterMapper;
+    private QuizAttemptMapper quizAttemptMapper;
     private StaticContentStorage contentStorage;
     private LearningProgressService service;
 
@@ -59,16 +63,21 @@ class LearningProgressServiceTest {
         learningProgressMapper = mock(LearningProgressMapper.class);
         contentVersionMapper = mock(ContentVersionMapper.class);
         subChapterMapper = mock(SubChapterMapper.class);
+        quizAttemptMapper = mock(QuizAttemptMapper.class);
         contentStorage = mock(StaticContentStorage.class);
         service = new LearningProgressService(
                 learningProgressMapper,
                 contentVersionMapper,
                 subChapterMapper,
+                quizAttemptMapper,
                 contentStorage,
                 Clock.fixed(NOW, ZoneOffset.UTC)
         );
         when(subChapterMapper.findById(SUB_CHAPTER_ID))
                 .thenReturn(activeSubChapter());
+        when(quizAttemptMapper.findSubChapterQuizProgress(
+                USER_ID, SUB_CHAPTER_ID
+        )).thenReturn(quizProgress(false, null, 0, 0));
     }
 
     @Test
@@ -302,12 +311,43 @@ class LearningProgressServiceTest {
         when(contentVersionMapper.findCurrentPublishedLesson(SUB_CHAPTER_ID))
                 .thenReturn(publishedLesson());
 
-        LearningProgress result = service.getStatus(USER_ID, SUB_CHAPTER_ID);
+        LearningProgressStatusResult result = service.getStatus(
+                USER_ID,
+                SUB_CHAPTER_ID
+        );
 
-        assertEquals(LearningProgressStatus.NOT_STARTED, result.getStatus());
-        assertEquals(CONTENT_VERSION_ID, result.getContentVersionId());
-        assertNull(result.getStartedAt());
+        assertEquals(LearningProgressStatus.NOT_STARTED,
+                result.progress().getStatus());
+        assertEquals(CONTENT_VERSION_ID,
+                result.progress().getContentVersionId());
+        assertNull(result.progress().getStartedAt());
+        assertFalse(result.quizProgress().isCompleted());
+        assertNull(result.quizProgress().getActiveAttemptId());
         verify(learningProgressMapper, never()).insertIfAbsent(any());
+    }
+
+    @Test
+    void returnsCompletedAndActiveRetryQuizProgressSeparately() {
+        LearningProgress progress = progress(
+                LearningProgressStatus.COMPLETED,
+                "page-3"
+        );
+        when(learningProgressMapper.findByUserIdAndSubChapterId(
+                USER_ID, SUB_CHAPTER_ID
+        )).thenReturn(progress);
+        when(quizAttemptMapper.findSubChapterQuizProgress(
+                USER_ID, SUB_CHAPTER_ID
+        )).thenReturn(quizProgress(true, 3002L, 1, 3));
+
+        LearningProgressStatusResult result = service.getStatus(
+                USER_ID,
+                SUB_CHAPTER_ID
+        );
+
+        assertTrue(result.quizProgress().isCompleted());
+        assertEquals(3002L, result.quizProgress().getActiveAttemptId());
+        assertEquals(1, result.quizProgress().getAnsweredCount());
+        assertEquals(3, result.quizProgress().getTotalCount());
     }
 
     @Test
@@ -340,6 +380,20 @@ class LearningProgressServiceTest {
                         .getBytes(StandardCharsets.UTF_8),
                 "application/json"
         ));
+    }
+
+    private SubChapterQuizProgress quizProgress(
+            boolean completed,
+            Long activeAttemptId,
+            int answeredCount,
+            int totalCount
+    ) {
+        SubChapterQuizProgress progress = new SubChapterQuizProgress();
+        progress.setCompleted(completed);
+        progress.setActiveAttemptId(activeAttemptId);
+        progress.setAnsweredCount(answeredCount);
+        progress.setTotalCount(totalCount);
+        return progress;
     }
 
     private PublishedLessonReference publishedLesson() {

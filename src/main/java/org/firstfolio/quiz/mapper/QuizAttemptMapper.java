@@ -2,6 +2,7 @@ package org.firstfolio.quiz.mapper;
 
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.firstfolio.learning.domain.SubChapterQuizProgress;
 import org.firstfolio.quiz.domain.QuizAnswer;
 import org.firstfolio.quiz.domain.QuizAttempt;
 
@@ -19,6 +20,11 @@ public interface QuizAttemptMapper {
     QuizAttempt findLevelTestByUserIdForUpdate(@Param("userId") long userId);
 
     QuizAttempt findInProgressByUserIdAndSubChapterIdForUpdate(
+            @Param("userId") long userId,
+            @Param("subChapterId") long subChapterId
+    );
+
+    SubChapterQuizProgress findSubChapterQuizProgress(
             @Param("userId") long userId,
             @Param("subChapterId") long subChapterId
     );
