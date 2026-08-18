@@ -38,4 +38,28 @@
         LIMIT #{limit}
     </select>
 
+    <insert id="insert" useGeneratedKeys="true" keyProperty="financialNewsId">
+        INSERT INTO news_articles (
+            title,
+            summary,
+            image_url,
+            source_name,
+            source_url,
+            source_published_at,
+            published_at,
+            created_at,
+            updated_at
+        ) VALUES (
+            #{title},
+            #{summary},
+            #{imageUrl},
+            #{sourceName},
+            #{sourceUrl},
+            #{sourcePublishedAt},
+            #{publishedAt},
+            #{createdAt},
+            #{updatedAt}
+        )
+    </insert>
+
 </mapper>

@@ -26,6 +26,7 @@ import org.firstfolio.dailyquest.dto.response.DailyQuestAnswerSaveResponse;
 import org.firstfolio.dailyquest.dto.response.DailyQuestSubmitResponse;
 import org.firstfolio.dailyquest.dto.response.DailyQuestTodayResponse;
 import org.firstfolio.learning.dto.response.LessonContentResponse;
+import org.firstfolio.news.dto.response.FinancialNewsItemResponse;
 import org.firstfolio.news.dto.response.FinancialNewsListResponse;
 import org.firstfolio.learning.dto.response.LearningProgressResponse;
 import org.firstfolio.learning.dto.response.LearningProgressUpdateResponse;
@@ -45,6 +46,7 @@ import org.firstfolio.quiz.dto.response.LevelTestSubmitResponse;
 import org.firstfolio.quiz.dto.response.QuizAttemptStartResponse;
 import org.firstfolio.quiz.dto.response.QuizAnswerGradingResponse;
 import org.firstfolio.quiz.dto.response.QuizQuestionCreateResponse;
+import org.firstfolio.quiz.dto.response.QuizQuestionPageResponse;
 import org.firstfolio.quiz.dto.response.QuizQuestionStatusResponse;
 import org.firstfolio.simulation.dto.response.PriceRefreshResponse;
 import org.firstfolio.simulation.dto.response.ProductDetailResponse;
@@ -146,6 +148,9 @@ public final class OpenApiResponseSchemas {
     @Schema(name = "QuizQuestionCreateApiResponse")
     public record QuizQuestionCreate(QuizQuestionCreateResponse data) { }
 
+    @Schema(name = "QuizQuestionPageApiResponse")
+    public record QuizQuestionPage(QuizQuestionPageResponse data) { }
+
     @Schema(name = "QuizQuestionStatusApiResponse")
     public record QuizQuestionStatus(QuizQuestionStatusResponse data) { }
 
@@ -214,4 +219,7 @@ public final class OpenApiResponseSchemas {
 
     @Schema(name = "FinancialNewsApiResponse")
     public record FinancialNews(FinancialNewsListResponse data) { }
+
+    @Schema(name = "FinancialNewsItemApiResponse")
+    public record FinancialNewsItem(FinancialNewsItemResponse data) { }
 }

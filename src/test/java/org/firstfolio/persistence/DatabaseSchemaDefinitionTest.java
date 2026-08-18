@@ -62,6 +62,39 @@ class DatabaseSchemaDefinitionTest {
         ));
     }
 
+    @Test
+    void dailyQuestSchemaChangesAreTrackedByFlywayV4() throws IOException {
+        String migration = normalize(Files.readString(Path.of(
+                "src/main/resources/db/migration/V4__finalize_daily_quest_schema.sql"
+        )));
+
+        assertTrue(migration.contains(
+                "ADD COLUMN quest_date DATE NULL COMMENT "
+                        + "'DAILY_NEWS 문항을 제공할 서비스 기준 날짜'"
+        ));
+        assertTrue(migration.contains(
+                "ADD INDEX idx_quiz_questions_daily_date "
+                        + "( usage_type, quest_date, status )"
+        ));
+        assertTrue(migration.contains(
+                "ADD COLUMN reward_policy_id BIGINT NULL COMMENT "
+                        + "'완료 시 적용한 DAILY_QUEST_REWARD 정책 버전'"
+        ));
+        assertTrue(migration.contains(
+                "ADD CONSTRAINT uq_daily_quests_point_transaction "
+                        + "UNIQUE (point_transaction_id)"
+        ));
+        assertTrue(migration.contains(
+                "ADD CONSTRAINT fk_daily_quests_reward_policy "
+                        + "FOREIGN KEY (reward_policy_id)"
+        ));
+        assertTrue(migration.contains("DROP COLUMN source_type"));
+        assertTrue(migration.contains(
+                "ADD CONSTRAINT uq_daily_quest_items_question "
+                        + "UNIQUE (daily_quest_id, question_id)"
+        ));
+    }
+
     private String normalize(String sql) {
         return sql.replaceAll("\\s+", " ").trim();
     }
