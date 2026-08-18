@@ -11,10 +11,14 @@ import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.quiz.domain.QuizDifficulty;
 import org.firstfolio.quiz.domain.QuizGenerationType;
 import org.firstfolio.quiz.domain.QuizQuestion;
+import org.firstfolio.quiz.domain.QuizQuestionStatus;
 import org.firstfolio.quiz.domain.QuizQuestionType;
 import org.firstfolio.quiz.domain.QuizUsageType;
-import org.firstfolio.quiz.service.QuizQuestionRegistrationService;
+import org.firstfolio.quiz.dto.response.QuizQuestionListItemResponse;
+import org.firstfolio.quiz.dto.response.QuizQuestionPageResponse;
 import org.firstfolio.quiz.service.QuizQuestionPublicationService;
+import org.firstfolio.quiz.service.QuizQuestionQueryService;
+import org.firstfolio.quiz.service.QuizQuestionRegistrationService;
 import org.firstfolio.user.domain.UserRole;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
@@ -33,6 +38,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -48,24 +54,74 @@ class AdminQuizQuestionControllerTest {
 
     private QuizQuestionRegistrationService service;
     private QuizQuestionPublicationService publicationService;
+    private QuizQuestionQueryService queryService;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         service = mock(QuizQuestionRegistrationService.class);
         publicationService = mock(QuizQuestionPublicationService.class);
+        queryService = mock(QuizQuestionQueryService.class);
         MappingJackson2HttpMessageConverter converter =
                 new MappingJackson2HttpMessageConverter(ApiObjectMapperFactory.create());
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new AdminQuizQuestionController(
                         service,
-                        publicationService
+                        publicationService,
+                        queryService
                 ))
                 .setControllerAdvice(new CommonExceptionAdvice())
                 .setCustomArgumentResolvers(new CurrentUserArgumentResolver())
                 .setMessageConverters(converter)
                 .addFilter(new RequestIdFilter())
                 .build();
+    }
+
+    @Test
+    void findsQuestionsWithFiltersAndCursorPagination() throws Exception {
+        QuizQuestion published = question(1001L, 1);
+        published.publish(LocalDateTime.of(2026, 8, 14, 6, 0));
+        when(queryService.findPage(
+                "SUB_CHAPTER",
+                2L,
+                101L,
+                "PUBLISHED",
+                "deposit-basic-001",
+                "1000"
+        )).thenReturn(new QuizQuestionPageResponse(
+                List.of(QuizQuestionListItemResponse.from(published)),
+                "1001"
+        ));
+
+        mockMvc.perform(get("/api/admin/quiz-questions")
+                        .requestAttr(AuthenticationRequestAttributes.CURRENT_USER, ADMIN)
+                        .param("usage_type", "SUB_CHAPTER")
+                        .param("main_chapter_id", "2")
+                        .param("sub_chapter_id", "101")
+                        .param("status", "PUBLISHED")
+                        .param("question_key", "deposit-basic-001")
+                        .param("cursor", "1000"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].question_id").value(1001))
+                .andExpect(jsonPath("$.data.items[0].question_key")
+                        .value("deposit-basic-001"))
+                .andExpect(jsonPath("$.data.items[0].version_no").value(1))
+                .andExpect(jsonPath("$.data.items[0].usage_type").value("SUB_CHAPTER"))
+                .andExpect(jsonPath("$.data.items[0].question_type")
+                        .value("SINGLE_CHOICE"))
+                .andExpect(jsonPath("$.data.items[0].generation_type").value("HUMAN"))
+                .andExpect(jsonPath("$.data.items[0].prompt").value("질문"))
+                .andExpect(jsonPath("$.data.items[0].status").value("PUBLISHED"))
+                .andExpect(jsonPath("$.data.next_cursor").value("1001"));
+
+        verify(queryService).findPage(
+                "SUB_CHAPTER",
+                2L,
+                101L,
+                "PUBLISHED",
+                "deposit-basic-001",
+                "1000"
+        );
     }
 
     @Test

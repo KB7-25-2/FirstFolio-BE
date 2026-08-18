@@ -11,14 +11,18 @@ import org.firstfolio.config.OpenApiResponseSchemas;
 import org.firstfolio.quiz.dto.request.QuizQuestionCreateRequest;
 import org.firstfolio.quiz.dto.request.QuizQuestionVersionCreateRequest;
 import org.firstfolio.quiz.dto.response.QuizQuestionCreateResponse;
+import org.firstfolio.quiz.dto.response.QuizQuestionPageResponse;
 import org.firstfolio.quiz.dto.response.QuizQuestionStatusResponse;
 import org.firstfolio.quiz.service.QuizQuestionPublicationService;
+import org.firstfolio.quiz.service.QuizQuestionQueryService;
 import org.firstfolio.quiz.service.QuizQuestionRegistrationService;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -26,18 +30,65 @@ import javax.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/admin/quiz-questions")
-@Tag(name = "관리자 퀴즈 문항", description = "관리자용 퀴즈 문항 등록·버전 관리 API")
+@Tag(name = "관리자 퀴즈 문항", description = "관리자용 퀴즈 문항 조회·등록·버전 관리 API")
 public class AdminQuizQuestionController {
 
     private final QuizQuestionRegistrationService registrationService;
     private final QuizQuestionPublicationService publicationService;
+    private final QuizQuestionQueryService queryService;
 
     public AdminQuizQuestionController(
             QuizQuestionRegistrationService registrationService,
-            QuizQuestionPublicationService publicationService
+            QuizQuestionPublicationService publicationService,
+            QuizQuestionQueryService queryService
     ) {
         this.registrationService = registrationService;
         this.publicationService = publicationService;
+        this.queryService = queryService;
+    }
+
+    @GetMapping
+    @Operation(
+            summary = "퀴즈 문항 목록 조회",
+            description = "관리자가 퀴즈 문항을 사용처·단원·상태·논리 키로 검색합니다. "
+                    + "결과는 question_id 오름차순 커서 페이지로 반환합니다.",
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "200", description = "퀴즈 문항 조회 성공",
+                            content = @io.swagger.v3.oas.annotations.media.Content(
+                                    mediaType = "application/json",
+                                    schema = @io.swagger.v3.oas.annotations.media.Schema(
+                                            implementation = OpenApiResponseSchemas.QuizQuestionPage.class
+                                    )
+                            )
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "403", description = "ADMIN_REQUIRED - 관리자 권한 필요"
+                    )
+            }
+    )
+    public ApiResponse<QuizQuestionPageResponse> findQuestions(
+            @Parameter(description = "문항 사용처", example = "SUB_CHAPTER")
+            @RequestParam(value = "usage_type", required = false) String usageType,
+            @Parameter(description = "대단원 필터", example = "2")
+            @RequestParam(value = "main_chapter_id", required = false) Long mainChapterId,
+            @Parameter(description = "소단원 필터", example = "101")
+            @RequestParam(value = "sub_chapter_id", required = false) Long subChapterId,
+            @Parameter(description = "버전 상태", example = "PUBLISHED")
+            @RequestParam(value = "status", required = false) String status,
+            @Parameter(description = "논리 문항 키", example = "deposit-q-001")
+            @RequestParam(value = "question_key", required = false) String questionKey,
+            @Parameter(description = "다음 페이지 조회용 커서")
+            @RequestParam(value = "cursor", required = false) String cursor
+    ) {
+        return ApiResponse.of(queryService.findPage(
+                usageType,
+                mainChapterId,
+                subChapterId,
+                status,
+                questionKey,
+                cursor
+        ));
     }
 
     @PostMapping
