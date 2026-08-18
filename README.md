@@ -133,6 +133,18 @@ CORS_ALLOWED_ORIGINS=https://first-folio-fe.vercel.app
 
 위 Vercel 주소는 형식 예시이므로 Vercel 프로젝트의 실제 Production Domain으로 교체합니다. 전체 출처를 허용하는 `*`는 사용하지 않습니다. Firebase 인증은 `Authorization` 헤더를 사용하며 쿠키 기반 자격 증명은 허용하지 않습니다.
 
+### 기프티콘 코드 보호
+
+선구매한 기프티콘 코드는 AES-256-GCM으로 암호화해 저장하고, 중복 검사는 별도 HMAC-SHA-256 지문으로 수행합니다. 두 용도의 키는 반드시 서로 다른 32바이트 값을 Base64로 인코딩해 설정합니다.
+
+```text
+GIFTICON_ENCRYPTION_KEY=Base64로_인코딩한_32바이트_AES키
+GIFTICON_FINGERPRINT_KEY=Base64로_인코딩한_별도_32바이트_HMAC키
+GIFTICON_KEY_VERSION=v1
+```
+
+키가 비어 있거나 형식이 잘못되면 애플리케이션 자체는 시작되지만 코드 등록·복호화 작업은 `GIFTICON_CRYPTO_UNAVAILABLE`로 거절됩니다. 실제 키와 평문 코드는 저장소나 로그에 남기지 않습니다.
+
 ### JDBC 연결 테스트
 
 JDBC 연결 테스트는 `.env.local` 또는 실행 환경변수의 `DB_DRIVER`, `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`를 사용해 실제 애플리케이션의 HikariCP `DataSource`로 MySQL에 연결하고 `SELECT 1`을 실행합니다.

@@ -110,6 +110,7 @@ public class ServletConfig implements WebMvcConfigurer {
                         "Authorization",
                         "Content-Type",
                         "Accept",
+                        "Idempotency-Key",
                         "X-Request-Id"
                 )
                 .exposedHeaders("X-Request-Id")

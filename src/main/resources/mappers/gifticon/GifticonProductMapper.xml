@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.gifticon.mapper.GifticonProductMapper">
+
+    <resultMap id="productResult" type="org.firstfolio.gifticon.domain.GifticonProduct">
+        <id property="gifticonProductId" column="gifticon_product_id"/>
+        <result property="name" column="name"/>
+        <result property="brandName" column="brand_name"/>
+        <result property="category" column="category"/>
+        <result property="faceValueKrw" column="face_value_krw"/>
+        <result property="requiredPoints" column="required_points"/>
+        <result property="status" column="status"/>
+        <result property="imageUrl" column="image_url"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <resultMap id="inventoryResult" type="org.firstfolio.gifticon.domain.GifticonProductInventory">
+        <id property="gifticonProductId" column="gifticon_product_id"/>
+        <result property="name" column="name"/>
+        <result property="brandName" column="brand_name"/>
+        <result property="category" column="category"/>
+        <result property="faceValueKrw" column="face_value_krw"/>
+        <result property="requiredPoints" column="required_points"/>
+        <result property="status" column="status"/>
+        <result property="imageUrl" column="image_url"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="availableCodeCount" column="available_code_count"/>
+        <result property="assignedCodeCount" column="assigned_code_count"/>
+        <result property="voidCodeCount" column="void_code_count"/>
+    </resultMap>
+
+    <sql id="columns">
+        gifticon_product_id, name, brand_name, category, face_value_krw,
+        required_points, status, image_url, created_at, updated_at
+    </sql>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="gifticonProductId">
+        INSERT INTO gifticon_products (
+            name, brand_name, category, face_value_krw, required_points,
+            status, image_url, created_at, updated_at
+        ) VALUES (
+            #{name}, #{brandName}, #{category}, #{faceValueKrw}, #{requiredPoints},
+            #{status}, #{imageUrl,jdbcType=VARCHAR}, #{createdAt}, #{updatedAt}
+        )
+    </insert>
+
+    <select id="findById" resultMap="productResult">
+        SELECT <include refid="columns"/>
+        FROM gifticon_products
+        WHERE gifticon_product_id = #{gifticonProductId}
+    </select>
+
+    <select id="findPage" resultMap="inventoryResult">
+        SELECT
+            p.gifticon_product_id, p.name, p.brand_name, p.category,
+            p.face_value_krw, p.required_points, p.status, p.image_url,
+            p.created_at, p.updated_at,
+            COALESCE(SUM(CASE
+                WHEN c.status = 'AVAILABLE' AND c.expires_at &gt; UTC_TIMESTAMP()
+                THEN 1 ELSE 0 END), 0) AS available_code_count,
+            COALESCE(SUM(CASE WHEN c.status = 'ASSIGNED' THEN 1 ELSE 0 END), 0)
+                AS assigned_code_count,
+            COALESCE(SUM(CASE WHEN c.status = 'VOID' THEN 1 ELSE 0 END), 0)
+                AS void_code_count
+        FROM gifticon_products p
+        LEFT JOIN gifticon_codes c
+          ON c.gifticon_product_id = p.gifticon_product_id
+        <where>
+            <if test="status != null">AND p.status = #{status}</if>
+            <if test="cursor != null">AND p.gifticon_product_id &gt; #{cursor}</if>
+        </where>
+        GROUP BY
+            p.gifticon_product_id, p.name, p.brand_name, p.category,
+            p.face_value_krw, p.required_points, p.status, p.image_url,
+            p.created_at, p.updated_at
+        ORDER BY p.gifticon_product_id
+        LIMIT #{size}
+    </select>
+
+    <select id="findMarketPage" resultMap="inventoryResult">
+        SELECT
+            p.gifticon_product_id, p.name, p.brand_name, p.category,
+            p.face_value_krw, p.required_points, p.status, p.image_url,
+            p.created_at, p.updated_at,
+            COALESCE(SUM(CASE
+                WHEN c.status = 'AVAILABLE' AND c.expires_at &gt; UTC_TIMESTAMP()
+                THEN 1 ELSE 0 END), 0) AS available_code_count,
+            0 AS assigned_code_count,
+            0 AS void_code_count
+        FROM gifticon_products p
+        LEFT JOIN gifticon_codes c
+          ON c.gifticon_product_id = p.gifticon_product_id
+        WHERE p.status = 'ON_SALE'
+        <if test="category != null">AND p.category = #{category}</if>
+        <if test="cursor != null">AND p.gifticon_product_id &gt; #{cursor}</if>
+        GROUP BY
+            p.gifticon_product_id, p.name, p.brand_name, p.category,
+            p.face_value_krw, p.required_points, p.status, p.image_url,
+            p.created_at, p.updated_at
+        ORDER BY p.gifticon_product_id
+        LIMIT #{size}
+    </select>
+
+    <select id="findOnSaleInventoryById" resultMap="inventoryResult">
+        SELECT
+            p.gifticon_product_id, p.name, p.brand_name, p.category,
+            p.face_value_krw, p.required_points, p.status, p.image_url,
+            p.created_at, p.updated_at,
+            COALESCE(SUM(CASE
+                WHEN c.status = 'AVAILABLE' AND c.expires_at &gt; UTC_TIMESTAMP()
+                THEN 1 ELSE 0 END), 0) AS available_code_count,
+            0 AS assigned_code_count,
+            0 AS void_code_count
+        FROM gifticon_products p
+        LEFT JOIN gifticon_codes c
+          ON c.gifticon_product_id = p.gifticon_product_id
+        WHERE p.gifticon_product_id = #{gifticonProductId}
+          AND p.status = 'ON_SALE'
+        GROUP BY
+            p.gifticon_product_id, p.name, p.brand_name, p.category,
+            p.face_value_krw, p.required_points, p.status, p.image_url,
+            p.created_at, p.updated_at
+    </select>
+
+    <update id="update">
+        UPDATE gifticon_products
+        SET name = #{name},
+            brand_name = #{brandName},
+            category = #{category},
+            face_value_krw = #{faceValueKrw},
+            required_points = #{requiredPoints},
+            status = #{status},
+            image_url = #{imageUrl,jdbcType=VARCHAR},
+            updated_at = #{updatedAt}
+        WHERE gifticon_product_id = #{gifticonProductId}
+    </update>
+
+</mapper>

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.gifticon.mapper.GifticonCodeMapper">
+
+    <!-- 관리자 조회는 보호 대상 컬럼 자체를 SELECT하지 않는다. -->
+    <resultMap id="codeResult" type="org.firstfolio.gifticon.domain.GifticonCode">
+        <id property="gifticonCodeId" column="gifticon_code_id"/>
+        <result property="gifticonProductId" column="gifticon_product_id"/>
+        <result property="codeMasked" column="code_masked"/>
+        <result property="expiresAt" column="expires_at"/>
+        <result property="status" column="status"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="gifticonCodeId">
+        INSERT INTO gifticon_codes (
+            gifticon_product_id, code_ciphertext, code_masked, code_fingerprint,
+            encryption_key_version, expires_at, status, created_at
+        ) VALUES (
+            #{gifticonProductId}, #{codeCiphertext}, #{codeMasked}, #{codeFingerprint},
+            #{encryptionKeyVersion}, #{expiresAt}, #{status}, #{createdAt}
+        )
+    </insert>
+
+    <select id="findById" resultMap="codeResult">
+        SELECT gifticon_code_id, gifticon_product_id, code_masked,
+               expires_at, status, created_at
+        FROM gifticon_codes
+        WHERE gifticon_code_id = #{gifticonCodeId}
+    </select>
+
+    <!-- 관리자 목록에서는 암호문과 중복 검사용 지문도 읽지 않는다. -->
+    <select id="findPage" resultMap="codeResult">
+        SELECT gifticon_code_id, gifticon_product_id, code_masked,
+               expires_at, status, created_at
+        FROM gifticon_codes
+        <where>
+            gifticon_product_id = #{gifticonProductId}
+            <if test="status != null">AND status = #{status}</if>
+            <if test="expiresBefore != null">AND expires_at &lt; #{expiresBefore}</if>
+            <if test="cursor != null">AND gifticon_code_id &gt; #{cursor}</if>
+        </where>
+        ORDER BY gifticon_code_id
+        LIMIT #{size}
+    </select>
+
+    <update id="markVoidIfAvailable">
+        UPDATE gifticon_codes
+        SET status = 'VOID'
+        WHERE gifticon_code_id = #{gifticonCodeId}
+          AND status = 'AVAILABLE'
+    </update>
+
+</mapper>
