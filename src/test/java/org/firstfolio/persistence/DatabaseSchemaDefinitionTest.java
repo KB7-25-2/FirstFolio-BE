@@ -95,6 +95,54 @@ class DatabaseSchemaDefinitionTest {
         ));
     }
 
+    @Test
+    void gifticonSchemaUsesEncryptedIndividualCodeInventory() throws IOException {
+        String schema = normalize(Files.readString(Path.of("database.sql")));
+
+        assertTrue(schema.contains("CREATE TABLE gifticon_codes"));
+        assertTrue(schema.contains("code_ciphertext VARBINARY(1024) NOT NULL"));
+        assertTrue(schema.contains("barcode_ciphertext VARBINARY(1024) NULL"));
+        assertTrue(schema.contains(
+                "CONSTRAINT uq_gifticon_codes_product_fingerprint "
+                        + "UNIQUE (gifticon_product_id, code_fingerprint)"
+        ));
+        assertTrue(schema.contains(
+                "status IN ('AVAILABLE', 'ASSIGNED', 'VOID')"
+        ));
+        assertTrue(schema.contains(
+                "CONSTRAINT uq_gifticon_orders_code UNIQUE (gifticon_code_id)"
+        ));
+        assertTrue(schema.contains(
+                "CONSTRAINT uq_gifticon_orders_user_idempotency "
+                        + "UNIQUE (user_id, idempotency_key)"
+        ));
+        assertTrue(schema.contains("CREATE TABLE gifticon_code_access_logs"));
+        assertTrue(!schema.contains("stock_quantity INT NOT NULL DEFAULT 0"));
+        assertTrue(!schema.contains("delivery_info VARCHAR(255)"));
+        assertTrue(!schema.contains("provider_reference VARCHAR(255)"));
+    }
+
+    @Test
+    void gifticonSchemaChangesAreTrackedByFlywayV5() throws IOException {
+        String migration = normalize(Files.readString(Path.of(
+                "src/main/resources/db/migration/V5__redesign_gifticon_market.sql"
+        )));
+
+        assertTrue(migration.contains("DROP TABLE gifticon_orders"));
+        assertTrue(migration.contains("DROP TABLE gifticon_products"));
+        assertTrue(migration.contains("CREATE TABLE gifticon_products"));
+        assertTrue(migration.contains("CREATE TABLE gifticon_codes"));
+        assertTrue(migration.contains("CREATE TABLE gifticon_orders"));
+        assertTrue(migration.contains("CREATE TABLE gifticon_code_access_logs"));
+        assertTrue(migration.contains(
+                "required_points > 0 AND required_points = face_value_krw"
+        ));
+        assertTrue(migration.contains(
+                "CONSTRAINT uq_gifticon_orders_point_transaction "
+                        + "UNIQUE (point_transaction_id)"
+        ));
+    }
+
     private String normalize(String sql) {
         return sql.replaceAll("\\s+", " ").trim();
     }
