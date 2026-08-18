@@ -146,7 +146,11 @@ public class QuizAnswerGradingService {
                         completedAt
                 );
         MainChapterCompletionResult mainChapterCompletion =
-                completeMainChapter(attempt, completedAt);
+                completeMainChapterIfPerfect(
+                        attempt,
+                        correctCount,
+                        completedAt
+                );
 
         attempt.setStatus(QuizAttemptStatus.GRADED);
         attempt.setCorrectCount(correctCount);
@@ -186,8 +190,9 @@ public class QuizAnswerGradingService {
                 : null;
         MainChapterCompletionResult mainChapterCompletion =
                 attempt.getStatus() == QuizAttemptStatus.GRADED
-                        ? completeMainChapter(
+                        ? completeMainChapterIfPerfect(
                                 attempt,
+                                attempt.getCorrectCount(),
                                 requireSubmittedAt(attempt)
                         )
                         : null;
@@ -237,8 +242,9 @@ public class QuizAnswerGradingService {
         );
     }
 
-    private MainChapterCompletionResult completeMainChapter(
+    private MainChapterCompletionResult completeMainChapterIfPerfect(
             QuizAttempt attempt,
+            int correctCount,
             LocalDateTime completedAt
     ) {
         if (attempt.getQuizType() != QuizType.MAIN_CHAPTER) {
@@ -246,6 +252,12 @@ public class QuizAnswerGradingService {
         }
         if (attempt.getMainChapterId() == null) {
             throw new ApiException(ErrorCode.INTERNAL_ERROR);
+        }
+        if (correctCount < 0 || correctCount > attempt.getTotalCount()) {
+            throw new ApiException(ErrorCode.INTERNAL_ERROR);
+        }
+        if (correctCount != attempt.getTotalCount()) {
+            return null;
         }
         return mainChapterCompletionService.complete(
                 attempt.getUserId(),
@@ -273,7 +285,7 @@ public class QuizAnswerGradingService {
         }
         if (attempt.getQuizType() == QuizType.MAIN_CHAPTER) {
             if (mainChapterCompletion == null) {
-                throw new ApiException(ErrorCode.INTERNAL_ERROR);
+                return "RETRY_MAIN_CHAPTER_QUIZ";
             }
             return mainChapterCompletion.chapterType() == ChapterType.FOUNDATION
                     ? "PORTFOLIO_SETUP"

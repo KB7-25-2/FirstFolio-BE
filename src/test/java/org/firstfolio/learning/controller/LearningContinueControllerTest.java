@@ -8,6 +8,7 @@ import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.CommonExceptionAdvice;
 import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.learning.domain.LearningContinueResult;
+import org.firstfolio.learning.domain.LearningContinueTarget;
 import org.firstfolio.learning.service.LearningContinueService;
 import org.firstfolio.user.domain.UserRole;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,6 +63,7 @@ class LearningContinueControllerTest {
 
         mockMvc.perform(authenticated(get("/api/learning/continue")))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.target_type").value("LESSON"))
                 .andExpect(jsonPath("$.data.curriculum_item_id").value(502))
                 .andExpect(jsonPath("$.data.main_chapter_id").value(2))
                 .andExpect(jsonPath("$.data.sub_chapter_id").value(101))
@@ -73,6 +75,39 @@ class LearningContinueControllerTest {
                 ));
 
         verify(service).getContinuePosition(USER_ID);
+    }
+
+    @Test
+    void returnsMainChapterQuizContinuePosition() throws Exception {
+        when(service.getContinuePosition(USER_ID)).thenReturn(
+                new LearningContinueResult(
+                        LearningContinueTarget.MAIN_CHAPTER_QUIZ,
+                        502L,
+                        2L,
+                        null,
+                        null,
+                        3001L,
+                        null,
+                        100,
+                        "/learning/main-chapters/2/scenario-quiz"
+                )
+        );
+
+        mockMvc.perform(authenticated(get("/api/learning/continue")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.target_type")
+                        .value("MAIN_CHAPTER_QUIZ"))
+                .andExpect(jsonPath("$.data.curriculum_item_id").value(502))
+                .andExpect(jsonPath("$.data.main_chapter_id").value(2))
+                .andExpect(jsonPath("$.data.sub_chapter_id").doesNotExist())
+                .andExpect(jsonPath("$.data.content_version_id")
+                        .doesNotExist())
+                .andExpect(jsonPath("$.data.attempt_id").value(3001))
+                .andExpect(jsonPath("$.data.last_page_id").doesNotExist())
+                .andExpect(jsonPath("$.data.progress_percent").value(100))
+                .andExpect(jsonPath("$.data.route").value(
+                        "/learning/main-chapters/2/scenario-quiz"
+                ));
     }
 
     @Test

@@ -42,5 +42,26 @@ class LearningContinueMapperXmlTest {
         assertTrue(sql.endsWith(
                 "ORDER BY progress.updated_at DESC, progress.progress_id DESC LIMIT 1"
         ));
+
+        String quizStatement = LearningContinueMapper.class.getName()
+                + ".findMainChapterQuizCandidate";
+        assertTrue(configuration.hasStatement(quizStatement));
+        BoundSql quizBoundSql = configuration
+                .getMappedStatement(quizStatement)
+                .getBoundSql(Map.of("userId", 11L));
+        String quizSql = quizBoundSql.getSql()
+                .replaceAll("\\s+", " ")
+                .trim();
+        assertTrue(quizSql.contains("curriculum.completed_at IS NULL"));
+        assertTrue(quizSql.contains("attempt.status = 'IN_PROGRESS'"));
+        assertTrue(quizSql.contains(
+                "attempt.status = 'GRADED' AND attempt.correct_count &lt; attempt.total_count"
+        ) || quizSql.contains(
+                "attempt.status = 'GRADED' AND attempt.correct_count < attempt.total_count"
+        ));
+        assertTrue(quizSql.contains("question.usage_type = 'MAIN_CHAPTER'"));
+        assertTrue(quizSql.endsWith(
+                "ORDER BY curriculum.display_order, curriculum.curriculum_item_id LIMIT 1"
+        ));
     }
 }

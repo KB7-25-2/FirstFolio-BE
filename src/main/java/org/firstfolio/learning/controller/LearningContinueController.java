@@ -28,8 +28,9 @@ public class LearningContinueController {
     @GetMapping
     @Operation(
             summary = "학습 이어하기 위치 조회",
-            description = "현재 사용자의 가장 최근 IN_PROGRESS 소단원과 마지막 페이지 이동 정보를 반환합니다. "
-                    + "저장된 콘텐츠 버전이 현재 공개 버전과 다르면 안전한 호환 정책 확정 전까지 조회하지 않습니다.",
+            description = "현재 사용자의 가장 최근 IN_PROGRESS 소단원과 마지막 페이지를 우선 반환합니다. "
+                    + "진행 중인 강좌가 없으면 모든 활성 소단원을 완료한 미완료 대단원의 퀴즈 진행·재도전 경로를 반환합니다. "
+                    + "저장된 콘텐츠 버전이 현재 공개 버전과 다르면 안전한 호환 정책 확정 전까지 강좌를 조회하지 않습니다.",
             responses = {
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(
                             responseCode = "200",
