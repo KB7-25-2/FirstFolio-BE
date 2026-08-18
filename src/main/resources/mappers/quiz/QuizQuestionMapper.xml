@@ -226,6 +226,33 @@
         LIMIT 1
     </select>
 
+    <select id="findPage" resultMap="questionResultMap">
+        SELECT <include refid="questionColumns" />
+        FROM quiz_questions
+        <where>
+            <if test="usageType != null">
+                AND usage_type = #{usageType}
+            </if>
+            <if test="mainChapterId != null">
+                AND main_chapter_id = #{mainChapterId}
+            </if>
+            <if test="subChapterId != null">
+                AND sub_chapter_id = #{subChapterId}
+            </if>
+            <if test="status != null">
+                AND status = #{status}
+            </if>
+            <if test="questionKey != null">
+                AND question_key = #{questionKey}
+            </if>
+            <if test="cursor != null">
+                AND question_id &gt; #{cursor}
+            </if>
+        </where>
+        ORDER BY question_id
+        LIMIT #{size}
+    </select>
+
     <update id="publishDraft">
         UPDATE quiz_questions
         SET status = 'PUBLISHED',

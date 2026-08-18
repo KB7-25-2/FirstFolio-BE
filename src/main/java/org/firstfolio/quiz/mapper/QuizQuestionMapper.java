@@ -4,6 +4,8 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.firstfolio.quiz.domain.QuizQuestion;
 import org.firstfolio.quiz.domain.QuizQuestionReference;
+import org.firstfolio.quiz.domain.QuizQuestionStatus;
+import org.firstfolio.quiz.domain.QuizUsageType;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -43,6 +45,16 @@ public interface QuizQuestionMapper {
 
     QuizQuestion findLatestPublishedDailyNewsByQuestDate(
             @Param("questDate") LocalDate questDate
+    );
+
+    List<QuizQuestion> findPage(
+            @Param("usageType") QuizUsageType usageType,
+            @Param("mainChapterId") Long mainChapterId,
+            @Param("subChapterId") Long subChapterId,
+            @Param("status") QuizQuestionStatus status,
+            @Param("questionKey") String questionKey,
+            @Param("cursor") Long cursor,
+            @Param("size") int size
     );
 
     int publishDraft(

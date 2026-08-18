@@ -198,6 +198,38 @@ class QuizQuestionMapperXmlTest {
                 "ORDER BY question.published_at DESC, "
                         + "question.question_id DESC LIMIT 1"
         ));
+
+        assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName() + ".findPage"
+        ));
+
+        BoundSql findPageSql = configuration.getMappedStatement(
+                        QuizQuestionMapper.class.getName() + ".findPage"
+                )
+                .getBoundSql(Map.of(
+                        "usageType",
+                        org.firstfolio.quiz.domain.QuizUsageType.SUB_CHAPTER,
+                        "mainChapterId",
+                        2L,
+                        "subChapterId",
+                        101L,
+                        "status",
+                        org.firstfolio.quiz.domain.QuizQuestionStatus.PUBLISHED,
+                        "questionKey",
+                        "deposit-q-001",
+                        "cursor",
+                        1000L,
+                        "size",
+                        21
+                ));
+        String normalizedFindPageSql = normalize(findPageSql.getSql());
+        assertTrue(normalizedFindPageSql.contains("usage_type = ?"));
+        assertTrue(normalizedFindPageSql.contains("main_chapter_id = ?"));
+        assertTrue(normalizedFindPageSql.contains("sub_chapter_id = ?"));
+        assertTrue(normalizedFindPageSql.contains("status = ?"));
+        assertTrue(normalizedFindPageSql.contains("question_key = ?"));
+        assertTrue(normalizedFindPageSql.contains("question_id > ?"));
+        assertTrue(normalizedFindPageSql.endsWith("ORDER BY question_id LIMIT ?"));
     }
 
     private String normalize(String sql) {
