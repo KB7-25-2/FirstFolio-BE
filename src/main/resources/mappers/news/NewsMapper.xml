@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.news.mapper.NewsMapper">
+
+    <resultMap id="newsArticleResult" type="org.firstfolio.news.domain.NewsArticle">
+        <id property="financialNewsId" column="financial_news_id"/>
+        <result property="title" column="title"/>
+        <result property="summary" column="summary"/>
+        <result property="imageUrl" column="image_url"/>
+        <result property="sourceName" column="source_name"/>
+        <result property="sourceUrl" column="source_url"/>
+        <result property="sourcePublishedAt" column="source_published_at"/>
+        <result property="publishedAt" column="published_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="columns">
+        financial_news_id,
+        title,
+        summary,
+        image_url,
+        source_name,
+        source_url,
+        source_published_at,
+        published_at,
+        created_at,
+        updated_at
+    </sql>
+
+    <select id="findLatest" resultMap="newsArticleResult">
+        SELECT <include refid="columns"/>
+        FROM news_articles
+        ORDER BY published_at DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

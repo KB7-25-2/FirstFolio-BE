@@ -68,7 +68,8 @@ public final class QuizQuestionSnapshotCodec {
         return toQuestionView(
                 answer.getQuestionId(),
                 answer.getDisplayOrder(),
-                answer.getQuestionSnapshotJson()
+                answer.getQuestionSnapshotJson(),
+                answer
         );
     }
 
@@ -76,6 +77,15 @@ public final class QuizQuestionSnapshotCodec {
             long questionId,
             int displayOrder,
             String snapshotJson
+    ) {
+        return toQuestionView(questionId, displayOrder, snapshotJson, null);
+    }
+
+    private QuizAttemptQuestion toQuestionView(
+            long questionId,
+            int displayOrder,
+            String snapshotJson,
+            QuizAnswer answer
     ) {
         try {
             JsonNode snapshot = objectMapper.readTree(snapshotJson);
@@ -106,6 +116,35 @@ public final class QuizQuestionSnapshotCodec {
                 ));
             }
 
+            boolean answered = answer != null
+                    && answer.getUserAnswerJson() != null;
+            String selectedKey = null;
+            Boolean correct = null;
+            String correctKey = null;
+            String explanation = null;
+            if (answered) {
+                selectedKey = requiredText(
+                        objectMapper.readTree(answer.getUserAnswerJson()),
+                        "key"
+                );
+                correct = answer.getCorrect();
+                correctKey = requiredText(
+                        snapshot.path("correct_answer_json"),
+                        "key"
+                );
+                explanation = requiredText(snapshot, "explanation");
+                if (correct == null
+                        || answer.getAnsweredAt() == null
+                        || !containsChoiceKey(choices, selectedKey)
+                        || !containsChoiceKey(choices, correctKey)) {
+                    throw unavailable(null);
+                }
+            } else if (answer != null
+                    && (answer.getCorrect() != null
+                    || answer.getAnsweredAt() != null)) {
+                throw unavailable(null);
+            }
+
             return new QuizAttemptQuestion(
                     questionId,
                     displayOrder,
@@ -113,11 +152,23 @@ public final class QuizQuestionSnapshotCodec {
                     generationType,
                     prompt,
                     scenario,
-                    choices
+                    choices,
+                    answered,
+                    selectedKey,
+                    correct,
+                    correctKey,
+                    explanation
             );
         } catch (JsonProcessingException | IllegalArgumentException exception) {
             throw unavailable(exception);
         }
+    }
+
+    private boolean containsChoiceKey(
+            List<QuizChoice> choices,
+            String key
+    ) {
+        return choices.stream().anyMatch(choice -> choice.key().equals(key));
     }
 
     private JsonNode parseNullableJson(String json) {

@@ -168,6 +168,11 @@ class QuizAttemptStartServiceTest {
         assertEquals("복원된 문제", result.questions().get(0).prompt());
         assertEquals(QuizGenerationType.HUMAN,
                 result.questions().get(0).generationType());
+        assertTrue(result.questions().get(0).answered());
+        assertEquals("1", result.questions().get(0).selectedKey());
+        assertTrue(result.questions().get(0).correct());
+        assertEquals("1", result.questions().get(0).correctKey());
+        assertEquals("정답 해설", result.questions().get(0).explanation());
         verify(contentStorage, never()).load(any());
         verify(quizAttemptMapper, never()).insertAttempt(any());
         verify(quizAttemptMapper, never()).insertAnswer(any());
@@ -343,6 +348,9 @@ class QuizAttemptStartServiceTest {
                   "explanation": "정답 해설"
                 }
                 """);
+        answer.setUserAnswerJson("{\"key\":\"1\"}");
+        answer.setCorrect(true);
+        answer.setAnsweredAt(NOW);
         return answer;
     }
 }

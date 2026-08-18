@@ -34,7 +34,8 @@ public class MainChapterQuizAttemptController {
     @Operation(
             summary = "대단원 퀴즈 응시 시작",
             description = "대단원에 속한 활성 소단원을 모두 완료한 경우 최신 공개 문항으로 응시를 시작합니다. "
-                    + "진행 중 응시가 있으면 저장된 문항과 순서를 복원하며 정답과 해설은 반환하지 않습니다.",
+                    + "진행 중 응시가 있으면 저장된 문항과 순서를 복원합니다. 이미 제출한 문항에는 기존 채점 결과를 반환하고, "
+                    + "미응답 문항에는 정답과 해설을 반환하지 않습니다.",
             responses = {
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(
                             responseCode = "201",
