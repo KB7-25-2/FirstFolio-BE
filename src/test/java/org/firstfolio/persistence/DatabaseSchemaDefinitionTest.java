@@ -101,7 +101,7 @@ class DatabaseSchemaDefinitionTest {
 
         assertTrue(schema.contains("CREATE TABLE gifticon_codes"));
         assertTrue(schema.contains("code_ciphertext VARBINARY(1024) NOT NULL"));
-        assertTrue(schema.contains("barcode_ciphertext VARBINARY(1024) NULL"));
+        assertTrue(!schema.contains("barcode_ciphertext"));
         assertTrue(schema.contains(
                 "CONSTRAINT uq_gifticon_codes_product_fingerprint "
                         + "UNIQUE (gifticon_product_id, code_fingerprint)"

@@ -100,6 +100,18 @@ public enum ErrorCode {
     ADMIN_REQUIRED(HttpStatus.FORBIDDEN, "관리자 권한이 필요합니다."),
     INVALID_SOURCE_PRODUCT(HttpStatus.UNPROCESSABLE_ENTITY, "원천 데이터 또는 가명·시뮬레이션 조건이 올바르지 않습니다."),
 
+    // 기프티콘 상품·선구매 코드 재고
+    GIFTICON_PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "기프티콘 상품을 찾을 수 없습니다."),
+    GIFTICON_PRODUCT_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "기프티콘 상품 정보가 올바르지 않습니다."),
+    INVALID_GIFTICON_FILTER(HttpStatus.BAD_REQUEST, "기프티콘 상품 필터가 올바르지 않습니다."),
+    GIFTICON_CODE_NOT_FOUND(HttpStatus.NOT_FOUND, "기프티콘 코드를 찾을 수 없습니다."),
+    GIFTICON_CODE_DUPLICATE(HttpStatus.CONFLICT, "이미 등록된 기프티콘 코드입니다."),
+    GIFTICON_CODE_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "기프티콘 코드 정보가 올바르지 않습니다."),
+    INVALID_GIFTICON_CODE_FILTER(HttpStatus.BAD_REQUEST, "기프티콘 코드 필터가 올바르지 않습니다."),
+    GIFTICON_CODE_ALREADY_ASSIGNED(HttpStatus.CONFLICT, "이미 지급된 기프티콘 코드는 폐기할 수 없습니다."),
+    GIFTICON_CODE_ALREADY_VOID(HttpStatus.CONFLICT, "이미 폐기된 기프티콘 코드입니다."),
+    GIFTICON_CRYPTO_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "기프티콘 코드 보호 설정을 사용할 수 없습니다."),
+
     // 내부 배치 (FUNC-040, 041, 042)
     INTERNAL_CALL_REQUIRED(HttpStatus.FORBIDDEN, "허용된 내부 호출이 아닙니다."),
     PRICE_POLICY_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "가격 생성 정책 또는 상품 조건이 올바르지 않습니다."),
