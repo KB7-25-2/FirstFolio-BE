@@ -191,6 +191,29 @@ class QuizAnswerControllerTest {
                         .value("PORTFOLIO_SETUP"));
     }
 
+    @Test
+    void returnsRetryActionWhenMainChapterAttemptIsNotPerfect()
+            throws Exception {
+        when(service.grade(USER_ID, ATTEMPT_ID, QUESTION_ID, "B"))
+                .thenReturn(failedMainChapterResult());
+
+        mockMvc.perform(authenticated(put(
+                        "/api/learning/quiz-attempts/3001/answers/1001"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"answer\":{\"key\":\"B\"}}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attempt.status")
+                        .value("GRADED"))
+                .andExpect(jsonPath("$.data.attempt.correct_count")
+                        .value(2))
+                .andExpect(jsonPath("$.data.main_chapter_completed")
+                        .value(false))
+                .andExpect(jsonPath("$.data.foundation_grant")
+                        .doesNotExist())
+                .andExpect(jsonPath("$.data.next_action")
+                        .value("RETRY_MAIN_CHAPTER_QUIZ"));
+    }
+
     private QuizAnswerGradingResult result() {
         return new QuizAnswerGradingResult(
                 ATTEMPT_ID,
@@ -259,6 +282,27 @@ class QuizAnswerControllerTest {
                         )
                 ),
                 "PORTFOLIO_SETUP"
+        );
+    }
+
+    private QuizAnswerGradingResult failedMainChapterResult() {
+        return new QuizAnswerGradingResult(
+                ATTEMPT_ID,
+                QUESTION_ID,
+                QuizGenerationType.HUMAN,
+                "B",
+                false,
+                "C",
+                "정기예금 해설",
+                QuizAttemptStatus.GRADED,
+                3,
+                3,
+                true,
+                2,
+                67,
+                new QuizRewardResult(91L, 200, 7001L),
+                null,
+                "RETRY_MAIN_CHAPTER_QUIZ"
         );
     }
 

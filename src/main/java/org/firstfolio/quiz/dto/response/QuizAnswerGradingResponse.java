@@ -20,13 +20,23 @@ public record QuizAnswerGradingResponse(
         @Schema(description = "마지막 문항 제출 시 포인트 지급 결과", nullable = true)
         QuizRewardResponse reward,
         @JsonInclude(JsonInclude.Include.NON_NULL)
-        @Schema(description = "대단원 퀴즈 완료 여부", nullable = true)
+        @Schema(description = "대단원 완료 여부. 전체 문항 정답일 때 true", nullable = true)
         Boolean mainChapterCompleted,
         @JsonInclude(JsonInclude.Include.NON_NULL)
         @Schema(description = "기초 과정 완료 시 초기 모의투자금 지급 결과", nullable = true)
         FoundationGrantResponse foundationGrant,
         @JsonInclude(JsonInclude.Include.NON_NULL)
-        @Schema(description = "퀴즈 완료 후 다음 동작", example = "NEXT_SUB_CHAPTER", nullable = true)
+        @Schema(
+                description = "퀴즈 완료 후 다음 동작",
+                example = "RETRY_MAIN_CHAPTER_QUIZ",
+                allowableValues = {
+                        "NEXT_SUB_CHAPTER",
+                        "RETRY_MAIN_CHAPTER_QUIZ",
+                        "NEXT_MAIN_CHAPTER",
+                        "PORTFOLIO_SETUP"
+                },
+                nullable = true
+        )
         String nextAction
 ) {
     public static QuizAnswerGradingResponse from(QuizAnswerGradingResult result) {

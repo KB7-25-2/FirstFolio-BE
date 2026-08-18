@@ -14,6 +14,8 @@ import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.learning.domain.LearningContinueCandidate;
 import org.firstfolio.learning.domain.LearningContinueResult;
+import org.firstfolio.learning.domain.LearningContinueTarget;
+import org.firstfolio.learning.domain.MainChapterQuizContinueCandidate;
 import org.firstfolio.learning.mapper.LearningContinueMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,7 +53,7 @@ public class LearningContinueService {
         LearningContinueCandidate candidate = learningContinueMapper
                 .findLatestInProgress(userId);
         if (candidate == null) {
-            throw new ApiException(ErrorCode.CONTINUE_POSITION_NOT_FOUND);
+            return mainChapterQuizPosition(userId);
         }
         requireCurrentPublishedPosition(candidate);
 
@@ -68,13 +70,34 @@ public class LearningContinueService {
         String lastPageId = candidate.getLastPageId();
         int progressPercent = calculateProgressPercent(pageIds, lastPageId);
         return new LearningContinueResult(
+                LearningContinueTarget.LESSON,
                 candidate.getCurriculumItemId(),
                 candidate.getMainChapterId(),
                 candidate.getSubChapterId(),
                 candidate.getContentVersionId(),
+                null,
                 lastPageId,
                 progressPercent,
                 route(candidate.getSubChapterId(), lastPageId)
+        );
+    }
+
+    private LearningContinueResult mainChapterQuizPosition(long userId) {
+        MainChapterQuizContinueCandidate candidate = learningContinueMapper
+                .findMainChapterQuizCandidate(userId);
+        if (candidate == null) {
+            throw new ApiException(ErrorCode.CONTINUE_POSITION_NOT_FOUND);
+        }
+        return new LearningContinueResult(
+                LearningContinueTarget.MAIN_CHAPTER_QUIZ,
+                candidate.getCurriculumItemId(),
+                candidate.getMainChapterId(),
+                null,
+                null,
+                candidate.getAttemptId(),
+                null,
+                100,
+                mainChapterQuizRoute(candidate.getMainChapterId())
         );
     }
 
@@ -159,6 +182,11 @@ public class LearningContinueService {
         return lastPageId == null
                 ? baseRoute
                 : baseRoute + "?page=" + lastPageId;
+    }
+
+    private String mainChapterQuizRoute(long mainChapterId) {
+        return "/learning/main-chapters/" + mainChapterId
+                + "/scenario-quiz";
     }
 
     private boolean isJson(String contentType) {
