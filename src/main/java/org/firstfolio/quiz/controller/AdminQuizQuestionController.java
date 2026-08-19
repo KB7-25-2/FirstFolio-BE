@@ -9,6 +9,7 @@ import org.firstfolio.common.response.ApiResponse;
 import org.firstfolio.common.web.RequestIdFilter;
 import org.firstfolio.config.OpenApiResponseSchemas;
 import org.firstfolio.quiz.dto.request.QuizQuestionCreateRequest;
+import org.firstfolio.quiz.dto.request.QuizQuestionStatusUpdateRequest;
 import org.firstfolio.quiz.dto.request.QuizQuestionVersionCreateRequest;
 import org.firstfolio.quiz.dto.response.QuizQuestionCreateResponse;
 import org.firstfolio.quiz.dto.response.QuizQuestionPageResponse;
@@ -16,8 +17,11 @@ import org.firstfolio.quiz.dto.response.QuizQuestionStatusResponse;
 import org.firstfolio.quiz.service.QuizQuestionPublicationService;
 import org.firstfolio.quiz.service.QuizQuestionQueryService;
 import org.firstfolio.quiz.service.QuizQuestionRegistrationService;
+import org.firstfolio.exception.ApiException;
+import org.firstfolio.exception.ErrorCode;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -174,6 +178,58 @@ public class AdminQuizQuestionController {
                 registrationService.createVersion(
                         questionId,
                         request,
+                        currentUser.userId(),
+                        RequestIdFilter.currentRequestId(servletRequest)
+                )
+        ));
+    }
+
+    @PatchMapping("/{questionId}")
+    @Operation(
+            summary = "퀴즈 문항 상태 전환",
+            description = "현재는 DRAFT 문항을 REVIEW로 전환하는 요청만 지원합니다({\"status\": \"REVIEW\"}). "
+                    + "그 외 status 값은 400으로 거부합니다.",
+            responses = {
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "200", description = "상태 전환 성공",
+                            content = @io.swagger.v3.oas.annotations.media.Content(
+                                    mediaType = "application/json",
+                                    schema = @io.swagger.v3.oas.annotations.media.Schema(
+                                            implementation = OpenApiResponseSchemas.QuizQuestionStatus.class
+                                    )
+                            )
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "400", description = "INVALID_REQUEST - 지원하지 않는 status 값"
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "404", description = "QUESTION_NOT_FOUND - 문항을 찾을 수 없음"
+                    ),
+                    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+                            responseCode = "409", description = "QUESTION_NOT_REVIEWABLE - DRAFT 상태가 아니어서 전환 불가"
+                    )
+            }
+    )
+    public ApiResponse<QuizQuestionStatusResponse> updateQuestionStatus(
+            @Parameter(description = "상태를 전환할 문항 버전 ID", example = "1201", required = true)
+            @PathVariable long questionId,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    required = true, description = "전환할 상태 — 현재 REVIEW만 지원"
+            )
+            @RequestBody(required = false) QuizQuestionStatusUpdateRequest request,
+            @CurrentUser AuthenticatedUser currentUser,
+            HttpServletRequest servletRequest
+    ) {
+        if (request == null || !"REVIEW".equals(request.status())) {
+            throw new ApiException(
+                    ErrorCode.INVALID_REQUEST,
+                    ErrorCode.INVALID_REQUEST.getDefaultMessage()
+                            + " status는 \"REVIEW\"만 지원합니다."
+            );
+        }
+        return ApiResponse.of(QuizQuestionStatusResponse.from(
+                publicationService.submitForReview(
+                        questionId,
                         currentUser.userId(),
                         RequestIdFilter.currentRequestId(servletRequest)
                 )

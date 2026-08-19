@@ -64,5 +64,7 @@ public interface QuizQuestionMapper {
 
     int retirePublished(@Param("questionId") long questionId);
 
+    int submitForReview(@Param("questionId") long questionId);
+
     int insert(QuizQuestion question);
 }

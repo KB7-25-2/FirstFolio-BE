@@ -181,6 +181,36 @@ class QuizQuestionPublicationServiceTest {
     }
 
     @Test
+    void submitsDraftQuestionForReview() {
+        QuizQuestion target = question(1201L, 1);
+        when(questionMapper.findByIdForUpdate(1201L)).thenReturn(target);
+        when(questionMapper.submitForReview(1201L)).thenReturn(1);
+
+        QuizQuestion result = service.submitForReview(1201L, ACTOR_ID, REQUEST_ID);
+
+        assertEquals(QuizQuestionStatus.REVIEW, result.getStatus());
+        verify(auditLogMapper).insert(
+                eq(ACTOR_ID), eq("SUBMIT_REVIEW"), eq("QUIZ_QUESTION"), eq(1201L),
+                anyString(), anyString(), eq(REQUEST_ID), eq(NOW)
+        );
+    }
+
+    @Test
+    void rejectsSubmittingNonDraftQuestionForReview() {
+        QuizQuestion target = question(1201L, 1);
+        target.setStatus(QuizQuestionStatus.REVIEW);
+        when(questionMapper.findByIdForUpdate(1201L)).thenReturn(target);
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> service.submitForReview(1201L, ACTOR_ID, REQUEST_ID)
+        );
+
+        assertEquals(ErrorCode.QUESTION_NOT_REVIEWABLE, exception.getErrorCode());
+        verify(questionMapper, never()).submitForReview(anyLong());
+    }
+
+    @Test
     void manuallyRetiresPublishedQuestionAndKeepsPublishedTimestamp() {
         LocalDateTime publishedAt = LocalDateTime.of(2026, 8, 10, 6, 0);
         QuizQuestion target = question(1201L, 1);

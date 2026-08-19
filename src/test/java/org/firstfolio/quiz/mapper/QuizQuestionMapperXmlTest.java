@@ -60,6 +60,9 @@ class QuizQuestionMapperXmlTest {
                 QuizQuestionMapper.class.getName() + ".retirePublished"
         ));
         assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName() + ".submitForReview"
+        ));
+        assertTrue(configuration.hasStatement(
                 QuizQuestionMapper.class.getName() + ".findAllByIds"
         ));
         assertTrue(configuration.hasStatement(
@@ -145,6 +148,17 @@ class QuizQuestionMapperXmlTest {
                 .getBoundSql(Map.of("questionId", 1201L));
         assertTrue(normalize(retireSql.getSql()).endsWith(
                 "WHERE question_id = ? AND status = 'PUBLISHED'"
+        ));
+
+        BoundSql submitForReviewSql = configuration.getMappedStatement(
+                        QuizQuestionMapper.class.getName() + ".submitForReview"
+                )
+                .getBoundSql(Map.of("questionId", 1201L));
+        assertTrue(normalize(submitForReviewSql.getSql()).contains(
+                "SET status = 'REVIEW'"
+        ));
+        assertTrue(normalize(submitForReviewSql.getSql()).endsWith(
+                "WHERE question_id = ? AND status = 'DRAFT'"
         ));
 
         BoundSql levelTestSql = configuration.getMappedStatement(
