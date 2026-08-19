@@ -44,6 +44,14 @@ class QuizQuestionSchemaValidatorTest {
     }
 
     @Test
+    void acceptsAiQuestionWithNullSourceRefs() throws IOException {
+        ObjectNode question = aiScenario();
+        question.putNull("source_refs_json");
+
+        assertTrue(validate(question).isValid());
+    }
+
+    @Test
     void acceptsDailyGeneralAndDatedDailyNewsQuestions() throws IOException {
         ObjectNode general = humanSingleChoice();
         general.put("usage_type", "DAILY_GENERAL");
