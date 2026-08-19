@@ -1,0 +1,14 @@
+package org.firstfolio.quiz.integration.ai.service;
+
+public enum QuizItemErrorCode {
+    INVALID_QUIZ_PAYLOAD,
+    INVALID_USAGE_TYPE,
+    INVALID_QUESTION_TYPE,
+    INVALID_DIFFICULTY,
+    INVALID_CHAPTER_SCOPE,
+    CHAPTER_NOT_FOUND,
+    CHAPTER_NOT_ACTIVE,
+    INVALID_OPTIONS,
+    INVALID_CORRECT_ANSWER,
+    INVALID_SCENARIO
+}
