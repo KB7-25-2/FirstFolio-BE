@@ -136,7 +136,7 @@ class QuizQuestionMapperXmlTest {
                 "SET status = 'PUBLISHED', published_at = ?"
         ));
         assertTrue(normalize(publishSql.getSql()).endsWith(
-                "WHERE question_id = ? AND status = 'DRAFT'"
+                "WHERE question_id = ? AND status IN ('DRAFT', 'REVIEW')"
         ));
 
         BoundSql retireSql = configuration.getMappedStatement(

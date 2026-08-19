@@ -258,7 +258,7 @@
         SET status = 'PUBLISHED',
             published_at = #{publishedAt}
         WHERE question_id = #{questionId}
-          AND status = 'DRAFT'
+          AND status IN ('DRAFT', 'REVIEW')
     </update>
 
     <update id="retirePublished">
