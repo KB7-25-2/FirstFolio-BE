@@ -33,6 +33,7 @@ CREATE TABLE gifticon_codes (
     gifticon_code_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '선구매한 개별 기프티콘 코드 식별자',
     gifticon_product_id BIGINT NOT NULL COMMENT '코드가 속한 기프티콘 상품',
     code_ciphertext VARBINARY(1024) NOT NULL COMMENT '암호화한 실제 기프티콘 코드',
+    barcode_ciphertext VARBINARY(1024) NULL COMMENT '코드와 다를 때 암호화해 저장하는 바코드 값',
     code_masked VARCHAR(100) NOT NULL COMMENT '목록과 관리자 조회용 마스킹 코드',
     code_fingerprint BINARY(32) NOT NULL COMMENT '상품 범위 코드 중복 검사용 HMAC-SHA-256 지문',
     encryption_key_version VARCHAR(50) NOT NULL COMMENT '코드 암호화에 사용한 키 버전',
@@ -66,7 +67,7 @@ CREATE TABLE gifticon_orders (
     product_snapshot_json JSON NOT NULL COMMENT '교환 당시 상품명·브랜드·분류·액면가·필요 포인트·이미지 스냅샷',
     idempotency_key VARCHAR(100) NOT NULL COMMENT '사용자 범위 중복 주문 방지 키',
     request_fingerprint BINARY(32) NOT NULL COMMENT '같은 멱등 키의 다른 요청 판별용 SHA-256 지문',
-    first_disclosed_at DATETIME NULL COMMENT '코드를 서버가 처음 공개한 시각. 바코드는 프론트에서 렌더링',
+    first_disclosed_at DATETIME NULL COMMENT '코드와 바코드를 서버가 처음 공개한 시각',
     completed_at DATETIME NOT NULL COMMENT '포인트 차감·코드 할당·주문 생성 완료 시각',
     CONSTRAINT pk_gifticon_orders PRIMARY KEY (gifticon_order_id),
     CONSTRAINT uq_gifticon_orders_code UNIQUE (gifticon_code_id),
@@ -111,4 +112,4 @@ CREATE TABLE gifticon_code_access_logs (
         ),
     INDEX idx_gifticon_code_access_logs_order_time (gifticon_order_id, occurred_at),
     INDEX idx_gifticon_code_access_logs_actor_time (actor_user_id, occurred_at)
-) ENGINE = InnoDB COMMENT = '평문을 남기지 않는 기프티콘 코드 공개 이력';
+) ENGINE = InnoDB COMMENT = '평문을 남기지 않는 기프티콘 코드·바코드 공개 이력';
