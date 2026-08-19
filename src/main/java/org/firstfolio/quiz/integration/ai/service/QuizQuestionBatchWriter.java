@@ -8,6 +8,7 @@ import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.quiz.domain.QuizGenerationType;
 import org.firstfolio.quiz.domain.QuizQuestion;
 import org.firstfolio.quiz.domain.QuizQuestionStatus;
+import org.firstfolio.quiz.domain.QuizUsageType;
 import org.firstfolio.quiz.integration.ai.dto.request.QuizQuestionRequest;
 import org.firstfolio.quiz.mapper.QuizQuestionMapper;
 import org.springframework.core.env.Environment;
@@ -17,7 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -53,14 +56,39 @@ public class QuizQuestionBatchWriter {
 
         long aiCreatedBy = resolveAiCreatedBy();
         LocalDateTime now = LocalDateTime.now(clock);
+        Map<Long, Integer> nextDisplayOrderByMainChapter = new HashMap<>();
 
         List<QuizQuestion> saved = new ArrayList<>();
         for (QuizQuestionRequest quiz : validQuizzes) {
-            QuizQuestion question = toQuestion(quiz, aiCreatedBy, now);
+            Integer displayOrder = resolveDisplayOrder(quiz, nextDisplayOrderByMainChapter);
+            QuizQuestion question = toQuestion(quiz, aiCreatedBy, now, displayOrder);
             questionMapper.insert(question);
             saved.add(question);
         }
         return saved;
+    }
+
+    /**
+     * MAIN_CHAPTER(대단원 시나리오) 문항만 display_order를 채운다. AI는 순서 개념이 없어
+     * 대단원별 현재 최대값 다음 번호를 이어붙이고, 같은 배치 안에 같은 대단원 문항이 여럿이면
+     * 배치 내에서 순번을 이어서 증가시킨다.
+     */
+    private Integer resolveDisplayOrder(
+            QuizQuestionRequest quiz,
+            Map<Long, Integer> nextDisplayOrderByMainChapter
+    ) {
+        if (quiz.usageType() != QuizUsageType.MAIN_CHAPTER) {
+            return null;
+        }
+
+        long mainChapterId = quiz.mainChapterId();
+        Integer next = nextDisplayOrderByMainChapter.get(mainChapterId);
+        if (next == null) {
+            Integer max = questionMapper.findMaxDisplayOrderByMainChapterId(mainChapterId);
+            next = max == null ? 1 : max + 1;
+        }
+        nextDisplayOrderByMainChapter.put(mainChapterId, next + 1);
+        return next;
     }
 
     private long resolveAiCreatedBy() {
@@ -81,14 +109,19 @@ public class QuizQuestionBatchWriter {
         }
     }
 
-    private QuizQuestion toQuestion(QuizQuestionRequest quiz, long aiCreatedBy, LocalDateTime now) {
+    private QuizQuestion toQuestion(
+            QuizQuestionRequest quiz,
+            long aiCreatedBy,
+            LocalDateTime now,
+            Integer displayOrder
+    ) {
         QuizQuestion question = QuizQuestion.draft(
                 UUID.randomUUID().toString(),
                 1,
                 quiz.usageType(),
                 quiz.mainChapterId(),
                 quiz.subChapterId(),
-                null,
+                displayOrder,
                 quiz.questionType(),
                 quiz.difficulty(),
                 quiz.prompt(),
