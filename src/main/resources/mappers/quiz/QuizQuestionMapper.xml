@@ -275,6 +275,13 @@
           AND status = 'DRAFT'
     </update>
 
+    <select id="findMaxDisplayOrderByMainChapterId" resultType="java.lang.Integer">
+        SELECT MAX(display_order)
+        FROM quiz_questions
+        WHERE usage_type = 'MAIN_CHAPTER'
+          AND main_chapter_id = #{mainChapterId}
+    </select>
+
     <insert id="insert"
             parameterType="org.firstfolio.quiz.domain.QuizQuestion"
             useGeneratedKeys="true"

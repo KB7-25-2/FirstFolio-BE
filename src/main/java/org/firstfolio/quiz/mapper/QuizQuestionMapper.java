@@ -66,5 +66,7 @@ public interface QuizQuestionMapper {
 
     int submitForReview(@Param("questionId") long questionId);
 
+    Integer findMaxDisplayOrderByMainChapterId(@Param("mainChapterId") long mainChapterId);
+
     int insert(QuizQuestion question);
 }

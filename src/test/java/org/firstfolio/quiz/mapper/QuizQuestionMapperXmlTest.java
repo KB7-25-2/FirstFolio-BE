@@ -63,6 +63,9 @@ class QuizQuestionMapperXmlTest {
                 QuizQuestionMapper.class.getName() + ".submitForReview"
         ));
         assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName() + ".findMaxDisplayOrderByMainChapterId"
+        ));
+        assertTrue(configuration.hasStatement(
                 QuizQuestionMapper.class.getName() + ".findAllByIds"
         ));
         assertTrue(configuration.hasStatement(
@@ -159,6 +162,18 @@ class QuizQuestionMapperXmlTest {
         ));
         assertTrue(normalize(submitForReviewSql.getSql()).endsWith(
                 "WHERE question_id = ? AND status = 'DRAFT'"
+        ));
+
+        BoundSql maxDisplayOrderSql = configuration.getMappedStatement(
+                        QuizQuestionMapper.class.getName()
+                                + ".findMaxDisplayOrderByMainChapterId"
+                )
+                .getBoundSql(Map.of("mainChapterId", 2L));
+        assertTrue(normalize(maxDisplayOrderSql.getSql()).contains(
+                "SELECT MAX(display_order)"
+        ));
+        assertTrue(normalize(maxDisplayOrderSql.getSql()).endsWith(
+                "WHERE usage_type = 'MAIN_CHAPTER' AND main_chapter_id = ?"
         ));
 
         BoundSql levelTestSql = configuration.getMappedStatement(
