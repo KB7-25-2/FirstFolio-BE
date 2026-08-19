@@ -113,6 +113,51 @@ class QuizQuestionPublicationServiceTest {
     }
 
     @Test
+    void publishesLatestReviewAndRetiresPreviouslyPublishedVersion() {
+        QuizQuestion previous = question(1201L, 1);
+        previous.publish(LocalDateTime.of(2026, 8, 10, 6, 0));
+        QuizQuestion target = question(1202L, 2);
+        target.setStatus(QuizQuestionStatus.REVIEW);
+        when(questionMapper.findById(1202L)).thenReturn(target);
+        when(questionMapper.findLatestByQuestionKeyForUpdate(
+                "deposit-basic-001"
+        )).thenReturn(target);
+        when(questionMapper.findPublishedByQuestionKeyForUpdate(
+                "deposit-basic-001"
+        )).thenReturn(List.of(previous));
+        when(questionMapper.retirePublished(1201L)).thenReturn(1);
+        when(questionMapper.publishDraft(1202L, NOW)).thenReturn(1);
+
+        QuizQuestion result = service.publish(1202L, ACTOR_ID, REQUEST_ID);
+
+        assertEquals(QuizQuestionStatus.RETIRED, previous.getStatus());
+        assertEquals(QuizQuestionStatus.PUBLISHED, result.getStatus());
+        assertEquals(NOW, result.getPublishedAt());
+        verify(auditLogMapper).insert(
+                eq(ACTOR_ID), eq("PUBLISH"), eq("QUIZ_QUESTION"), eq(1202L),
+                anyString(), anyString(), eq(REQUEST_ID), eq(NOW)
+        );
+    }
+
+    @Test
+    void rejectsPublishingAlreadyPublishedQuestion() {
+        QuizQuestion target = question(1201L, 1);
+        target.publish(LocalDateTime.of(2026, 8, 10, 6, 0));
+        when(questionMapper.findById(1201L)).thenReturn(target);
+        when(questionMapper.findLatestByQuestionKeyForUpdate(
+                "deposit-basic-001"
+        )).thenReturn(target);
+
+        ApiException exception = assertThrows(
+                ApiException.class,
+                () -> service.publish(1201L, ACTOR_ID, REQUEST_ID)
+        );
+
+        assertEquals(ErrorCode.QUESTION_NOT_PUBLISHABLE, exception.getErrorCode());
+        verify(questionMapper, never()).publishDraft(anyLong(), any());
+    }
+
+    @Test
     void rejectsPublishingNonLatestDraft() {
         QuizQuestion requested = question(1201L, 1);
         QuizQuestion latest = question(1202L, 2);

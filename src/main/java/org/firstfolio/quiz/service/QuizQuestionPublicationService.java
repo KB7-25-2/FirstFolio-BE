@@ -79,7 +79,8 @@ public class QuizQuestionPublicationService {
             throw new ApiException(ErrorCode.QUESTION_NOT_FOUND);
         }
         if (!Objects.equals(target.getQuestionId(), questionId)
-                || target.getStatus() != QuizQuestionStatus.DRAFT) {
+                || (target.getStatus() != QuizQuestionStatus.DRAFT
+                && target.getStatus() != QuizQuestionStatus.REVIEW)) {
             throw new ApiException(ErrorCode.QUESTION_NOT_PUBLISHABLE);
         }
 

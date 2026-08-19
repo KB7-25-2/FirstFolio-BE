@@ -183,7 +183,7 @@ public class AdminQuizQuestionController {
     @PostMapping("/{questionId}/publish")
     @Operation(
             summary = "퀴즈 문항 버전 공개",
-            description = "최신 DRAFT 문항 버전을 PUBLISHED로 전환합니다. 같은 논리 키의 기존 공개 버전은 RETIRED로 보존하고 모든 상태 변경을 하나의 트랜잭션으로 처리합니다.",
+            description = "최신 DRAFT 또는 REVIEW 문항 버전을 PUBLISHED로 전환합니다. 같은 논리 키의 기존 공개 버전은 RETIRED로 보존하고 모든 상태 변경을 하나의 트랜잭션으로 처리합니다.",
             responses = {
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(
                             responseCode = "200", description = "퀴즈 문항 공개 성공",
@@ -198,7 +198,7 @@ public class AdminQuizQuestionController {
                             responseCode = "404", description = "QUESTION_NOT_FOUND - 문항을 찾을 수 없음"
                     ),
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                            responseCode = "409", description = "QUESTION_NOT_PUBLISHABLE - 최신 DRAFT가 아니거나 공개할 수 없는 상태"
+                            responseCode = "409", description = "QUESTION_NOT_PUBLISHABLE - 최신 DRAFT/REVIEW가 아니거나 공개할 수 없는 상태"
                     ),
                     @io.swagger.v3.oas.annotations.responses.ApiResponse(
                             responseCode = "422", description = "QUESTION_VALIDATION_FAILED - 문항 또는 단원 참조 재검증 실패"
