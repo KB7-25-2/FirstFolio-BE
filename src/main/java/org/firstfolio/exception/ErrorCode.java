@@ -42,6 +42,7 @@ public enum ErrorCode {
     QUESTION_VERSION_CONFLICT(HttpStatus.CONFLICT, "퀴즈 문항 버전을 생성할 수 없습니다."),
     QUESTION_NOT_PUBLISHABLE(HttpStatus.CONFLICT, "공개할 수 없는 퀴즈 문항 버전입니다."),
     QUESTION_NOT_RETIRABLE(HttpStatus.CONFLICT, "폐기할 수 없는 퀴즈 문항 버전입니다."),
+    QUESTION_NOT_REVIEWABLE(HttpStatus.CONFLICT, "검수로 전환할 수 없는 퀴즈 문항 버전입니다."),
     QUESTION_VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "퀴즈 문항 검증에 실패했습니다."),
 
     // 퀴즈 응시

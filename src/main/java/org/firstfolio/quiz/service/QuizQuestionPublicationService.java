@@ -111,6 +111,37 @@ public class QuizQuestionPublicationService {
     }
 
     @Transactional
+    public QuizQuestion submitForReview(
+            long questionId,
+            long actorUserId,
+            String requestId
+    ) {
+        QuizQuestion target = questionMapper.findByIdForUpdate(questionId);
+        if (target == null) {
+            throw new ApiException(ErrorCode.QUESTION_NOT_FOUND);
+        }
+        if (target.getStatus() != QuizQuestionStatus.DRAFT) {
+            throw new ApiException(ErrorCode.QUESTION_NOT_REVIEWABLE);
+        }
+
+        LocalDateTime now = LocalDateTime.now(clock);
+        String before = snapshot(target);
+        if (questionMapper.submitForReview(questionId) != 1) {
+            throw new ApiException(ErrorCode.QUESTION_NOT_REVIEWABLE);
+        }
+        target.setStatus(QuizQuestionStatus.REVIEW);
+        insertAuditLog(
+                actorUserId,
+                "SUBMIT_REVIEW",
+                target,
+                before,
+                requestId,
+                now
+        );
+        return target;
+    }
+
+    @Transactional
     public QuizQuestion retire(
             long questionId,
             long actorUserId,
