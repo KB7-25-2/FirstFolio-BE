@@ -258,7 +258,7 @@
         SET status = 'PUBLISHED',
             published_at = #{publishedAt}
         WHERE question_id = #{questionId}
-          AND status = 'DRAFT'
+          AND status IN ('DRAFT', 'REVIEW')
     </update>
 
     <update id="retirePublished">
@@ -267,6 +267,20 @@
         WHERE question_id = #{questionId}
           AND status = 'PUBLISHED'
     </update>
+
+    <update id="submitForReview">
+        UPDATE quiz_questions
+        SET status = 'REVIEW'
+        WHERE question_id = #{questionId}
+          AND status = 'DRAFT'
+    </update>
+
+    <select id="findMaxDisplayOrderByMainChapterId" resultType="java.lang.Integer">
+        SELECT MAX(display_order)
+        FROM quiz_questions
+        WHERE usage_type = 'MAIN_CHAPTER'
+          AND main_chapter_id = #{mainChapterId}
+    </select>
 
     <insert id="insert"
             parameterType="org.firstfolio.quiz.domain.QuizQuestion"

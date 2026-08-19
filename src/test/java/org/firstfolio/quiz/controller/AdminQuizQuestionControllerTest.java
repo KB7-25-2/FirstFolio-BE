@@ -39,6 +39,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -225,6 +226,47 @@ class AdminQuizQuestionControllerTest {
                         .content(versionRequestBody()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("QUESTION_NOT_FOUND"));
+    }
+
+    @Test
+    void submitsDraftQuestionForReview() throws Exception {
+        QuizQuestion reviewing = question(1201L, 1);
+        reviewing.setStatus(QuizQuestionStatus.REVIEW);
+        when(publicationService.submitForReview(eq(1201L), eq(900L), anyString()))
+                .thenReturn(reviewing);
+
+        mockMvc.perform(patch("/api/admin/quiz-questions/1201")
+                        .requestAttr(AuthenticationRequestAttributes.CURRENT_USER, ADMIN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\": \"REVIEW\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.question_id").value(1201))
+                .andExpect(jsonPath("$.data.status").value("REVIEW"));
+
+        verify(publicationService).submitForReview(eq(1201L), eq(900L), anyString());
+    }
+
+    @Test
+    void rejectsUnsupportedStatusTransitionValue() throws Exception {
+        mockMvc.perform(patch("/api/admin/quiz-questions/1201")
+                        .requestAttr(AuthenticationRequestAttributes.CURRENT_USER, ADMIN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\": \"PUBLISHED\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
+    }
+
+    @Test
+    void returnsNotReviewableWhenQuestionIsNotDraft() throws Exception {
+        when(publicationService.submitForReview(eq(1201L), eq(900L), anyString()))
+                .thenThrow(new ApiException(ErrorCode.QUESTION_NOT_REVIEWABLE));
+
+        mockMvc.perform(patch("/api/admin/quiz-questions/1201")
+                        .requestAttr(AuthenticationRequestAttributes.CURRENT_USER, ADMIN)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\": \"REVIEW\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error.code").value("QUESTION_NOT_REVIEWABLE"));
     }
 
     @Test

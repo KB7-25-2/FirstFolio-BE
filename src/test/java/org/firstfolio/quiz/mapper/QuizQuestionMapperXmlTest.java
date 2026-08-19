@@ -60,6 +60,12 @@ class QuizQuestionMapperXmlTest {
                 QuizQuestionMapper.class.getName() + ".retirePublished"
         ));
         assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName() + ".submitForReview"
+        ));
+        assertTrue(configuration.hasStatement(
+                QuizQuestionMapper.class.getName() + ".findMaxDisplayOrderByMainChapterId"
+        ));
+        assertTrue(configuration.hasStatement(
                 QuizQuestionMapper.class.getName() + ".findAllByIds"
         ));
         assertTrue(configuration.hasStatement(
@@ -136,7 +142,7 @@ class QuizQuestionMapperXmlTest {
                 "SET status = 'PUBLISHED', published_at = ?"
         ));
         assertTrue(normalize(publishSql.getSql()).endsWith(
-                "WHERE question_id = ? AND status = 'DRAFT'"
+                "WHERE question_id = ? AND status IN ('DRAFT', 'REVIEW')"
         ));
 
         BoundSql retireSql = configuration.getMappedStatement(
@@ -145,6 +151,29 @@ class QuizQuestionMapperXmlTest {
                 .getBoundSql(Map.of("questionId", 1201L));
         assertTrue(normalize(retireSql.getSql()).endsWith(
                 "WHERE question_id = ? AND status = 'PUBLISHED'"
+        ));
+
+        BoundSql submitForReviewSql = configuration.getMappedStatement(
+                        QuizQuestionMapper.class.getName() + ".submitForReview"
+                )
+                .getBoundSql(Map.of("questionId", 1201L));
+        assertTrue(normalize(submitForReviewSql.getSql()).contains(
+                "SET status = 'REVIEW'"
+        ));
+        assertTrue(normalize(submitForReviewSql.getSql()).endsWith(
+                "WHERE question_id = ? AND status = 'DRAFT'"
+        ));
+
+        BoundSql maxDisplayOrderSql = configuration.getMappedStatement(
+                        QuizQuestionMapper.class.getName()
+                                + ".findMaxDisplayOrderByMainChapterId"
+                )
+                .getBoundSql(Map.of("mainChapterId", 2L));
+        assertTrue(normalize(maxDisplayOrderSql.getSql()).contains(
+                "SELECT MAX(display_order)"
+        ));
+        assertTrue(normalize(maxDisplayOrderSql.getSql()).endsWith(
+                "WHERE usage_type = 'MAIN_CHAPTER' AND main_chapter_id = ?"
         ));
 
         BoundSql levelTestSql = configuration.getMappedStatement(
