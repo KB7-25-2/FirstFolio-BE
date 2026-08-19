@@ -2,6 +2,7 @@ package org.firstfolio.gifticon.crypto;
 
 import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -27,6 +28,7 @@ public class GifticonCryptoService {
     private final String keyVersion;
     private final SecureRandom secureRandom;
 
+    @Autowired
     public GifticonCryptoService(
             @Value("${gifticon.crypto.encryption-key:}") String encryptionKeyBase64,
             @Value("${gifticon.crypto.fingerprint-key:}") String fingerprintKeyBase64,
