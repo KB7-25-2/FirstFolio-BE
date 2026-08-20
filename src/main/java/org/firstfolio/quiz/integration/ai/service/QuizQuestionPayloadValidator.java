@@ -77,7 +77,8 @@ public class QuizQuestionPayloadValidator {
         boolean usageTypeAllowed = questionType == QuizQuestionType.SCENARIO
                 ? quiz.usageType() == QuizUsageType.MAIN_CHAPTER
                         || quiz.usageType() == QuizUsageType.DAILY_NEWS
-                : quiz.usageType() == QuizUsageType.SUB_CHAPTER;
+                : quiz.usageType() == QuizUsageType.SUB_CHAPTER
+                        || quiz.usageType() == QuizUsageType.DAILY_GENERAL;
 
         if (!usageTypeAllowed) {
             return QuizItemValidationResult.invalid(
@@ -106,13 +107,14 @@ public class QuizQuestionPayloadValidator {
             );
         }
 
-        boolean subChapterRequired = quiz.usageType() == QuizUsageType.SUB_CHAPTER;
+        boolean subChapterRequired = quiz.usageType() == QuizUsageType.SUB_CHAPTER
+                || quiz.usageType() == QuizUsageType.DAILY_GENERAL;
         boolean subChapterPresent = quiz.subChapterId() != null;
 
         if (subChapterRequired != subChapterPresent) {
             return QuizItemValidationResult.invalid(
                     QuizItemErrorCode.INVALID_CHAPTER_SCOPE,
-                    "sub_chapter_id는 SUB_CHAPTER 문제만 필수이고 MAIN_CHAPTER 문제는 null이어야 합니다."
+                    "sub_chapter_id는 SUB_CHAPTER, DAILY_GENERAL 문제만 필수이고 MAIN_CHAPTER 문제는 null이어야 합니다."
             );
         }
 
