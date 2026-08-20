@@ -17,8 +17,14 @@ export function apiRequest(
     metricName,
     body = null,
     expectedStatuses = [200],
+    performanceClass = null,
   },
 ) {
+  const selectedPerformanceClass = performanceClass || (method === 'GET' ? 'read' : 'write');
+  if (!['auth', 'read', 'write'].includes(selectedPerformanceClass)) {
+    throw new Error(`Unsupported performance class: ${selectedPerformanceClass}`);
+  }
+
   const headers = { ...config.headers };
   let requestBody = null;
   if (body !== null) {
@@ -29,7 +35,10 @@ export function apiRequest(
   const response = http.request(method, `${config.baseUrl}${path}`, requestBody, {
     headers,
     responseCallback: http.expectedStatuses(...expectedStatuses),
-    tags: { name: metricName },
+    tags: {
+      name: metricName,
+      performance_class: selectedPerformanceClass,
+    },
   });
   const statusAccepted = expectedStatuses.includes(response.status);
   const statusCheck = {};

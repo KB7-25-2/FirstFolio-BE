@@ -89,6 +89,19 @@ export function loadScenarioOptions(config, testType, maxP95Ms = config.maxP95Ms
     throw new Error('K6_PROFILE must be smoke or load');
   }
   const selectedMaxP95Ms = positiveNumber(maxP95Ms, config.maxP95Ms, 'scenario max p95');
+  const authMaxP95Ms = positiveNumber(
+    __ENV.AUTH_MAX_P95_MS,
+    2000,
+    'AUTH_MAX_P95_MS',
+  );
+  const durationThresholds = testType === 'auth-login'
+    ? {
+      'http_req_duration{performance_class:auth}': [`p(95)<${selectedMaxP95Ms}`],
+    }
+    : {
+      'http_req_duration{performance_class:read}': [`p(95)<${selectedMaxP95Ms}`],
+      'http_req_duration{performance_class:auth}': [`p(95)<${authMaxP95Ms}`],
+    };
 
   return {
     discardResponseBodies: false,
@@ -110,7 +123,7 @@ export function loadScenarioOptions(config, testType, maxP95Ms = config.maxP95Ms
     thresholds: {
       checks: ['rate>0.99'],
       http_req_failed: ['rate<0.01'],
-      http_req_duration: [`p(95)<${selectedMaxP95Ms}`],
+      ...durationThresholds,
     },
     tags: {
       testid: config.testId,

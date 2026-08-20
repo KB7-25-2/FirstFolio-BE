@@ -24,7 +24,8 @@ Prometheus는 `http://host.docker.internal:8080/internal/metrics`를 정상 수�
 
 - 검증 성공률: `99% 초과`
 - HTTP 실패율: `1% 미만`
-- HTTP 응답시간: `p95 500ms 미만`
+- 일반 조회 응답시간: `p95 500ms 미만`
+- Firebase 로그인 응답시간: `p95 2,000ms 미만`
 
 온보딩 준비 시나리오는 계정 상태를 변경하는 일회성 흐름이므로 검증 성공률과 HTTP 실패율만 판정했다.
 
@@ -146,6 +147,25 @@ Prometheus는 `http://host.docker.internal:8080/internal/metrics`를 정상 수�
 - `GET /api/points/balance`
 - `GET /api/financial-news`
 
+### 3.6 학습 상세 조회 smoke 테스트
+
+커리큘럼과 로드맵을 조회한 뒤 테스트용 소단원의 강좌 JSON과 학습 진도를 확인했다. 최초 실행에서는 Firebase 로그인 1건이 1.47초 걸렸고, 로그인과 일반 조회를 합산한 p95가 1.14초가 되어 기존의 단일 500ms 임계값을 넘었다. 실제 학습 조회 API는 모두 291~378ms였다.
+
+인증과 일반 조회를 각각 판정하도록 `performance_class` 태그와 임계값을 분리한 뒤 같은 테스트를 다시 실행했다.
+
+| 항목 | 결과 |
+|---|---:|
+| VU / 사용자 여정 | 1 VU / 1회 |
+| 요청 | 7건 |
+| 검증 | 16/16 성공 |
+| 실패 | 0건 |
+| 평균 응답시간 | 330.66ms |
+| 인증 p95 | 304.57ms / 2,000ms 기준 |
+| 일반 조회 p95 | 475.09ms / 500ms 기준 |
+| 최대 응답시간 | 517.91ms |
+| 사용자 여정 시간 | 2.22초 |
+| 판정 | 통과 |
+
 ## 4. 테스트 중 발견한 문제와 해결
 
 | 현상 | 원인 | 해결 |
@@ -154,6 +174,7 @@ Prometheus는 `http://host.docker.internal:8080/internal/metrics`를 정상 수�
 | `/internal/metrics`가 잠시 404 반환 | 최신 WAR가 아직 배포되지 않은 Tomcat에 요청 | 빌드·재배포가 끝난 뒤 다시 확인하여 200 응답 확인 |
 | 온보딩이 `422 LEVEL_TEST_QUESTION_SET_INVALID`로 중단 | 로컬 DB의 대단원·문항·강좌·정책 기준 데이터가 비어 있음 | 로컬 전용 최소 시드 명령 `load-test/seed-local.sh` 추가 및 적용 |
 | 온보딩 로그인에서 `401 INVALID_ID_TOKEN` 반환 | `load-test/.env`의 Firebase ID Token이 만료되었거나 더 이상 유효하지 않음 | 테스트 계정으로 다시 로그인해 새 ID Token으로 교체 |
+| `learning-read` 기능 검증은 성공했지만 전체 p95 500ms 기준 실패 | Firebase 로그인과 일반 조회 API를 하나의 응답시간 기준으로 합산 | 요청을 `auth`, `read`, `write`로 분류하고 인증 p95 2초·조회 p95 500ms를 별도 판정 |
 
 ## 5. 결과 해석과 한계
 

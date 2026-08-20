@@ -119,7 +119,7 @@ INITIAL_TRADE_AMOUNT=1000000
 
 기본 `K6_PROFILE=smoke`에서는 1 VU가 사용자 여정을 한 번만 실행한다. 각 시나리오의 기능 검증이 성공한 뒤에만 `-e K6_PROFILE=load`를 붙여 약 90초·최대 10 VU 부하 테스트로 전환한다.
 
-기본 p95 기준은 조회 API 500ms, Firebase 검증이 포함된 로그인 2,000ms다. 로컬 환경 성능 기준을 조정할 때는 `MAX_P95_MS`, `AUTH_MAX_P95_MS`를 변경한다.
+기본 p95 기준은 조회 API 500ms, Firebase 검증이 포함된 로그인 2,000ms이며 `performance_class` 태그로 각각 판정한다. 로컬 환경 성능 기준을 조정할 때는 `MAX_P95_MS`, `AUTH_MAX_P95_MS`를 변경한다.
 
 ### 로그인
 

@@ -13,6 +13,7 @@ function loginOrSignup() {
     path: '/api/auth/login',
     metricName: 'POST /api/auth/login',
     expectedStatuses: [200, 409],
+    performanceClass: 'auth',
   });
   if (loginResult.response.status === 200) {
     return requireData(loginResult, 'login');

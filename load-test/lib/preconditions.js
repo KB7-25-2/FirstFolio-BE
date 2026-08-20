@@ -5,6 +5,7 @@ export function verifyAuthenticatedUser(config) {
     method: 'POST',
     path: '/api/auth/login',
     metricName: 'POST /api/auth/login',
+    performanceClass: 'auth',
   }), 'login');
 
   requireCondition(login.user?.user_id > 0, 'login returns user_id');
