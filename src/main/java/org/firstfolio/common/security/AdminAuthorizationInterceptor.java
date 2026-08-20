@@ -6,6 +6,7 @@ import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.user.domain.UserRole;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.http.HttpMethod;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
