@@ -179,4 +179,246 @@ ON DUPLICATE KEY UPDATE
     is_active = VALUES(is_active),
     created_by = VALUES(created_by);
 
+INSERT INTO financial_products (
+    product_id,
+    asset_type,
+    display_name,
+    description,
+    source_provider,
+    source_product_code,
+    source_product_name,
+    source_reference_at,
+    real_terms_json,
+    simulation_terms_json,
+    risk_level,
+    is_active,
+    created_at,
+    updated_at
+) VALUES
+    (
+        9600001,
+        'DEPOSIT_SAVINGS',
+        '테스트용 새싹 정기예금',
+        '금융상품 조회 부하 테스트용 가명 예금',
+        'FSS_FINLIFE',
+        'LOAD-TEST-DEPOSIT-01',
+        '로컬 테스트 원본 예금 01',
+        '2026-08-20 00:00:00',
+        JSON_OBJECT(
+            'interest_rate', 3.20,
+            'maturity_months', 6,
+            'interest_interval', 'MATURITY',
+            'interest_interval_source', 'ASSUMED',
+            'interest_rate_type', 'SIMPLE',
+            'reserve_type', NULL
+        ),
+        JSON_OBJECT(
+            'service_maturity_hours', 144,
+            'service_interest_interval_hours', 144,
+            'compression_hours_per_month', 24,
+            'compressed_at', '2026-08-20T00:00:00'
+        ),
+        'LOW',
+        TRUE,
+        UTC_TIMESTAMP(),
+        UTC_TIMESTAMP()
+    ),
+    (
+        9600002,
+        'DEPOSIT_SAVINGS',
+        '테스트용 나무 정기적금',
+        '금융상품 조회 부하 테스트용 가명 적금',
+        'FSS_FINLIFE',
+        'LOAD-TEST-SAVING-01',
+        '로컬 테스트 원본 적금 01',
+        '2026-08-20 00:00:00',
+        JSON_OBJECT(
+            'interest_rate', 3.60,
+            'maturity_months', 12,
+            'interest_interval', 'MATURITY',
+            'interest_interval_source', 'ASSUMED',
+            'interest_rate_type', 'SIMPLE',
+            'reserve_type', 'FIXED'
+        ),
+        JSON_OBJECT(
+            'service_maturity_hours', 288,
+            'service_interest_interval_hours', 288,
+            'compression_hours_per_month', 24,
+            'compressed_at', '2026-08-20T00:00:00'
+        ),
+        'LOW',
+        TRUE,
+        UTC_TIMESTAMP(),
+        UTC_TIMESTAMP()
+    ),
+    (
+        9600003,
+        'BOND',
+        '테스트용 푸른 국채',
+        '금융상품 조회 부하 테스트용 가명 국채',
+        'DATA_GO_KR_BOND',
+        'LOAD-TEST-BOND-01',
+        '로컬 테스트 원본 국채 01',
+        '2026-08-20 00:00:00',
+        JSON_OBJECT(
+            'coupon_rate', 3.10,
+            'maturity_months', 12,
+            'interest_interval_months', 6,
+            'interest_type', '이표채',
+            'bond_category', '국채',
+            'credit_rating', NULL
+        ),
+        JSON_OBJECT(
+            'service_maturity_hours', 288,
+            'service_interest_interval_hours', 144,
+            'compression_hours_per_month', 24,
+            'compressed_at', '2026-08-20T00:00:00'
+        ),
+        'LOW',
+        TRUE,
+        UTC_TIMESTAMP(),
+        UTC_TIMESTAMP()
+    ),
+    (
+        9600004,
+        'BOND',
+        '테스트용 튼튼 회사채',
+        '금융상품 조회 부하 테스트용 가명 회사채',
+        'DATA_GO_KR_BOND',
+        'LOAD-TEST-BOND-02',
+        '로컬 테스트 원본 회사채 01',
+        '2026-08-20 00:00:00',
+        JSON_OBJECT(
+            'coupon_rate', 4.20,
+            'maturity_months', 9,
+            'interest_interval_months', 3,
+            'interest_type', '이표채',
+            'bond_category', '일반회사채',
+            'credit_rating', 'AA0'
+        ),
+        JSON_OBJECT(
+            'service_maturity_hours', 216,
+            'service_interest_interval_hours', 72,
+            'compression_hours_per_month', 24,
+            'compressed_at', '2026-08-20T00:00:00'
+        ),
+        'MEDIUM',
+        TRUE,
+        UTC_TIMESTAMP(),
+        UTC_TIMESTAMP()
+    ),
+    (
+        9600005,
+        'STOCK',
+        '테스트용 햇살 성장주',
+        '금융상품 조회 부하 테스트용 가명 주식',
+        'TOSSINVEST',
+        'LOAD-TEST-STOCK-01',
+        '로컬 테스트 원본 주식 01',
+        '2026-08-20 00:00:00',
+        JSON_OBJECT('market', 'KOSPI', 'sector', '교육서비스'),
+        JSON_OBJECT(
+            'time_compressed', FALSE,
+            'reason', 'STOCK_REALTIME_PRICE',
+            'registered_at', '2026-08-20T00:00:00'
+        ),
+        'HIGH',
+        TRUE,
+        UTC_TIMESTAMP(),
+        UTC_TIMESTAMP()
+    ),
+    (
+        9600006,
+        'STOCK',
+        '테스트용 별빛 가치주',
+        '금융상품 조회 부하 테스트용 가명 주식',
+        'TOSSINVEST',
+        'LOAD-TEST-STOCK-02',
+        '로컬 테스트 원본 주식 02',
+        '2026-08-20 00:00:00',
+        JSON_OBJECT('market', 'KOSDAQ', 'sector', '정보기술'),
+        JSON_OBJECT(
+            'time_compressed', FALSE,
+            'reason', 'STOCK_REALTIME_PRICE',
+            'registered_at', '2026-08-20T00:00:00'
+        ),
+        'HIGH',
+        TRUE,
+        UTC_TIMESTAMP(),
+        UTC_TIMESTAMP()
+    ),
+    (
+        9600007,
+        'FUND',
+        '테스트용 균형 지수펀드',
+        '금융상품 조회 부하 테스트용 가명 ETF',
+        'DATA_GO_KR_ETF',
+        'LOAD-TEST-FUND-01',
+        '로컬 테스트 원본 ETF 01',
+        '2026-08-20 00:00:00',
+        JSON_OBJECT('fund_type', 'MIXED'),
+        JSON_OBJECT(
+            'time_compressed', FALSE,
+            'reason', 'ETF_REALTIME_PRICE',
+            'registered_at', '2026-08-20T00:00:00'
+        ),
+        'MEDIUM',
+        TRUE,
+        UTC_TIMESTAMP(),
+        UTC_TIMESTAMP()
+    ),
+    (
+        9600008,
+        'FUND',
+        '테스트용 미래 주식펀드',
+        '금융상품 조회 부하 테스트용 가명 ETF',
+        'DATA_GO_KR_ETF',
+        'LOAD-TEST-FUND-02',
+        '로컬 테스트 원본 ETF 02',
+        '2026-08-20 00:00:00',
+        JSON_OBJECT('fund_type', 'EQUITY'),
+        JSON_OBJECT(
+            'time_compressed', FALSE,
+            'reason', 'ETF_REALTIME_PRICE',
+            'registered_at', '2026-08-20T00:00:00'
+        ),
+        'HIGH',
+        TRUE,
+        UTC_TIMESTAMP(),
+        UTC_TIMESTAMP()
+    )
+ON DUPLICATE KEY UPDATE
+    asset_type = VALUES(asset_type),
+    display_name = VALUES(display_name),
+    description = VALUES(description),
+    source_provider = VALUES(source_provider),
+    source_product_code = VALUES(source_product_code),
+    source_product_name = VALUES(source_product_name),
+    source_reference_at = VALUES(source_reference_at),
+    real_terms_json = VALUES(real_terms_json),
+    simulation_terms_json = VALUES(simulation_terms_json),
+    risk_level = VALUES(risk_level),
+    is_active = VALUES(is_active),
+    updated_at = UTC_TIMESTAMP();
+
+INSERT INTO product_prices (
+    product_price_id,
+    product_id,
+    price,
+    reference_at,
+    source_type,
+    generation_key,
+    created_at
+) VALUES
+    (9700001, 9600005, 72500.0000, '2026-08-20 00:00:00', 'REAL_DATA', 'load-test-price-9600005', UTC_TIMESTAMP()),
+    (9700002, 9600006, 41800.0000, '2026-08-20 00:00:00', 'REAL_DATA', 'load-test-price-9600006', UTC_TIMESTAMP()),
+    (9700003, 9600007, 12500.0000, '2026-08-20 00:00:00', 'REAL_DATA', 'load-test-price-9600007', UTC_TIMESTAMP()),
+    (9700004, 9600008, 18300.0000, '2026-08-20 00:00:00', 'REAL_DATA', 'load-test-price-9600008', UTC_TIMESTAMP())
+ON DUPLICATE KEY UPDATE
+    product_id = VALUES(product_id),
+    price = VALUES(price),
+    reference_at = VALUES(reference_at),
+    source_type = VALUES(source_type),
+    generation_key = VALUES(generation_key);
+
 COMMIT;

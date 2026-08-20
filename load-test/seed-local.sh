@@ -113,7 +113,7 @@ printf '%s' 'application/json' > "${content_version_dir}/content-type"
 
 MYSQL_PWD="${DB_PASSWORD}" mysql "${mysql_args[@]}" < "${fixture_dir}/local-seed.sql"
 
-seed_summary="$(mysql_value "SELECT CONCAT('대단원 ', COUNT(*), '개') FROM main_chapters WHERE main_chapter_id BETWEEN 9100001 AND 9100005; SELECT CONCAT('문항 ', COUNT(*), '개') FROM quiz_questions WHERE question_id BETWEEN 9300001 AND 9300012; SELECT CONCAT('공개 강좌 ', COUNT(*), '개') FROM content_versions WHERE content_version_id = 9400001 AND status = 'PUBLISHED'; SELECT CONCAT('퀴즈 보상 정책 ', COUNT(*), '개') FROM system_policies WHERE policy_id = 9500001 AND is_active = TRUE;")"
+seed_summary="$(mysql_value "SELECT CONCAT('대단원 ', COUNT(*), '개') FROM main_chapters WHERE main_chapter_id BETWEEN 9100001 AND 9100005; SELECT CONCAT('문항 ', COUNT(*), '개') FROM quiz_questions WHERE question_id BETWEEN 9300001 AND 9300012; SELECT CONCAT('공개 강좌 ', COUNT(*), '개') FROM content_versions WHERE content_version_id = 9400001 AND status = 'PUBLISHED'; SELECT CONCAT('퀴즈 보상 정책 ', COUNT(*), '개') FROM system_policies WHERE policy_id = 9500001 AND is_active = TRUE; SELECT CONCAT('금융상품 ', COUNT(*), '개') FROM financial_products WHERE product_id BETWEEN 9600001 AND 9600008 AND is_active = TRUE; SELECT CONCAT('상품 기준 가격 ', COUNT(*), '개') FROM product_prices WHERE product_price_id BETWEEN 9700001 AND 9700004;")"
 
 echo "로컬 테스트 시드 생성이 완료되었습니다."
 echo "${seed_summary}"

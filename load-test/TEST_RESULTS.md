@@ -229,6 +229,23 @@ Prometheus는 `http://host.docker.internal:8080/internal/metrics`를 정상 수�
 
 일부 요청은 최대 1.17초까지 걸렸지만 일반 조회 요청의 95%는 358.65ms 이내에 완료되어 현재 로컬 기준을 통과했다.
 
+### 3.10 금융상품 목록·상세 smoke 테스트
+
+로컬 전용 금융상품 시드를 적용한 뒤 공개 상품 목록에서 상품 하나를 선택해 상세 정보를 조회했다. 목록과 상세의 상품 ID가 일치하고 상품명과 자산군이 반환되는지 확인했다.
+
+| 항목 | 결과 |
+|---|---:|
+| VU / 사용자 여정 | 1 VU / 1회 |
+| 요청 | 5건 |
+| 검증 | 14/14 성공 |
+| 실패 | 0건 |
+| 평균 응답시간 | 368.80ms |
+| 인증 p95 | 519.43ms / 2,000ms 기준 |
+| 일반 조회 p95 | 391.48ms / 500ms 기준 |
+| 최대 응답시간 | 519.43ms |
+| 사용자 여정 시간 | 1.75초 |
+| 판정 | 통과 |
+
 ## 4. 테스트 중 발견한 문제와 해결
 
 | 현상 | 원인 | 해결 |
@@ -266,7 +283,7 @@ Prometheus는 `http://host.docker.internal:8080/internal/metrics`를 정상 수�
 - 백엔드: [FirstFolio / Backend Overview](http://localhost:3000/d/firstfolio-backend-overview/backend-overview)
 - Prometheus 타깃: [Target health](http://localhost:9090/targets)
 
-Grafana에서는 실행 시간대를 선택하고 `test_type`을 `core-read-journey`, `learning-read` 또는 `home-dashboard`, `test_profile=load`로 설정해 각 부하 테스트를 구분한다.
+Grafana에서는 실행 시간대를 선택하고 `test_type`을 `core-read-journey`, `learning-read`, `home-dashboard` 또는 `financial-products`, `test_profile`을 `smoke`나 `load`로 설정해 각 테스트를 구분한다.
 
 ## 7. 후속 테스트
 
