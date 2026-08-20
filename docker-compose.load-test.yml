@@ -1,0 +1,44 @@
+name: firstfolio-load-test
+
+services:
+  k6:
+    image: grafana/k6:2.1.0
+    init: true
+    environment:
+      BASE_URL: ${BASE_URL:-http://host.docker.internal:8080}
+      TARGET_PATH: ${TARGET_PATH:-/api/health}
+      AUTH_TOKEN: ${AUTH_TOKEN:-}
+      ALLOW_REMOTE_TARGET: ${ALLOW_REMOTE_TARGET:-false}
+      K6_TEST_ID: ${K6_TEST_ID:-local}
+      SMOKE_ITERATIONS: ${SMOKE_ITERATIONS:-3}
+      LOAD_STAGE_1_DURATION: ${LOAD_STAGE_1_DURATION:-10s}
+      LOAD_STAGE_1_VUS: ${LOAD_STAGE_1_VUS:-5}
+      LOAD_STAGE_2_DURATION: ${LOAD_STAGE_2_DURATION:-30s}
+      LOAD_STAGE_2_VUS: ${LOAD_STAGE_2_VUS:-5}
+      LOAD_STAGE_3_DURATION: ${LOAD_STAGE_3_DURATION:-10s}
+      LOAD_STAGE_3_VUS: ${LOAD_STAGE_3_VUS:-10}
+      LOAD_STAGE_4_DURATION: ${LOAD_STAGE_4_DURATION:-30s}
+      LOAD_STAGE_4_VUS: ${LOAD_STAGE_4_VUS:-10}
+      LOAD_RAMP_DOWN_DURATION: ${LOAD_RAMP_DOWN_DURATION:-10s}
+      REQUEST_INTERVAL_SECONDS: ${REQUEST_INTERVAL_SECONDS:-1}
+      MAX_P95_MS: ${MAX_P95_MS:-500}
+      K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
+      K6_PROMETHEUS_RW_TREND_STATS: p(95),p(99),avg,max
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./load-test:/scripts:ro
+    networks:
+      - observability
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - run
+      - --out
+      - experimental-prometheus-rw
+      - /scripts/smoke-test.js
+
+networks:
+  observability:
+    external: true
+    name: firstfolio-observability

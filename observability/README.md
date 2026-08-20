@@ -10,6 +10,8 @@ Prometheus :9090
 Grafana :3000
 ```
 
+k6 테스트를 실행하면 결과 메트릭도 Prometheus로 전송되며 Grafana의 `FirstFolio / Load Test Overview`에서 확인할 수 있다. k6 자체는 이 Compose에 포함하지 않고 `docker-compose.load-test.yml`로 필요할 때만 실행한다.
+
 ## 준비
 
 1. Docker를 실행한다.
@@ -43,7 +45,7 @@ docker compose \
 
 - Prometheus 대상 상태: <http://localhost:9090/targets>
 - Grafana: <http://localhost:3000>
-- Grafana의 `FirstFolio / Backend Overview` 대시보드와 Prometheus 데이터 소스는 시작할 때 자동 등록된다.
+- Grafana의 `FirstFolio / Backend Overview`, `FirstFolio / Load Test Overview` 대시보드와 Prometheus 데이터 소스는 시작할 때 자동 등록된다.
 
 Prometheus의 `firstfolio-be` 대상이 `DOWN`이면 백엔드 실행 여부, `8080` 포트, 토큰 파일 값과 백엔드 `INTERNAL_CALL_TOKEN`을 확인한다.
 

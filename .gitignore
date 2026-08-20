@@ -51,6 +51,7 @@ uploads/
 /.local/
 /observability/secrets/*
 !/observability/secrets/.gitkeep
+/load-test/results/*
 
 # OS and JVM
 .DS_Store

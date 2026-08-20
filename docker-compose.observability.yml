@@ -9,6 +9,7 @@ services:
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-7d}
       - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-1GB}
+      - --web.enable-remote-write-receiver
     ports:
       - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
     extra_hosts:
@@ -21,6 +22,8 @@ services:
         target: internal_call_token
     security_opt:
       - no-new-privileges:true
+    networks:
+      - observability
 
   grafana:
     image: grafana/grafana:13.1.3
@@ -40,6 +43,8 @@ services:
       - grafana-data:/var/lib/grafana
     security_opt:
       - no-new-privileges:true
+    networks:
+      - observability
 
 secrets:
   internal_call_token:
@@ -48,3 +53,7 @@ secrets:
 volumes:
   prometheus-data:
   grafana-data:
+
+networks:
+  observability:
+    name: firstfolio-observability

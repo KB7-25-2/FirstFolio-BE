@@ -272,6 +272,10 @@ Micrometer 메트릭을 수집하고 확인하는 관측 환경은 백엔드 배
 
 설정과 실행 방법은 [observability/README.md](observability/README.md)를 참고합니다.
 
+### k6 부하 테스트
+
+k6는 백엔드 및 관측 환경과 분리된 `docker-compose.load-test.yml`로 필요할 때만 로컬에서 실행합니다. 기본 smoke 테스트와 최대 10 VU의 단계형 load 테스트, 원격 서버 오실행 방지 설정은 [load-test/README.md](load-test/README.md)를 참고합니다.
+
 ## 기본 패키지 규칙
 
 도메인을 먼저 나누고 각 도메인 내부에서 계층을 구분합니다.
