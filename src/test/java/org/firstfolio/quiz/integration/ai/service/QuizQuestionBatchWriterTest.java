@@ -15,6 +15,7 @@ import org.springframework.core.env.Environment;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 
@@ -93,6 +94,23 @@ class QuizQuestionBatchWriterTest {
         assertEquals(11, saved.get(1).getDisplayOrder());
     }
 
+    @Test
+    void savesQuestDateForDailyNewsQuestions() {
+        LocalDate questDate = LocalDate.of(2026, 8, 6);
+
+        List<QuizQuestion> saved = writer.saveAll(List.of(dailyNewsQuiz(questDate)));
+
+        assertEquals(questDate, saved.get(0).getQuestDate());
+        assertNull(saved.get(0).getDisplayOrder());
+    }
+
+    @Test
+    void leavesQuestDateNullForSubChapterQuestions() {
+        List<QuizQuestion> saved = writer.saveAll(List.of(subChapterQuiz()));
+
+        assertNull(saved.get(0).getQuestDate());
+    }
+
     private QuizQuestionRequest subChapterQuiz() {
         return new QuizQuestionRequest(
                 QuizUsageType.SUB_CHAPTER,
@@ -108,6 +126,7 @@ class QuizQuestionBatchWriterTest {
                 ),
                 new QuizCorrectAnswerRequest("O"),
                 "해설",
+                null,
                 null
         );
     }
@@ -129,7 +148,30 @@ class QuizQuestionBatchWriterTest {
                 ),
                 new QuizCorrectAnswerRequest("1"),
                 "해설",
+                null,
                 null
+        );
+    }
+
+    private QuizQuestionRequest dailyNewsQuiz(LocalDate questDate) {
+        return new QuizQuestionRequest(
+                QuizUsageType.DAILY_NEWS,
+                null,
+                null,
+                QuizQuestionType.SCENARIO,
+                QuizDifficulty.MEDIUM,
+                "뉴스 시나리오 프롬프트",
+                scenario(),
+                List.of(
+                        new QuizOptionRequest("1", "선택지1", null),
+                        new QuizOptionRequest("2", "선택지2", null),
+                        new QuizOptionRequest("3", "선택지3", null),
+                        new QuizOptionRequest("4", "선택지4", null)
+                ),
+                new QuizCorrectAnswerRequest("1"),
+                "해설",
+                null,
+                questDate
         );
     }
 

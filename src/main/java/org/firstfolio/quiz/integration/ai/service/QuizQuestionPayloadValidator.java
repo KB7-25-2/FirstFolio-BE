@@ -50,6 +50,11 @@ public class QuizQuestionPayloadValidator {
             return scenarioResult;
         }
 
+        QuizItemValidationResult questDateResult = validateQuestDate(quiz);
+        if (!questDateResult.isValid()) {
+            return questDateResult;
+        }
+
         QuizItemValidationResult optionsResult = validateOptions(quiz);
         if (!optionsResult.isValid()) {
             return optionsResult;
@@ -69,11 +74,12 @@ public class QuizQuestionPayloadValidator {
             );
         }
 
-        QuizUsageType expectedUsageType = questionType == QuizQuestionType.SCENARIO
-                ? QuizUsageType.MAIN_CHAPTER
-                : QuizUsageType.SUB_CHAPTER;
+        boolean usageTypeAllowed = questionType == QuizQuestionType.SCENARIO
+                ? quiz.usageType() == QuizUsageType.MAIN_CHAPTER
+                        || quiz.usageType() == QuizUsageType.DAILY_NEWS
+                : quiz.usageType() == QuizUsageType.SUB_CHAPTER;
 
-        if (quiz.usageType() != expectedUsageType) {
+        if (!usageTypeAllowed) {
             return QuizItemValidationResult.invalid(
                     QuizItemErrorCode.INVALID_USAGE_TYPE,
                     "usage_type(" + quiz.usageType() + ")이 question_type(" + questionType + ")과 맞지 않습니다."
@@ -84,6 +90,16 @@ public class QuizQuestionPayloadValidator {
     }
 
     private QuizItemValidationResult validateChapterScope(QuizQuestionRequest quiz) {
+        if (quiz.usageType() == QuizUsageType.DAILY_NEWS) {
+            if (quiz.mainChapterId() != null || quiz.subChapterId() != null) {
+                return QuizItemValidationResult.invalid(
+                        QuizItemErrorCode.INVALID_CHAPTER_SCOPE,
+                        "DAILY_NEWS 문제는 main_chapter_id, sub_chapter_id가 모두 null이어야 합니다."
+                );
+            }
+            return QuizItemValidationResult.valid();
+        }
+
         if (quiz.mainChapterId() == null) {
             return QuizItemValidationResult.invalid(
                     QuizItemErrorCode.INVALID_CHAPTER_SCOPE, "main_chapter_id는 필수입니다."
@@ -97,6 +113,20 @@ public class QuizQuestionPayloadValidator {
             return QuizItemValidationResult.invalid(
                     QuizItemErrorCode.INVALID_CHAPTER_SCOPE,
                     "sub_chapter_id는 SUB_CHAPTER 문제만 필수이고 MAIN_CHAPTER 문제는 null이어야 합니다."
+            );
+        }
+
+        return QuizItemValidationResult.valid();
+    }
+
+    private QuizItemValidationResult validateQuestDate(QuizQuestionRequest quiz) {
+        boolean questDateRequired = quiz.usageType() == QuizUsageType.DAILY_NEWS;
+        boolean questDatePresent = quiz.questDate() != null;
+
+        if (questDateRequired != questDatePresent) {
+            return QuizItemValidationResult.invalid(
+                    QuizItemErrorCode.INVALID_QUEST_DATE,
+                    "quest_date는 DAILY_NEWS 문제만 필수이고 나머지 유형은 null이어야 합니다."
             );
         }
 
