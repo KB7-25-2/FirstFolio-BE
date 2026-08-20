@@ -130,7 +130,7 @@ public class QuizQuestionBatchWriter {
                 toJson(quiz.correctAnswerJson()),
                 quiz.explanation(),
                 QuizGenerationType.AI,
-                null,
+                quiz.questDate(),
                 null,
                 aiCreatedBy,
                 now
