@@ -91,6 +91,9 @@ final class DailyQuestSubmissionSnapshotCodec {
             }
             return null;
         }
+        if (sourceRefs.isNull()) {
+            return null;
+        }
         if (!sourceRefs.isArray() || sourceRefs.isEmpty()) {
             throw invalidSnapshot(null);
         }

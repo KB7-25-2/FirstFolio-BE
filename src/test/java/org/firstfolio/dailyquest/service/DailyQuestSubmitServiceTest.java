@@ -138,6 +138,28 @@ class DailyQuestSubmitServiceTest {
     }
 
     @Test
+    void gradesAiSnapshotWithNullSourceRefs() {
+        DailyQuest quest = inProgressQuest();
+        List<DailyQuestItem> items = answeredItemsWithAiNullSourceRefs(
+                List.of("A", "A", "B", "A", "A")
+        );
+        stubLockedQuest(quest, items);
+        when(mapper.gradeItem(any())).thenReturn(1);
+        when(rewardService.grant(
+                USER_ID,
+                QUEST_ID,
+                4,
+                COMPLETED_AT
+        )).thenReturn(new PointRewardResult(91L, 400, 9001L));
+        when(mapper.completeQuestIfInProgress(any())).thenReturn(1);
+
+        DailyQuestSubmitResult result = service.submit(USER_ID);
+
+        assertEquals(DailyQuestStatus.COMPLETED, result.status());
+        assertNull(result.results().get(4).sourceRefs());
+    }
+
+    @Test
     void completesZeroCorrectWithoutPointTransaction() {
         DailyQuest quest = inProgressQuest();
         List<DailyQuestItem> items = answeredItems(
@@ -392,6 +414,40 @@ class DailyQuestSubmitServiceTest {
             items.add(item);
         }
         return items;
+    }
+
+    private List<DailyQuestItem> answeredItemsWithAiNullSourceRefs(
+            List<String> keys
+    ) {
+        List<DailyQuestItem> items = new ArrayList<>();
+        for (int index = 0; index < DailyQuest.TOTAL_QUESTION_COUNT; index++) {
+            DailyQuestItem item = DailyQuestItem.assigned(
+                    QUEST_ID,
+                    1001L + index,
+                    index + 1,
+                    index == 4 ? snapshotAiNullSourceRefs() : snapshot(false),
+                    COMPLETED_AT.minusHours(1)
+            );
+            item.setDailyQuestItemId(5001L + index);
+            item.setUserAnswerJson(
+                    "{\"key\":\"" + keys.get(index) + "\"}"
+            );
+            item.setAnsweredAt(COMPLETED_AT.minusMinutes(10 - index));
+            items.add(item);
+        }
+        return items;
+    }
+
+    private String snapshotAiNullSourceRefs() {
+        return "{"
+                + "\"generation_type\":\"AI\","
+                + "\"options_json\":["
+                + "{\"key\":\"A\",\"label\":\"정답\"},"
+                + "{\"key\":\"B\",\"label\":\"오답\"}],"
+                + "\"correct_answer_json\":{\"key\":\"A\"},"
+                + "\"explanation\":\"정답 해설\","
+                + "\"source_refs_json\":null"
+                + "}";
     }
 
     private String snapshot(boolean ai) {
