@@ -28,6 +28,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class AssetEventCalculatorTest {
 
     private static final BigDecimal PRINCIPAL = new BigDecimal("10000000.00");
+
+    /** 예금과 적금을 나란히 두는 검산에 쓴다. 기존 결함 기록이 이 금액으로 적혀 있다. */
+    private static final BigDecimal THREE_MILLION = new BigDecimal("3000000.00");
+
     private static final LocalDateTime OPENED_AT = LocalDateTime.of(2026, 8, 7, 3, 0);
 
     /**
@@ -71,14 +75,93 @@ class AssetEventCalculatorTest {
     }
 
     @Test
-    @DisplayName("적금도 일시납으로 보므로 예금과 계산이 같다 — 가정치")
-    void treatsInstallmentSavingsAsLumpSum() {
-        RealTerms savings = terms("2.4", 12, "SIMPLE");
-        savings.setReserveType("FIXED");
+    @DisplayName("적금은 회차별 예치 기간에 비례해 계산한다 — 예금의 절반쯤이 된다")
+    void paysSavingsInterestByInstallment() {
+        // 실제 상품: KB일반e-Plus정기적금 24개월 3.20%
+        List<ScheduledAssetEvent> events = calculator.schedule(
+                savings("3.20", 24, "FIXED"), THREE_MILLION, OPENED_AT, NO_TAX);
 
-        List<ScheduledAssetEvent> events =
-                calculator.schedule(AssetEventTerms.of(savings, simulation(288)), PRINCIPAL, OPENED_AT, NO_TAX);
+        ScheduledAssetEvent interest = events.get(0);
 
+        // 3,000,000 × 3.20% × (24+1) ÷ 24 = 100,000
+        // 회차별로 더해도 같다: 125,000원 × 3.2% × (24+23+…+1)/12
+        assertEquals(new BigDecimal("100000.00"), interest.getAmount());
+        assertEquals(AssetEventBasis.INSTALLMENT_INTEREST, interest.getBasis());
+        assertEquals(24, interest.getPeriodMonths());
+
+        ScheduledAssetEvent maturity = events.get(1);
+
+        assertEquals(TransactionType.MATURITY, maturity.getType());
+        assertEquals(THREE_MILLION, maturity.getAmount(), "총 납입액은 전액 돌아옵니다.");
+    }
+
+    @Test
+    @DisplayName("금리가 더 높은 적금이 예금보다 이자가 적을 수 있다 — 이 결론을 뒤집는 것이 목적이다")
+    void letsLowerRateDepositBeatHigherRateSavings() {
+        // 실제 상품 쌍: 24개월 만기로 KB Star 정기예금 2.60% vs KB일반e-Plus정기적금 3.20%
+        BigDecimal depositInterest = calculator
+                .schedule(deposit("2.60", 24, "SIMPLE"), THREE_MILLION, OPENED_AT, NO_TAX)
+                .get(0)
+                .getAmount();
+
+        BigDecimal savingsInterest = calculator
+                .schedule(savings("3.20", 24, "FIXED"), THREE_MILLION, OPENED_AT, NO_TAX)
+                .get(0)
+                .getAmount();
+
+        assertEquals(new BigDecimal("156000.00"), depositInterest);
+        assertEquals(new BigDecimal("100000.00"), savingsInterest);
+
+        assertTrue(
+                depositInterest.compareTo(savingsInterest) > 0,
+                "금리만 보고 고르면 손해라는 것을 보여주지 못하면 이 기능의 의미가 없습니다."
+        );
+    }
+
+    @Test
+    @DisplayName("자유적립식도 정액적립식과 같게 계산한다 — 둘 다 나눠 넣는 상품이다")
+    void treatsFlexibleSavingsLikeFixedSavings() {
+        ScheduledAssetEvent fixed = calculator
+                .schedule(savings("2.65", 12, "FIXED"), THREE_MILLION, OPENED_AT, NO_TAX)
+                .get(0);
+
+        ScheduledAssetEvent flexible = calculator
+                .schedule(savings("2.65", 12, "FLEXIBLE"), THREE_MILLION, OPENED_AT, NO_TAX)
+                .get(0);
+
+        // 3,000,000 × 2.65% × 13 ÷ 24 = 43,062.50
+        // 값만 비교하면 둘 다 예금 경로로 빠져도 통과한다 — 적립식으로 계산됐는지까지 본다.
+        assertEquals(new BigDecimal("43062.50"), fixed.getAmount());
+        assertEquals(fixed.getAmount(), flexible.getAmount());
+        assertEquals(AssetEventBasis.INSTALLMENT_INTEREST, fixed.getBasis());
+        assertEquals(AssetEventBasis.INSTALLMENT_INTEREST, flexible.getBasis());
+    }
+
+    @Test
+    @DisplayName("월 납입액이 나누어떨어지지 않아도 총액 기준으로 정확히 계산한다")
+    void doesNotLoseWonWhenMonthlyAmountRepeats() {
+        // 1,000,000 ÷ 12 = 83,333.33… — 월 납입액을 먼저 반올림하면 원금과 어긋난다
+        List<ScheduledAssetEvent> events = calculator.schedule(
+                savings("2.4", 12, "FIXED"), new BigDecimal("1000000.00"), OPENED_AT, NO_TAX);
+
+        // 1,000,000 × 2.4% × 13 ÷ 24 = 13,000
+        assertEquals(new BigDecimal("13000.00"), events.get(0).getAmount());
+    }
+
+    @Test
+    @DisplayName("복리 적립식은 계산식이 없어 가입을 거부한다 — 단리로 계산하면 조용히 적게 준다")
+    void rejectsCompoundInstallmentSavings() {
+        assertThrows(ApiException.class, () -> calculator.schedule(
+                savings("2.4", 12, "COMPOUND", "FIXED"), PRINCIPAL, OPENED_AT, NO_TAX));
+    }
+
+    @Test
+    @DisplayName("예금은 적립 유형이 없어 일시납으로 계산한다")
+    void keepsDepositAsLumpSumWhenReserveTypeIsAbsent() {
+        List<ScheduledAssetEvent> events = calculator.schedule(
+                deposit("2.4", 12, "SIMPLE"), PRINCIPAL, OPENED_AT, NO_TAX);
+
+        assertEquals(AssetEventBasis.SIMPLE_INTEREST, events.get(0).getBasis());
         assertEquals(new BigDecimal("240000.00"), events.get(0).getAmount());
     }
 
@@ -292,6 +375,28 @@ class AssetEventCalculatorTest {
                 terms(ratePercent, maturityMonths, rateType),
                 simulation(maturityMonths * 24)
         );
+    }
+
+    private static AssetEventTerms savings(
+            String ratePercent,
+            int maturityMonths,
+            String reserveType
+    ) {
+        return savings(ratePercent, maturityMonths, "SIMPLE", reserveType);
+    }
+
+    /** 적금. 예금과 갈리는 것은 {@code reserveType}이 채워져 있다는 것뿐이다. */
+    private static AssetEventTerms savings(
+            String ratePercent,
+            int maturityMonths,
+            String rateType,
+            String reserveType
+    ) {
+        RealTerms real = terms(ratePercent, maturityMonths, rateType);
+
+        real.setReserveType(reserveType);
+
+        return AssetEventTerms.of(real, simulation(maturityMonths * 24));
     }
 
     private static RealTerms terms(String ratePercent, int maturityMonths, String rateType) {

@@ -41,7 +41,7 @@ import org.springframework.context.annotation.DependsOn;
         )
 )
 @EnableTransactionManagement
-@Import({FirebaseConfig.class, ContentStorageConfig.class})
+@Import({FirebaseConfig.class, ContentStorageConfig.class, MetricsConfig.class})
 public class RootConfig {
 
     @Bean
