@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.newsletter.mapper.NewsletterMapper">
+
+    <resultMap id="newsletterResultMap"
+               type="org.firstfolio.newsletter.domain.Newsletter">
+        <id property="newsletterId" column="newsletter_id" />
+        <result property="weekStartDate" column="week_start_date" />
+        <result property="headline" column="headline" />
+        <result property="financialWordsJson" column="financial_words_json" />
+        <result property="issuesJson" column="issues_json" />
+        <result property="statsJson" column="stats_json" />
+        <result property="status" column="status" />
+        <result property="generationType" column="generation_type" />
+        <result property="createdBy" column="created_by" />
+        <result property="publishedAt" column="published_at" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <sql id="newsletterColumns">
+        newsletter_id,
+        week_start_date,
+        headline,
+        financial_words_json,
+        issues_json,
+        stats_json,
+        status,
+        generation_type,
+        created_by,
+        published_at,
+        created_at
+    </sql>
+
+    <select id="findById" resultMap="newsletterResultMap">
+        SELECT <include refid="newsletterColumns" />
+        FROM newsletters
+        WHERE newsletter_id = #{newsletterId}
+    </select>
+
+    <select id="findByStatus" resultMap="newsletterResultMap">
+        SELECT <include refid="newsletterColumns" />
+        FROM newsletters
+        WHERE status = #{status}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="findByWeekStartDate" resultMap="newsletterResultMap">
+        SELECT <include refid="newsletterColumns" />
+        FROM newsletters
+        WHERE week_start_date = #{weekStartDate}
+        ORDER BY created_at DESC
+    </select>
+
+    <update id="publishReview">
+        UPDATE newsletters
+        SET status = 'PUBLISHED',
+            published_at = #{publishedAt}
+        WHERE newsletter_id = #{newsletterId}
+          AND status = 'REVIEW'
+    </update>
+
+    <update id="retirePublished">
+        UPDATE newsletters
+        SET status = 'RETIRED'
+        WHERE newsletter_id = #{newsletterId}
+          AND status = 'PUBLISHED'
+    </update>
+
+    <insert id="insert"
+            parameterType="org.firstfolio.newsletter.domain.Newsletter"
+            useGeneratedKeys="true"
+            keyProperty="newsletterId"
+            keyColumn="newsletter_id">
+        INSERT INTO newsletters (
+            week_start_date,
+            headline,
+            financial_words_json,
+            issues_json,
+            stats_json,
+            status,
+            generation_type,
+            created_by,
+            published_at,
+            created_at
+        ) VALUES (
+            #{weekStartDate},
+            #{headline},
+            #{financialWordsJson},
+            #{issuesJson},
+            #{statsJson},
+            #{status},
+            #{generationType},
+            #{createdBy},
+            #{publishedAt,jdbcType=TIMESTAMP},
+            #{createdAt}
+        )
+    </insert>
+
+</mapper>
