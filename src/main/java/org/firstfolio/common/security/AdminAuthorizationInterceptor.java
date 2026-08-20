@@ -23,6 +23,10 @@ public class AdminAuthorizationInterceptor implements HandlerInterceptor {
             HttpServletResponse response,
             Object handler
     ) {
+        if (HttpMethod.OPTIONS.matches(request.getMethod())) {
+            return true;
+        }
+
         Object currentUser = request.getAttribute(
                 AuthenticationRequestAttributes.CURRENT_USER
         );
