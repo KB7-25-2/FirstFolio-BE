@@ -1,6 +1,7 @@
 package org.firstfolio.quiz.integration.ai.service;
 
 import org.firstfolio.quiz.domain.QuizQuestion;
+import org.firstfolio.quiz.domain.QuizUsageType;
 import org.firstfolio.quiz.integration.ai.dto.request.QuizQuestionBatchItemRequest;
 import org.firstfolio.quiz.integration.ai.dto.request.QuizQuestionBatchRequest;
 import org.firstfolio.quiz.integration.ai.dto.request.QuizQuestionRequest;
@@ -70,6 +71,10 @@ public class QuizQuestionBatchService {
         QuizItemValidationResult payloadResult = payloadValidator.validate(quiz);
         if (!payloadResult.isValid()) {
             return payloadResult;
+        }
+        // DAILY_NEWS는 대·소단원에 속하지 않아 단원 존재 확인 대상이 아니다.
+        if (quiz.usageType() == QuizUsageType.DAILY_NEWS) {
+            return QuizItemValidationResult.valid();
         }
         return chapterScopeValidator.validate(quiz);
     }

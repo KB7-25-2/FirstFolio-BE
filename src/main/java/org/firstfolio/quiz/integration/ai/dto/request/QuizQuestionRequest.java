@@ -4,6 +4,7 @@ import org.firstfolio.quiz.domain.QuizDifficulty;
 import org.firstfolio.quiz.domain.QuizQuestionType;
 import org.firstfolio.quiz.domain.QuizUsageType;
 
+import java.time.LocalDate;
 import java.util.List;
 
 public record QuizQuestionRequest(
@@ -17,6 +18,7 @@ public record QuizQuestionRequest(
         List<QuizOptionRequest> optionsJson,
         QuizCorrectAnswerRequest correctAnswerJson,
         String explanation,
-        Object sourceRefsJson
+        Object sourceRefsJson,
+        LocalDate questDate
 ) {
 }
