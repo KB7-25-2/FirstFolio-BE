@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.dailyquest.mapper.DailyQuestLeaderboardMapper">
+
+    <resultMap id="leaderboardEntryResultMap"
+               type="org.firstfolio.dailyquest.domain.DailyQuestLeaderboardEntry">
+        <id property="userId" column="user_id" />
+        <result property="rankNo" column="rank_no" />
+        <result property="nickname" column="nickname" />
+        <result property="score" column="score" />
+        <result property="completedAt" column="completed_at" />
+    </resultMap>
+
+    <sql id="rankedTodayLeaderboard">
+        WITH ranked AS (
+            SELECT
+                quest.user_id,
+                account.nickname,
+                quest.score,
+                quest.completed_at,
+                RANK() OVER (
+                    ORDER BY quest.score DESC
+                ) AS rank_no
+            FROM daily_quests quest
+            INNER JOIN users account
+                    ON account.user_id = quest.user_id
+            WHERE quest.quest_date = #{questDate}
+              AND quest.status = 'COMPLETED'
+              AND quest.completed_at IS NOT NULL
+              AND account.role_code = 'USER'
+              AND account.status = 'ACTIVE'
+        )
+    </sql>
+
+    <select id="findTodayPage" resultMap="leaderboardEntryResultMap">
+        <include refid="rankedTodayLeaderboard" />
+        SELECT
+            user_id,
+            rank_no,
+            nickname,
+            score,
+            completed_at
+        FROM ranked
+        <if test="cursorScore != null and cursorCompletedAt != null and cursorUserId != null">
+            WHERE score &lt; #{cursorScore}
+               OR (
+                   score = #{cursorScore}
+                   AND completed_at &gt; #{cursorCompletedAt}
+               )
+               OR (
+                   score = #{cursorScore}
+                   AND completed_at = #{cursorCompletedAt}
+                   AND user_id &gt; #{cursorUserId}
+               )
+        </if>
+        ORDER BY score DESC, completed_at ASC, user_id ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findTodayEntry" resultMap="leaderboardEntryResultMap">
+        <include refid="rankedTodayLeaderboard" />
+        SELECT
+            user_id,
+            rank_no,
+            nickname,
+            score,
+            completed_at
+        FROM ranked
+        WHERE user_id = #{userId}
+    </select>
+
+</mapper>

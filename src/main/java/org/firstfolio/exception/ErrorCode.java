@@ -62,6 +62,7 @@ public enum ErrorCode {
     DAILY_QUEST_ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "오늘의 일일 퀘스트 문항을 찾을 수 없습니다."),
     DAILY_QUEST_INCOMPLETE(HttpStatus.CONFLICT, "일일 퀘스트의 모든 문항에 답해야 합니다."),
     DAILY_QUEST_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 완료된 일일 퀘스트입니다."),
+    INVALID_LEADERBOARD_PAGE(HttpStatus.BAD_REQUEST, "리더보드 페이지 조건이 올바르지 않습니다."),
     INVALID_ANSWER(HttpStatus.UNPROCESSABLE_ENTITY, "문항 형식에 맞지 않는 답안입니다."),
 
     // 온보딩 레벨 테스트·개인 커리큘럼
