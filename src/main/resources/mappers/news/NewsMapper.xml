@@ -38,6 +38,12 @@
         LIMIT #{limit}
     </select>
 
+    <select id="findById" resultMap="newsArticleResult">
+        SELECT <include refid="columns"/>
+        FROM news_articles
+        WHERE financial_news_id = #{financialNewsId}
+    </select>
+
     <insert id="insert" useGeneratedKeys="true" keyProperty="financialNewsId">
         INSERT INTO news_articles (
             title,
@@ -61,5 +67,23 @@
             #{updatedAt}
         )
     </insert>
+
+    <update id="update">
+        UPDATE news_articles
+        SET title = #{title},
+            summary = #{summary},
+            image_url = #{imageUrl,jdbcType=VARCHAR},
+            source_name = #{sourceName},
+            source_url = #{sourceUrl},
+            source_published_at = #{sourcePublishedAt},
+            published_at = #{publishedAt},
+            updated_at = #{updatedAt}
+        WHERE financial_news_id = #{financialNewsId}
+    </update>
+
+    <delete id="deleteById">
+        DELETE FROM news_articles
+        WHERE financial_news_id = #{financialNewsId}
+    </delete>
 
 </mapper>
