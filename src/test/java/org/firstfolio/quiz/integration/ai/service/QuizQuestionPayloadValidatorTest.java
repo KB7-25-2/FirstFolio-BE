@@ -38,6 +38,38 @@ class QuizQuestionPayloadValidatorTest {
     }
 
     @Test
+    void acceptsDailyGeneralTrueFalseWithSubChapterId() {
+        QuizItemValidationResult result = validator.validate(
+                dailyGeneralQuiz(QuizQuestionType.TRUE_FALSE)
+        );
+
+        assertTrue(result.isValid());
+    }
+
+    @Test
+    void rejectsDailyGeneralWithoutSubChapterId() {
+        QuizQuestionRequest base = dailyGeneralQuiz(QuizQuestionType.SINGLE_CHOICE);
+        QuizQuestionRequest quiz = new QuizQuestionRequest(
+                base.usageType(),
+                base.mainChapterId(),
+                null,
+                base.questionType(),
+                base.difficulty(),
+                base.prompt(),
+                base.scenarioJson(),
+                base.optionsJson(),
+                base.correctAnswerJson(),
+                base.explanation(),
+                base.sourceRefsJson(),
+                base.questDate()
+        );
+
+        QuizItemValidationResult result = validator.validate(quiz);
+
+        assertEquals(QuizItemErrorCode.INVALID_CHAPTER_SCOPE, result.errorCode());
+    }
+
+    @Test
     void acceptsDailyNewsScenarioWithQuestDate() {
         QuizItemValidationResult result = validator.validate(
                 dailyNewsQuiz(LocalDate.of(2026, 8, 6))
@@ -162,6 +194,26 @@ class QuizQuestionPayloadValidatorTest {
                         new QuizOptionRequest("4", "선택지4", null)
                 ),
                 new QuizCorrectAnswerRequest("1"),
+                "해설",
+                null,
+                null
+        );
+    }
+
+    private QuizQuestionRequest dailyGeneralQuiz(QuizQuestionType questionType) {
+        return new QuizQuestionRequest(
+                QuizUsageType.DAILY_GENERAL,
+                2L,
+                101L,
+                questionType,
+                QuizDifficulty.EASY,
+                "예금은 원금이 보장된다.",
+                null,
+                List.of(
+                        new QuizOptionRequest("O", "O", null),
+                        new QuizOptionRequest("X", "X", null)
+                ),
+                new QuizCorrectAnswerRequest("O"),
                 "해설",
                 null,
                 null
