@@ -40,6 +40,13 @@
         WHERE newsletter_id = #{newsletterId}
     </select>
 
+    <select id="findByIdForUpdate" resultMap="newsletterResultMap">
+        SELECT <include refid="newsletterColumns" />
+        FROM newsletters
+        WHERE newsletter_id = #{newsletterId}
+        FOR UPDATE
+    </select>
+
     <select id="findByStatus" resultMap="newsletterResultMap">
         SELECT <include refid="newsletterColumns" />
         FROM newsletters

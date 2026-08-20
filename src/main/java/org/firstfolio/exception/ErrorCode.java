@@ -124,6 +124,11 @@ public enum ErrorCode {
     // 금융 뉴스 스크랩
     FINANCIAL_NEWS_NOT_FOUND(HttpStatus.NOT_FOUND, "금융 뉴스를 찾을 수 없습니다."),
 
+    // 주간 뉴스레터
+    NEWSLETTER_NOT_FOUND(HttpStatus.NOT_FOUND, "뉴스레터를 찾을 수 없습니다."),
+    NEWSLETTER_NOT_PUBLISHABLE(HttpStatus.CONFLICT, "공개할 수 없는 뉴스레터입니다."),
+    NEWSLETTER_NOT_RETIRABLE(HttpStatus.CONFLICT, "폐기할 수 없는 뉴스레터입니다."),
+
     // 내부 배치 (FUNC-040, 041, 042)
     INTERNAL_CALL_REQUIRED(HttpStatus.FORBIDDEN, "허용된 내부 호출이 아닙니다."),
     PRICE_POLICY_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "가격 생성 정책 또는 상품 조건이 올바르지 않습니다."),
