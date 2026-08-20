@@ -166,6 +166,28 @@ Prometheus는 `http://host.docker.internal:8080/internal/metrics`를 정상 수�
 | 사용자 여정 시간 | 2.22초 |
 | 판정 | 통과 |
 
+### 3.7 학습 상세 조회 부하 테스트
+
+커리큘럼, 로드맵, 강좌 JSON과 학습 진도 조회를 최대 10 VU까지 증가시키며 90초 동안 반복했다.
+
+| 항목 | 결과 |
+|---|---:|
+| 최대 VU | 10 |
+| 실행 시간 | 90초 |
+| 완료한 사용자 여정 | 273회 |
+| 중단된 사용자 여정 | 0회 |
+| 요청 | 1,095건 |
+| 처리량 | 12.02 req/s |
+| 검증 | 2,464/2,464 성공 |
+| HTTP 실패 | 0건, 0.00% |
+| 평균 응답시간 | 301.81ms |
+| 인증 p95 | 348.82ms / 2,000ms 기준 |
+| 일반 조회 p95 | 369.74ms / 500ms 기준 |
+| 최대 응답시간 | 1.16초 |
+| 평균 사용자 여정 시간 | 2.21초 |
+| p95 사용자 여정 시간 | 2.73초 |
+| 판정 | 통과 |
+
 ## 4. 테스트 중 발견한 문제와 해결
 
 | 현상 | 원인 | 해결 |
@@ -203,7 +225,7 @@ Prometheus는 `http://host.docker.internal:8080/internal/metrics`를 정상 수�
 - 백엔드: [FirstFolio / Backend Overview](http://localhost:3000/d/firstfolio-backend-overview/backend-overview)
 - Prometheus 타깃: [Target health](http://localhost:9090/targets)
 
-Grafana에서는 실행 시간대를 선택하고 `test_type=core-read-journey`, `test_profile=load` 조건으로 마지막 부하 테스트를 구분한다.
+Grafana에서는 실행 시간대를 선택하고 `test_type`을 `core-read-journey` 또는 `learning-read`, `test_profile=load`로 설정해 각 부하 테스트를 구분한다.
 
 ## 7. 후속 테스트
 
