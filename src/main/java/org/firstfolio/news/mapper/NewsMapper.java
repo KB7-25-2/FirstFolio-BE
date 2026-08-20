@@ -11,5 +11,11 @@ public interface NewsMapper {
 
     List<NewsArticle> findLatest(@Param("limit") int limit);
 
+    NewsArticle findById(@Param("financialNewsId") long financialNewsId);
+
     int insert(NewsArticle article);
+
+    int update(NewsArticle article);
+
+    int deleteById(@Param("financialNewsId") long financialNewsId);
 }
