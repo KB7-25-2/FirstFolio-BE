@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: FirstFolio
+    orgId: 1
+    folder: FirstFolio
+    folderUid: firstfolio
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
