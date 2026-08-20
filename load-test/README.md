@@ -2,6 +2,8 @@
 
 k6는 Docker에서 실행하고, 로컬 Tomcat의 API에 요청을 보낸다. 실행 결과는 같은 Prometheus로 전송되어 Grafana의 `FirstFolio / Load Test Overview`에서 확인할 수 있다.
 
+- [2026-08-20 로컬 관측·부하 테스트 결과](./TEST_RESULTS.md)
+
 ```text
 k6 컨테이너 → 로컬 Tomcat :8080
        └── 테스트 결과 → Prometheus → Grafana
