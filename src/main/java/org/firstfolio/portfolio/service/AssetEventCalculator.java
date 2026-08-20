@@ -27,12 +27,27 @@ import java.util.List;
  * <table border="1">
  *   <caption>지급 시점과 계산식</caption>
  *   <tr><th>상품</th><th>지급 시점</th><th>계산식</th></tr>
- *   <tr><td>예·적금</td><td>만기 1회</td><td>원금 × 연이율 × (만기개월 ÷ 12)</td></tr>
+ *   <tr><td>예금</td><td>만기 1회</td><td>원금 × 연이율 × (만기개월 ÷ 12)</td></tr>
+ *   <tr><td>적금(적립식)</td><td>만기 1회</td><td>총납입액 × 연이율 × (만기개월 + 1) ÷ 24</td></tr>
  *   <tr><td>채권(이표채)</td><td>주기마다</td><td>원금 × 쿠폰금리 × (주기개월 ÷ 12)</td></tr>
  *   <tr><td>채권(이표채) 마지막</td><td>만기</td><td>원금 × 쿠폰금리 × (<b>잔여</b>개월 ÷ 12)</td></tr>
  *   <tr><td>채권(복리채)</td><td>만기 1회</td><td>원금 × ((1+r)<sup>n</sup> × (1 + r × 잔여 ÷ 12)) − 원금</td></tr>
  *   <tr><td>만기</td><td>만기</td><td>원금을 그대로 현금으로</td></tr>
  * </table>
+ *
+ * <h3>적금은 왜 예금과 다른 식을 쓰나</h3>
+ *
+ * <p>적금은 매달 나눠 넣는 상품이라 <b>회차마다 돈이 머무는 기간이 다르다.</b> 12개월 적금이면
+ * 1회차는 12개월, 마지막 회차는 1개월만 예치되고 나온다. 전 회차의 예치 기간을 더하면
+ * {@code n + (n−1) + … + 1 = n(n+1)/2}개월이고, 월 납입액이 {@code 총액 ÷ n}이므로
+ * 정리하면 {@code 총액 × 연이율 × (n+1) ÷ 24}가 된다.</p>
+ *
+ * <p>같은 원금·기간이면 예금의 약 절반이다. <b>이 구분이 없으면 "금리가 높은 적금이 무조건
+ * 유리하다"는 잘못된 결론을 가르치게 된다</b> — 24개월·300만원이면 금리 2.60% 예금이 156,000원,
+ * 금리 3.20% 적금이 100,000원으로 <b>결론이 뒤집힌다.</b></p>
+ *
+ * <p>가입 시점에 총 납입액을 전액 받으므로 미납이 생길 수 없다. 실제 적금과 총 납입액·총 이자가
+ * 같고, 다른 것은 아직 낼 차례가 아닌 돈을 그동안 다른 곳에 굴릴 수 없다는 것뿐이다.</p>
  *
  * <h3>마지막 이표를 일할로 주는 이유</h3>
  *
@@ -53,6 +68,9 @@ public class AssetEventCalculator {
     private static final BigDecimal ZERO_MONEY = new BigDecimal("0.00");
     private static final BigDecimal HUNDRED = new BigDecimal("100");
     private static final BigDecimal MONTHS_PER_YEAR = new BigDecimal("12");
+
+    /** 적립식 이자의 {@code n(n+1)/2}에서 나온 2. 회차별 예치 기간의 평균이 절반이라는 뜻이다. */
+    private static final BigDecimal INSTALLMENT_DIVISOR = new BigDecimal("2");
 
     /** 이율 계산 중간값의 자릿수. 마지막에 원 단위로 반올림한다. */
     private static final MathContext RATE_MATH = MathContext.DECIMAL64;
@@ -95,7 +113,17 @@ public class AssetEventCalculator {
         LocalDateTime maturityAt = openedAt.plusHours(terms.getServiceMaturityHours());
         List<ScheduledAssetEvent> events = new ArrayList<>();
 
-        if (terms.isCompound()) {
+        if (terms.isInstallment()) {
+            // 적금은 만기일시지급이라 중간 지급이 없다. 회차별 예치 기간을 합산해 한 번에 준다.
+            events.add(interest(
+                    maturityAt,
+                    installmentInterest(principal, rate, terms.getMaturityMonths()),
+                    AssetEventBasis.INSTALLMENT_INTEREST,
+                    terms.getMaturityMonths(),
+                    terms.getRatePercent(),
+                    interestIncomeTaxRate
+            ));
+        } else if (terms.isCompound()) {
             events.add(interest(
                     maturityAt,
                     compoundInterest(principal, rate, terms.getMaturityMonths()),
@@ -203,6 +231,30 @@ public class AssetEventCalculator {
     }
 
     /**
+     * 적립식 단리 이자 — 적금.
+     *
+     * <pre>총납입액 × 연이율 × (만기개월 + 1) ÷ 24</pre>
+     *
+     * <p>회차별로 따로 계산해 더하는 것과 <b>결과가 같다.</b> 월 납입액을 {@code m = P ÷ n}이라 하면
+     * 회차별 이자의 합은 {@code m × r × (n + (n−1) + … + 1) ÷ 12}이고,
+     * 등차수열 합이 {@code n(n+1)/2}이므로 {@code P × r × (n+1) ÷ 24}로 정리된다.</p>
+     *
+     * <p><b>{@code P ÷ n}을 먼저 계산하지 않는 것이 중요하다.</b> 100만원을 12회로 나누면
+     * 83,333.33…이라 나누어떨어지지 않는데, 그 값을 반올림해서 12번 곱하면 원금과 어긋난다.
+     * 정리된 식은 나눗셈이 마지막 한 번뿐이라 그 오차가 생기지 않는다.</p>
+     */
+    private static BigDecimal installmentInterest(
+            BigDecimal principal,
+            BigDecimal rate,
+            int maturityMonths
+    ) {
+        return money(principal
+                .multiply(rate, RATE_MATH)
+                .multiply(new BigDecimal(maturityMonths + 1), RATE_MATH)
+                .divide(MONTHS_PER_YEAR.multiply(INSTALLMENT_DIVISOR), RATE_MATH));
+    }
+
+    /**
      * 복리 이자. 정수 주기는 거듭제곱으로, 남는 개월은 단리로 계산한다.
      *
      * <pre>원금 × ((1 + r × 주기 ÷ 12)^n × (1 + r × 잔여 ÷ 12)) − 원금</pre>
@@ -286,6 +338,14 @@ public class AssetEventCalculator {
 
         if (principal == null || principal.signum() <= 0) {
             throw new ApiException(ErrorCode.INVALID_REQUEST, "가입 원금이 필요합니다.");
+        }
+
+        // 월복리 적금은 회차마다 복리 기간이 달라 식이 따로 있다. 단리로 계산하면 조용히 적게 준다.
+        if (terms.isInstallment() && terms.isCompound()) {
+            throw new ApiException(
+                    ErrorCode.TRADE_NOT_ALLOWED,
+                    "복리 적립식 상품은 아직 이자를 계산할 수 없어 가입할 수 없습니다."
+            );
         }
     }
 
