@@ -38,6 +38,7 @@ import org.firstfolio.gifticon.dto.response.GifticonProductResponse;
 import org.firstfolio.gifticon.dto.response.MyGifticonPageResponse;
 import org.firstfolio.gifticon.dto.response.MyGifticonResponse;
 import org.firstfolio.learning.dto.response.LessonContentResponse;
+import org.firstfolio.news.dto.response.FinancialNewsDeleteResponse;
 import org.firstfolio.news.dto.response.FinancialNewsItemResponse;
 import org.firstfolio.news.dto.response.FinancialNewsListResponse;
 import org.firstfolio.learning.dto.response.LearningProgressResponse;
@@ -270,4 +271,7 @@ public final class OpenApiResponseSchemas {
 
     @Schema(name = "FinancialNewsItemApiResponse")
     public record FinancialNewsItem(FinancialNewsItemResponse data) { }
+
+    @Schema(name = "FinancialNewsDeleteApiResponse")
+    public record FinancialNewsDelete(FinancialNewsDeleteResponse data) { }
 }

@@ -121,6 +121,9 @@ public enum ErrorCode {
     INVALID_GIFTICON_ORDER_CURSOR(HttpStatus.BAD_REQUEST, "내 기프티콘 페이지 조건이 올바르지 않습니다."),
     GIFTICON_CODE_DECRYPTION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "기프티콘 코드를 공개할 수 없습니다."),
 
+    // 금융 뉴스 스크랩
+    FINANCIAL_NEWS_NOT_FOUND(HttpStatus.NOT_FOUND, "금융 뉴스를 찾을 수 없습니다."),
+
     // 내부 배치 (FUNC-040, 041, 042)
     INTERNAL_CALL_REQUIRED(HttpStatus.FORBIDDEN, "허용된 내부 호출이 아닙니다."),
     PRICE_POLICY_INVALID(HttpStatus.UNPROCESSABLE_ENTITY, "가격 생성 정책 또는 상품 조건이 올바르지 않습니다."),
