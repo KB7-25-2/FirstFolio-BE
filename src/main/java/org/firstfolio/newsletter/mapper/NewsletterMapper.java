@@ -13,6 +13,8 @@ public interface NewsletterMapper {
 
     Newsletter findById(@Param("newsletterId") long newsletterId);
 
+    Newsletter findByIdForUpdate(@Param("newsletterId") long newsletterId);
+
     List<Newsletter> findByStatus(@Param("status") NewsletterStatus status);
 
     List<Newsletter> findByWeekStartDate(@Param("weekStartDate") LocalDate weekStartDate);

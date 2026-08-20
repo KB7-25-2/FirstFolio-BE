@@ -40,6 +40,9 @@ class NewsletterMapperXmlTest {
                 NewsletterMapper.class.getName() + ".findById"
         ));
         assertTrue(configuration.hasStatement(
+                NewsletterMapper.class.getName() + ".findByIdForUpdate"
+        ));
+        assertTrue(configuration.hasStatement(
                 NewsletterMapper.class.getName() + ".findByStatus"
         ));
         assertTrue(configuration.hasStatement(
