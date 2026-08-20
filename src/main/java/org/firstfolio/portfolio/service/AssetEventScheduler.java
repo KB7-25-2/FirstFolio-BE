@@ -7,6 +7,7 @@ import org.apache.logging.log4j.Logger;
 import org.firstfolio.common.json.ApiObjectMapperFactory;
 import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
+import org.firstfolio.portfolio.domain.AssetEventBasis;
 import org.firstfolio.portfolio.domain.PortfolioHolding;
 import org.firstfolio.portfolio.domain.PortfolioTransaction;
 import org.firstfolio.portfolio.domain.ScheduledAssetEvent;
@@ -21,6 +22,7 @@ import org.firstfolio.simulation.domain.SimulationTerms;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -61,6 +63,20 @@ public class AssetEventScheduler {
     /** 계산식에 확정 정책이 없다는 사실을 데이터에 남긴다. 나중에 정책이 정해지면 검산할 수 있어야 한다. */
     private static final String ASSUMPTION =
             "이자 계산식은 확정 정책이 없어 가정치를 적용했다 (FSD FUNC-041 \"별도 정책으로 관리\").";
+
+    /**
+     * 적금에만 덧붙이는 단순화 고지.
+     *
+     * <p>실제 적금은 매달 나눠 내지만 우리는 가입 시점에 총액을 전액 받는다. 총 납입액과 총 이자는
+     * 같고 다른 것은 <b>아직 낼 차례가 아닌 돈을 그동안 다른 곳에 굴릴 수 없다</b>는 것뿐인데,
+     * 그 차이를 데이터에 남겨 두지 않으면 나중에 금액만 보고는 확인할 수 없다.</p>
+     */
+    private static final String INSTALLMENT_ASSUMPTION =
+            "적금은 가입 시점에 총 납입액을 전액 받고 이자만 회차별 예치 기간에 비례해 계산한다. "
+                    + "실제 적금과 총 납입액·총 이자는 같고, 미납 차례의 자금을 운용할 수 없다는 점만 다르다.";
+
+    /** 금액 자릿수. {@code portfolio_transactions.amount}가 {@code DECIMAL(19,2)}다. */
+    private static final int MONEY_SCALE = 2;
 
     private static final ObjectMapper OBJECT_MAPPER = ApiObjectMapperFactory.create();
     private static final Logger log = LogManager.getLogger(AssetEventScheduler.class);
@@ -235,6 +251,35 @@ public class AssetEventScheduler {
         detail.put("buy_transaction_id", buy.getPortfolioTransactionId());
         detail.put("assumption", ASSUMPTION);
 
+        if (event.getBasis() == AssetEventBasis.INSTALLMENT_INTEREST) {
+            describeInstallment(detail, event, principal);
+        }
+
         return detail.toString();
+    }
+
+    /**
+     * 적금의 회차 정보. <b>화면이 "매월 250,000원씩 12회 납입으로 계산됩니다"를 띄우는 근거다.</b>
+     *
+     * <p>이 안내가 없으면 사용자에게는 <i>"금리 3.0%인데 왜 2.4% 예금보다 이자가 적지"</i>만 남는다.
+     * 결함을 고치고 오해를 새로 만드는 셈이라, 근거를 이력에 함께 남긴다.</p>
+     *
+     * <p>{@code monthly_amount}는 <b>표시용</b>이다. 나누어떨어지지 않으면 이 값을 회차 수만큼
+     * 곱해도 총액과 1원 남짓 어긋난다 — 이자는 이 값을 쓰지 않고 총액에서 바로 계산한다
+     * ({@code AssetEventCalculator.installmentInterest}).</p>
+     */
+    private static void describeInstallment(
+            ObjectNode detail,
+            ScheduledAssetEvent event,
+            BigDecimal principal
+    ) {
+        int installments = event.getPeriodMonths();
+
+        detail.put("installment_count", installments);
+        detail.put("monthly_amount", installments <= 0
+                ? null
+                : principal.divide(new BigDecimal(installments), MONEY_SCALE, RoundingMode.HALF_UP)
+                        .toPlainString());
+        detail.put("installment_assumption", INSTALLMENT_ASSUMPTION);
     }
 }
