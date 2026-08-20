@@ -49,6 +49,8 @@ logs/
 *.log
 uploads/
 /.local/
+/observability/secrets/*
+!/observability/secrets/.gitkeep
 
 # OS and JVM
 .DS_Store

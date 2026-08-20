@@ -266,6 +266,12 @@ GET /<context-path>/api/health
 }
 ```
 
+### Prometheus·Grafana 관측 환경
+
+Micrometer 메트릭을 수집하고 확인하는 관측 환경은 백엔드 배포와 분리된 `docker-compose.observability.yml`로 실행합니다. 기존 `docker-compose.deploy.yml`에는 영향을 주지 않습니다.
+
+설정과 실행 방법은 [observability/README.md](observability/README.md)를 참고합니다.
+
 ## 기본 패키지 규칙
 
 도메인을 먼저 나누고 각 도메인 내부에서 계층을 구분합니다.
