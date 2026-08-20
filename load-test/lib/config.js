@@ -54,6 +54,7 @@ export function requestConfig() {
   }
 
   return {
+    baseUrl,
     url: `${baseUrl}${targetPath}`,
     headers,
     requestIntervalSeconds: positiveNumber(
@@ -63,6 +64,81 @@ export function requestConfig() {
     ),
     maxP95Ms: positiveNumber(__ENV.MAX_P95_MS, 500, 'MAX_P95_MS'),
     testId: __ENV.K6_TEST_ID || 'local',
+  };
+}
+
+export function authenticatedRequestConfig() {
+  const config = requestConfig();
+  if (!__ENV.AUTH_TOKEN) {
+    throw new Error('AUTH_TOKEN must contain a Firebase ID Token for a local test account');
+  }
+  return config;
+}
+
+export function stateChangeConfig() {
+  const config = authenticatedRequestConfig();
+  if (__ENV.ALLOW_STATE_CHANGES !== 'true') {
+    throw new Error('This scenario changes test-account data. Set ALLOW_STATE_CHANGES=true after confirming the account is disposable.');
+  }
+  return config;
+}
+
+export function loadScenarioOptions(config, testType, maxP95Ms = config.maxP95Ms) {
+  const profile = __ENV.K6_PROFILE || 'smoke';
+  if (!['smoke', 'load'].includes(profile)) {
+    throw new Error('K6_PROFILE must be smoke or load');
+  }
+  const selectedMaxP95Ms = positiveNumber(maxP95Ms, config.maxP95Ms, 'scenario max p95');
+
+  return {
+    discardResponseBodies: false,
+    scenarios: {
+      [testType]: profile === 'smoke'
+        ? {
+          executor: 'shared-iterations',
+          vus: 1,
+          iterations: 1,
+          maxDuration: '30s',
+        }
+        : {
+          executor: 'ramping-vus',
+          startVUs: 0,
+          stages: loadStages(),
+          gracefulRampDown: '10s',
+        },
+    },
+    thresholds: {
+      checks: ['rate>0.99'],
+      http_req_failed: ['rate<0.01'],
+      http_req_duration: [`p(95)<${selectedMaxP95Ms}`],
+    },
+    tags: {
+      testid: config.testId,
+      test_type: testType,
+      test_profile: profile,
+    },
+  };
+}
+
+export function oneOffScenarioOptions(config, testType) {
+  return {
+    discardResponseBodies: false,
+    scenarios: {
+      [testType]: {
+        executor: 'shared-iterations',
+        vus: 1,
+        iterations: 1,
+        maxDuration: '5m',
+      },
+    },
+    thresholds: {
+      checks: ['rate>0.99'],
+      http_req_failed: ['rate<0.01'],
+    },
+    tags: {
+      testid: config.testId,
+      test_type: testType,
+    },
   };
 }
 
