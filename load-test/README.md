@@ -57,6 +57,20 @@ FirstFolio 인증 API는 별도 액세스 토큰을 발급하지 않고 Firebase
 AUTH_TOKEN=로컬-테스트-계정-Firebase-ID-Token
 ```
 
+로컬 DB에 대단원·문항·강좌가 없다면 테스트 계정으로 회원가입한 뒤 최소 시드를 한 번 생성한다. `.env.local`의 DB와 로컬 콘텐츠 저장소 설정을 사용하며, localhost MySQL과 `CONTENT_STORAGE_TYPE=local`에서만 실행된다.
+
+```shell
+./load-test/seed-local.sh
+```
+
+다른 환경 파일을 사용할 때는 첫 번째 인자로 경로를 넘긴다.
+
+```shell
+./load-test/seed-local.sh /절대/경로/.env.local
+```
+
+시드는 기초 과정 1개, 자산 대단원 4개, 레벨 테스트 문항, 기초 강좌·퀴즈 및 퀴즈 보상 정책만 만든다. 기존의 다른 대단원 데이터가 있는 DB에서는 실행을 거부하며, 같은 시드 DB에서는 여러 번 실행해도 중복 생성하지 않는다. 실제 학습 내용이나 운영 초기 데이터로 사용하지 않는다.
+
 온보딩 준비 시나리오는 계정의 현재 상태를 확인한 뒤 필요한 단계만 이어서 실행한다.
 
 ```text
