@@ -97,7 +97,9 @@ public enum ErrorCode {
 
     // 상품 조회 (FUNC-031, 032, 039)
     INVALID_PRODUCT_FILTER(HttpStatus.BAD_REQUEST, "상품 필터가 올바르지 않습니다."),
+    INVALID_CANDLE_QUERY(HttpStatus.BAD_REQUEST, "캔들 조회 조건이 올바르지 않습니다."),
     PRODUCT_NOT_FOUND(HttpStatus.NOT_FOUND, "공개 상품을 찾을 수 없습니다."),
+    PRODUCT_CANDLE_NOT_SUPPORTED(HttpStatus.UNPROCESSABLE_ENTITY, "주식·펀드 상품만 차트를 조회할 수 있습니다."),
 
     // 관리자 상품 (FUNC-038)
     ADMIN_REQUIRED(HttpStatus.FORBIDDEN, "관리자 권한이 필요합니다."),

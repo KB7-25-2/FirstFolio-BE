@@ -6,8 +6,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.firstfolio.common.response.ApiResponse;
 import org.firstfolio.config.OpenApiResponseSchemas;
 import org.firstfolio.simulation.dto.response.ProductDetailResponse;
+import org.firstfolio.simulation.dto.response.ProductCandleHistoryResponse;
+import org.firstfolio.simulation.dto.response.ProductMarketSnapshotResponse;
 import org.firstfolio.simulation.dto.response.ProductPageResponse;
 import org.firstfolio.simulation.service.FinancialProductQueryService;
+import org.firstfolio.simulation.service.ProductMarketDataQueryService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,9 +30,14 @@ import org.springframework.web.bind.annotation.RestController;
 public class FinancialProductController {
 
     private final FinancialProductQueryService queryService;
+    private final ProductMarketDataQueryService marketDataQueryService;
 
-    public FinancialProductController(FinancialProductQueryService queryService) {
+    public FinancialProductController(
+            FinancialProductQueryService queryService,
+            ProductMarketDataQueryService marketDataQueryService
+    ) {
         this.queryService = queryService;
+        this.marketDataQueryService = marketDataQueryService;
     }
 
     @GetMapping
@@ -88,5 +96,28 @@ public class FinancialProductController {
             @PathVariable("product_id") Long productId
     ) {
         return ApiResponse.of(queryService.findById(productId));
+    }
+
+    @GetMapping("/{product_id}/candles")
+    @Operation(
+            summary = "상품 확정 일봉 조회",
+            description = "주식·펀드 상품의 확정 일봉을 오래된 날짜부터 반환합니다. 원상품 코드는 노출하지 않습니다."
+    )
+    public ApiResponse<ProductCandleHistoryResponse> findCandles(
+            @PathVariable("product_id") Long productId,
+            @RequestParam(value = "count", required = false) Integer count
+    ) {
+        return ApiResponse.of(marketDataQueryService.findCandles(productId, count));
+    }
+
+    @GetMapping("/{product_id}/market-snapshot")
+    @Operation(
+            summary = "현재가·당일 OHLC 조회",
+            description = "프론트엔드의 2초 폴링용으로 현재가와 메모리 기반 당일 OHLC를 함께 반환합니다."
+    )
+    public ApiResponse<ProductMarketSnapshotResponse> findMarketSnapshot(
+            @PathVariable("product_id") Long productId
+    ) {
+        return ApiResponse.of(marketDataQueryService.findMarketSnapshot(productId));
     }
 }

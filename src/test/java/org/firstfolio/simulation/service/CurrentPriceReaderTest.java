@@ -1,12 +1,15 @@
 package org.firstfolio.simulation.service;
 
 import org.firstfolio.simulation.domain.ProductPrice;
+import org.firstfolio.simulation.domain.ProductDailyCandle;
+import org.firstfolio.simulation.mapper.ProductDailyCandleMapper;
 import org.firstfolio.simulation.mapper.ProductPriceMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -63,6 +66,33 @@ class CurrentPriceReaderTest {
 
         assertEquals(new BigDecimal("240000.0000"), reader.read(STOCK_ID).getPrice());
         verify(mapper).findLatestByProductId(STOCK_ID);
+    }
+
+    @Test
+    @DisplayName("확정 일봉 종가가 기존 product_prices보다 우선한다")
+    void prefersDailyCandleOverLegacyClosingPrice() {
+        ProductDailyCandleMapper candleMapper = mock(ProductDailyCandleMapper.class);
+        ProductDailyCandle candle = new ProductDailyCandle();
+        candle.setProductId(STOCK_ID);
+        candle.setTradeDate(LocalDate.of(2026, 8, 21));
+        candle.setClosePrice(new BigDecimal("281500.0000"));
+        candle.setSourceType("TOSS_INVEST");
+
+        when(candleMapper.findLatestByProductId(STOCK_ID)).thenReturn(candle);
+        when(mapper.findLatestByProductId(STOCK_ID)).thenReturn(price(STOCK_ID, "280000.0000"));
+
+        CurrentPriceReader candleReader = new CurrentPriceReader(
+                cache,
+                candleMapper,
+                mapper,
+                new TradingHours()
+        );
+
+        ProductPrice found = candleReader.read(STOCK_ID);
+
+        assertEquals(new BigDecimal("281500.0000"), found.getPrice());
+        assertEquals("TOSS_INVEST", found.getSourceType());
+        verify(mapper, never()).findLatestByProductId(STOCK_ID);
     }
 
     @Test
