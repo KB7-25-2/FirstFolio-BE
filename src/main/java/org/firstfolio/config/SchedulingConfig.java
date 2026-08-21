@@ -33,12 +33,12 @@ public class SchedulingConfig {
     /**
      * 주기 작업이 나눠 쓰는 스레드 풀.
      *
-     * <p>스프링 기본값은 <b>1</b>이라 작업이 둘만 돼도 서로를 막는다. 기본 2는
-     * 시세 폴링과 자산 이벤트 배치를 염두에 둔 값이다.</p>
+     * <p>스프링 기본값은 <b>1</b>이라 작업이 둘만 돼도 서로를 막는다. 기본 3은
+     * 시세 폴링, 일봉 동기화, 자산 이벤트 배치를 염두에 둔 값이다.</p>
      */
     @Bean(destroyMethod = "shutdown")
     public ThreadPoolTaskScheduler taskScheduler(
-            @Value("${scheduling.pool-size:2}") int poolSize
+            @Value("${scheduling.pool-size:3}") int poolSize
     ) {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
 

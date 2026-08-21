@@ -143,6 +143,24 @@ class DatabaseSchemaDefinitionTest {
         ));
     }
 
+    @Test
+    void dailyCandleSchemaIsTrackedByFlywayV8() throws IOException {
+        String schema = normalize(Files.readString(Path.of("database.sql")));
+        String migration = normalize(Files.readString(Path.of(
+                "src/main/resources/db/migration/V8__create_product_daily_candles.sql"
+        )));
+
+        for (String definition : new String[]{
+                "CREATE TABLE product_daily_candles",
+                "CONSTRAINT uq_product_daily_candles_product_date UNIQUE (product_id, trade_date)",
+                "CONSTRAINT chk_product_daily_candles_source CHECK (source_type = 'TOSS_INVEST')",
+                "INDEX idx_product_daily_candles_latest (product_id, trade_date DESC)"
+        }) {
+            assertTrue(schema.contains(definition));
+            assertTrue(migration.contains(definition));
+        }
+    }
+
     private String normalize(String sql) {
         return sql.replaceAll("\\s+", " ").trim();
     }

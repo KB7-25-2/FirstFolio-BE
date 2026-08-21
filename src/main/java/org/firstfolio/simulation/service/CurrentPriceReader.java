@@ -1,7 +1,10 @@
 package org.firstfolio.simulation.service;
 
 import org.firstfolio.simulation.domain.ProductPrice;
+import org.firstfolio.simulation.domain.ProductDailyCandle;
+import org.firstfolio.simulation.mapper.ProductDailyCandleMapper;
 import org.firstfolio.simulation.mapper.ProductPriceMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -18,11 +21,11 @@ import java.util.Set;
  * <b>거래 기능 전체가 묶이기 때문</b>이다. v3 3.2절의 "가격 확정 시점: 주문 시점"은
  * <i>그 시점의 값으로 금액을 확정한다</i>는 뜻이지 <i>그때 외부를 호출하라</i>는 뜻이 아니다.</p>
  *
- * <h3>캐시 우선, 없으면 DB</h3>
+ * <h3>캐시 → 확정 일봉 → 이전 가격 이력</h3>
  *
- * <p>장중 실시간 가격은 {@link PriceCache}에 있고, 종가만 {@code product_prices}에 저장된다
- * (2026-08-07 확정). 캐시가 비는 때가 정상적으로 있어서 — 앱이 막 떴을 때, 장외 —
- * <b>못 찾으면 DB로 넘어간다.</b> 재시작 직후에도 마지막 종가로 평가가 계속되는 이유다.</p>
+ * <p>장중 실시간 가격은 {@link PriceCache}에 있고, 확정 종가는 일봉 테이블에 저장된다.
+ * 캐시가 비는 앱 시작 직후·장외에는 최신 확정 일봉 종가를 사용한다. 전환 전에 저장된
+ * {@code product_prices}는 그마저 없을 때만 읽는 마지막 호환 경로다.</p>
  *
  * <h3>가격을 읽는 곳을 여기로 모은다</h3>
  *
@@ -34,11 +37,29 @@ import java.util.Set;
 public class CurrentPriceReader {
 
     private final PriceCache priceCache;
+    private final ProductDailyCandleMapper candleMapper;
     private final ProductPriceMapper productPriceMapper;
+    private final TradingHours tradingHours;
 
+    @Autowired
+    public CurrentPriceReader(
+            PriceCache priceCache,
+            ProductDailyCandleMapper candleMapper,
+            ProductPriceMapper productPriceMapper,
+            TradingHours tradingHours
+    ) {
+        this.priceCache = priceCache;
+        this.candleMapper = candleMapper;
+        this.productPriceMapper = productPriceMapper;
+        this.tradingHours = tradingHours;
+    }
+
+    /** 기존 단위 테스트·점진 전환용 생성자. 운영 빈은 위 생성자를 사용한다. */
     public CurrentPriceReader(PriceCache priceCache, ProductPriceMapper productPriceMapper) {
         this.priceCache = priceCache;
+        this.candleMapper = null;
         this.productPriceMapper = productPriceMapper;
+        this.tradingHours = new TradingHours();
     }
 
     /**
@@ -54,6 +75,15 @@ public class CurrentPriceReader {
             return cached;
         }
 
+        if (candleMapper != null) {
+            ProductDailyCandle candle = candleMapper.findLatestByProductId(productId);
+
+            if (candle != null) {
+                return toPrice(candle);
+            }
+        }
+
+        // 배포 전 이미 저장된 종가가 사라지지 않도록 product_prices를 마지막 호환 경로로 둔다.
         return productPriceMapper.findLatestByProductId(productId);
     }
 
@@ -85,13 +115,34 @@ public class CurrentPriceReader {
             return found;
         }
 
-        // 빈 목록을 넘기면 MyBatis foreach가 IN ()을 만들어 SQL 오류가 난다. 위에서 걸러진다.
         Map<Long, ProductPrice> merged = new HashMap<>(found);
+
+        if (candleMapper != null) {
+            for (ProductDailyCandle candle : candleMapper.findLatestByProductIds(new ArrayList<>(missing))) {
+                merged.put(candle.getProductId(), toPrice(candle));
+                missing.remove(candle.getProductId());
+            }
+        }
+
+        if (missing.isEmpty()) {
+            return merged;
+        }
 
         for (ProductPrice price : productPriceMapper.findLatestByProductIds(new ArrayList<>(missing))) {
             merged.put(price.getProductId(), price);
         }
 
         return merged;
+    }
+
+    private ProductPrice toPrice(ProductDailyCandle candle) {
+        ProductPrice price = new ProductPrice();
+
+        price.setProductId(candle.getProductId());
+        price.setPrice(candle.getClosePrice());
+        price.setReferenceAt(tradingHours.closeAtUtc(candle.getTradeDate()));
+        price.setSourceType(candle.getSourceType());
+
+        return price;
     }
 }

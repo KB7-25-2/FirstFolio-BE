@@ -62,7 +62,9 @@ import org.firstfolio.quiz.dto.response.QuizQuestionCreateResponse;
 import org.firstfolio.quiz.dto.response.QuizQuestionPageResponse;
 import org.firstfolio.quiz.dto.response.QuizQuestionStatusResponse;
 import org.firstfolio.simulation.dto.response.PriceRefreshResponse;
+import org.firstfolio.simulation.dto.response.ProductCandleHistoryResponse;
 import org.firstfolio.simulation.dto.response.ProductDetailResponse;
+import org.firstfolio.simulation.dto.response.ProductMarketSnapshotResponse;
 import org.firstfolio.simulation.dto.response.ProductPageResponse;
 import org.firstfolio.user.dto.response.PointBalanceResponse;
 import org.firstfolio.user.dto.response.UserProfilePatchResponse;
@@ -217,6 +219,12 @@ public final class OpenApiResponseSchemas {
 
     @Schema(name = "ProductDetailApiResponse")
     public record ProductDetail(ProductDetailResponse data) { }
+
+    @Schema(name = "ProductCandleHistoryApiResponse")
+    public record ProductCandleHistory(ProductCandleHistoryResponse data) { }
+
+    @Schema(name = "ProductMarketSnapshotApiResponse")
+    public record ProductMarketSnapshot(ProductMarketSnapshotResponse data) { }
 
     @Schema(name = "PriceRefreshApiResponse")
     public record PriceRefresh(PriceRefreshResponse data) { }
