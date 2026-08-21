@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="org.firstfolio.simulation.mapper.ProductDailyCandleMapper">
+
+    <resultMap id="dailyCandleResult" type="org.firstfolio.simulation.domain.ProductDailyCandle">
+        <id property="productDailyCandleId" column="product_daily_candle_id"/>
+        <result property="productId" column="product_id"/>
+        <result property="tradeDate" column="trade_date"/>
+        <result property="openPrice" column="open_price"/>
+        <result property="highPrice" column="high_price"/>
+        <result property="lowPrice" column="low_price"/>
+        <result property="closePrice" column="close_price"/>
+        <result property="volume" column="volume"/>
+        <result property="currency" column="currency"/>
+        <result property="adjusted" column="adjusted"/>
+        <result property="sourceType" column="source_type"/>
+        <result property="sourceReferenceAt" column="source_reference_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="columns">
+        product_daily_candle_id,
+        product_id,
+        trade_date,
+        open_price,
+        high_price,
+        low_price,
+        close_price,
+        volume,
+        currency,
+        adjusted,
+        source_type,
+        source_reference_at,
+        created_at,
+        updated_at
+    </sql>
+
+    <!-- 최근 N개를 고른 뒤 차트가 바로 쓸 수 있게 오래된 날짜부터 반환한다. -->
+    <select id="findRecentByProductId" resultMap="dailyCandleResult">
+        SELECT <include refid="columns"/>
+        FROM (
+            SELECT <include refid="columns"/>
+            FROM product_daily_candles
+            WHERE product_id = #{productId}
+            ORDER BY trade_date DESC
+            LIMIT #{count}
+        ) recent
+        ORDER BY trade_date ASC
+    </select>
+
+    <select id="findLatestByProductId" resultMap="dailyCandleResult">
+        SELECT <include refid="columns"/>
+        FROM product_daily_candles
+        WHERE product_id = #{productId}
+        ORDER BY trade_date DESC
+        LIMIT 1
+    </select>
+
+    <select id="findLatestByProductIds" resultMap="dailyCandleResult">
+        SELECT c.product_daily_candle_id,
+               c.product_id,
+               c.trade_date,
+               c.open_price,
+               c.high_price,
+               c.low_price,
+               c.close_price,
+               c.volume,
+               c.currency,
+               c.adjusted,
+               c.source_type,
+               c.source_reference_at,
+               c.created_at,
+               c.updated_at
+        FROM product_daily_candles c
+                 JOIN (
+            SELECT product_id, MAX(trade_date) AS trade_date
+            FROM product_daily_candles
+            WHERE product_id IN
+            <foreach item="productId" collection="productIds" open="(" separator="," close=")">
+                #{productId}
+            </foreach>
+            GROUP BY product_id
+        ) latest ON latest.product_id = c.product_id
+            AND latest.trade_date = c.trade_date
+    </select>
+
+    <select id="findProductIdsWithCandles" resultType="long">
+        SELECT DISTINCT product_id
+        FROM product_daily_candles
+        WHERE product_id IN
+        <foreach item="productId" collection="productIds" open="(" separator="," close=")">
+            #{productId}
+        </foreach>
+    </select>
+
+    <insert id="upsertAll">
+        INSERT INTO product_daily_candles (
+            product_id,
+            trade_date,
+            open_price,
+            high_price,
+            low_price,
+            close_price,
+            volume,
+            currency,
+            adjusted,
+            source_type,
+            source_reference_at,
+            created_at,
+            updated_at
+        ) VALUES
+        <foreach item="candle" collection="candles" separator=",">
+            (
+                #{candle.productId},
+                #{candle.tradeDate},
+                #{candle.openPrice},
+                #{candle.highPrice},
+                #{candle.lowPrice},
+                #{candle.closePrice},
+                #{candle.volume},
+                #{candle.currency},
+                #{candle.adjusted},
+                #{candle.sourceType},
+                #{candle.sourceReferenceAt},
+                #{candle.createdAt},
+                #{candle.updatedAt}
+            )
+        </foreach>
+        AS incoming
+        ON DUPLICATE KEY UPDATE
+            open_price = incoming.open_price,
+            high_price = incoming.high_price,
+            low_price = incoming.low_price,
+            close_price = incoming.close_price,
+            volume = incoming.volume,
+            currency = incoming.currency,
+            adjusted = incoming.adjusted,
+            source_type = incoming.source_type,
+            source_reference_at = incoming.source_reference_at,
+            updated_at = incoming.updated_at
+    </insert>
+
+</mapper>

@@ -27,8 +27,8 @@ import java.util.List;
  * 스레드마다 발급받으면 서로를 무효화시켜 간헐적 401이 난다. 하나를 캐시해 함께 쓰고,
  * 갱신은 한 번에 하나만 수행한다.</p>
  *
- * <p>Rate Limit은 그룹별로 걸린다 (AUTH 5/s, MARKET_DATA 10/s). {@code /api/v1/prices}는
- * 한 번에 200종목까지 받아서 10종목은 요청 1건이면 된다.</p>
+ * <p>Rate Limit은 그룹별로 걸린다 (AUTH, MARKET_DATA, MARKET_DATA_CHART 분리).
+ * {@code /api/v1/prices}는 한 번에 200종목까지 받고, 일봉은 종목별 한 요청이다.</p>
  */
 @Component
 public class TossInvestClient {
@@ -40,6 +40,9 @@ public class TossInvestClient {
 
     /** 한 요청에 넣을 수 있는 종목 수. */
     private static final int MAX_SYMBOLS_PER_REQUEST = 200;
+
+    /** 캔들 API가 한 번에 돌려주는 최대 봉 수. */
+    private static final int MAX_CANDLES_PER_REQUEST = 200;
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
@@ -110,9 +113,48 @@ public class TossInvestClient {
         return result;
     }
 
+    /**
+     * 한 종목의 수정주가 적용 일봉을 최신순으로 가져온다.
+     *
+     * <p>캔들 API는 종목을 한 번에 하나만 받는다. 호출부가 여러 상품을 순차 처리해야 한다.</p>
+     */
+    public List<TossCandlesResponse.Item> fetchDailyCandles(String symbol, int count) {
+        if (symbol == null || symbol.isBlank()) {
+            throw new IllegalArgumentException("캔들 조회 종목코드가 필요합니다.");
+        }
+
+        if (count < 1 || count > MAX_CANDLES_PER_REQUEST) {
+            throw new IllegalArgumentException(
+                    "캔들 조회 건수는 1~" + MAX_CANDLES_PER_REQUEST + " 사이여야 합니다."
+            );
+        }
+
+        String path = "/api/v1/candles?symbol="
+                + URLEncoder.encode(symbol.trim(), StandardCharsets.UTF_8)
+                + "&interval=1d&count=" + count
+                + "&adjusted=true";
+        String body = get(path);
+
+        try {
+            TossCandlesResponse parsed = parseCandles(body);
+
+            if (parsed.getResult() == null || parsed.getResult().getCandles() == null) {
+                return List.of();
+            }
+
+            return parsed.getResult().getCandles();
+        } catch (Exception exception) {
+            throw unavailable("캔들 응답을 해석하지 못했습니다.", exception);
+        }
+    }
+
     /** 응답 파싱만 떼어 둔다. 실제 호출 없이 표기 규칙을 검증할 수 있게 하기 위함이다. */
     static TossPricesResponse parsePrices(String json) throws IOException {
         return MAPPER.readValue(json, TossPricesResponse.class);
+    }
+
+    static TossCandlesResponse parseCandles(String json) throws IOException {
+        return MAPPER.readValue(json, TossCandlesResponse.class);
     }
 
     private String get(String path) {

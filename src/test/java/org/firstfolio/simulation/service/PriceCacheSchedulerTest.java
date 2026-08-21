@@ -35,7 +35,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -53,8 +52,8 @@ class PriceCacheSchedulerTest {
 
     private FinancialProductMapper productMapper;
     private TossInvestClient tossClient;
-    private PriceRefreshService priceRefreshService;
     private PriceCache priceCache;
+    private IntradayCandleCache intradayCandleCache;
 
     private final List<FinancialProduct> targets = new ArrayList<>();
     private final List<TossPricesResponse.Item> quotes = new ArrayList<>();
@@ -63,17 +62,14 @@ class PriceCacheSchedulerTest {
     void setUp() {
         productMapper = mock(FinancialProductMapper.class);
         tossClient = mock(TossInvestClient.class);
-        priceRefreshService = mock(PriceRefreshService.class);
         priceCache = new PriceCache();
+        intradayCandleCache = new IntradayCandleCache();
 
         targets.clear();
         quotes.clear();
 
         when(productMapper.findPriceTargets(anyList(), any())).thenReturn(targets);
         when(tossClient.fetchPrices(anyList())).thenReturn(quotes);
-        when(priceRefreshService.refresh(any(), any()))
-                .thenReturn(new PriceRefreshResult(null, 15, 15, 0));
-        when(priceRefreshService.hasPricesSince(any())).thenReturn(false);
     }
 
     /** 한국 시각을 서버가 쓰는 UTC로 바꾼다. */
@@ -92,8 +88,8 @@ class PriceCacheSchedulerTest {
         return new PriceCacheScheduler(
                 new TradingHours(),
                 new PriceQuoteFetcher(productMapper, tossClient),
-                priceRefreshService,
                 priceCache,
+                intradayCandleCache,
                 fixed,
                 enabled
         );
@@ -305,152 +301,6 @@ class PriceCacheSchedulerTest {
         schedulerAt("2026-08-06T15:30:00").pollDuringSession();
 
         assertNotNull(priceCache.find(STOCK_ID));
-    }
-
-    // ------------------------------------------------------------- 종가 저장
-
-    @Test
-    @DisplayName("마감 뒤 첫 틱이 그날의 종가를 저장한다")
-    void savesClosingPriceAfterClose() {
-        schedulerAt(AFTER_CLOSE).pollDuringSession();
-
-        verify(priceRefreshService).refresh(utcOf(AFTER_CLOSE), null);
-    }
-
-    @Test
-    @DisplayName("같은 날 두 번째 틱부터는 저장하지 않는다 — 하루 15행이면 충분하다")
-    void savesClosingPriceOnlyOncePerDay() {
-        PriceCacheScheduler scheduler = schedulerAt(AFTER_CLOSE);
-
-        scheduler.pollDuringSession();
-        scheduler.pollDuringSession();
-        scheduler.pollDuringSession();
-
-        verify(priceRefreshService, times(1)).refresh(any(), any());
-    }
-
-    @Test
-    @DisplayName("개장 전에는 저장하지 않는다 — 전날 종가가 오늘 종가로 다시 들어간다")
-    void doesNotSaveBeforeOpen() {
-        // 평일 08:00 KST. 장은 닫혀 있지만 오늘 장이 끝난 것은 아니다.
-        schedulerAt("2026-08-06T08:00:00").pollDuringSession();
-
-        verify(priceRefreshService, never()).refresh(any(), any());
-    }
-
-    @Test
-    @DisplayName("주말에는 저장하지 않는다")
-    void doesNotSaveOnWeekend() {
-        schedulerAt(WEEKEND).pollDuringSession();
-        schedulerAt("2026-08-08T18:00:00").pollDuringSession();
-        schedulerAt("2026-08-09T18:00:00").pollDuringSession();
-
-        verify(priceRefreshService, never()).refresh(any(), any());
-    }
-
-    @Test
-    @DisplayName("장중에는 저장하지 않는다 — 2초마다 쌓으면 월 720MB다")
-    void doesNotSaveDuringSession() {
-        target(STOCK_ID, AssetType.STOCK, "005930");
-        quote("005930", "241500");
-
-        schedulerAt(DURING_SESSION).pollDuringSession();
-
-        verify(priceRefreshService, never()).refresh(any(), any());
-    }
-
-    @Test
-    @DisplayName("거래일이 바뀌면 다시 저장한다")
-    void savesAgainOnNextTradingDay() {
-        PriceCacheScheduler thursday = schedulerAt(AFTER_CLOSE);
-        thursday.pollDuringSession();
-
-        // 같은 인스턴스가 다음 날을 맞는 상황이라 스케줄러를 새로 만들지 않는다.
-        PriceCacheScheduler friday = schedulerAt("2026-08-07T18:00:00");
-        friday.pollDuringSession();
-
-        verify(priceRefreshService).refresh(utcOf(AFTER_CLOSE), null);
-        verify(priceRefreshService).refresh(utcOf("2026-08-07T18:00:00"), null);
-    }
-
-    @Test
-    @DisplayName("저장에 실패하면 다음 틱에 다시 시도한다 — 그날 종가를 잃으면 주말을 못 버틴다")
-    void retriesClosingPriceUntilItSucceeds() {
-        when(priceRefreshService.refresh(any(), any()))
-                .thenThrow(new IllegalStateException("일시 장애"))
-                .thenReturn(new PriceRefreshResult(null, 15, 15, 0));
-
-        PriceCacheScheduler scheduler = schedulerAt(AFTER_CLOSE);
-
-        scheduler.pollDuringSession();   // 실패
-        scheduler.pollDuringSession();   // 성공
-        scheduler.pollDuringSession();   // 성공했으므로 더 부르지 않는다
-
-        verify(priceRefreshService, times(2)).refresh(any(), any());
-    }
-
-    @Test
-    @DisplayName("저장 실패가 예외로 새어 나가지 않는다")
-    void doesNotLeakClosingFailure() {
-        when(priceRefreshService.refresh(any(), any()))
-                .thenThrow(new IllegalStateException("403 access_denied"));
-
-        schedulerAt(AFTER_CLOSE).pollDuringSession();
-    }
-
-    // ------------------------------------------------------------- 재시작 후 중복 방지
-
-    /**
-     * 표시는 메모리에만 있어 재시작하면 사라진다. 유니크 제약이 막아 줄 것으로 봤으나
-     * 2026-08-10 실측에서 뒤집혔다 — 시간외 거래 중에는 시세 갱신 시각이 계속 바뀌어
-     * 90초 간격 두 호출에서 15건 중 9건이 새 행으로 저장됐다.
-     */
-    @Test
-    @DisplayName("재시작해도 오늘 종가가 이미 있으면 다시 저장하지 않는다")
-    void doesNotSaveAgainWhenTodayAlreadyStored() {
-        when(priceRefreshService.hasPricesSince(any())).thenReturn(true);
-
-        schedulerAt(AFTER_CLOSE).pollDuringSession();
-
-        verify(priceRefreshService, never()).refresh(any(), any());
-    }
-
-    @Test
-    @DisplayName("확인 기준은 오늘 마감 시각이다 — 어제 종가를 오늘 것으로 착각하면 안 된다")
-    void checksAgainstTodaysCloseTime() {
-        schedulerAt(AFTER_CLOSE).pollDuringSession();
-
-        // 2026-08-06(목) 15:30 KST = 06:30 UTC
-        verify(priceRefreshService).hasPricesSince(LocalDateTime.of(2026, 8, 6, 6, 30));
-    }
-
-    @Test
-    @DisplayName("이미 있어 건너뛰면 그날은 더 확인하지 않는다")
-    void remembersSkipForTheRestOfTheDay() {
-        when(priceRefreshService.hasPricesSince(any())).thenReturn(true);
-
-        PriceCacheScheduler scheduler = schedulerAt(AFTER_CLOSE);
-
-        scheduler.pollDuringSession();
-        scheduler.pollDuringSession();
-        scheduler.pollDuringSession();
-
-        verify(priceRefreshService, times(1)).hasPricesSince(any());
-    }
-
-    @Test
-    @DisplayName("확인 자체가 실패해도 다음 주기에 다시 시도한다")
-    void retriesWhenTheCheckItselfFails() {
-        when(priceRefreshService.hasPricesSince(any()))
-                .thenThrow(new IllegalStateException("DB 일시 장애"))
-                .thenReturn(false);
-
-        PriceCacheScheduler scheduler = schedulerAt(AFTER_CLOSE);
-
-        scheduler.pollDuringSession();   // 확인에서 실패
-        scheduler.pollDuringSession();   // 확인 통과 후 저장
-
-        verify(priceRefreshService).refresh(utcOf(AFTER_CLOSE), null);
     }
 
     // ------------------------------------------------------------- 실패 로그 양
