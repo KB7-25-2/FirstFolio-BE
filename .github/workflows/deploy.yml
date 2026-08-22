@@ -94,3 +94,17 @@ jobs:
             echo "배포 실패: $STATUS"
             exit 1
           fi
+
+      - name: Notify Slack on deploy success
+        if: success()
+        run: |
+          curl -X POST -H 'Content-Type: application/json' \
+            -d "{\"text\":\"배포 성공: ${GITHUB_SHA::7} by ${GITHUB_ACTOR}\"}" \
+            "${{ secrets.SLACK_WEBHOOK_URL }}"
+
+      - name: Notify Slack on deploy failure
+        if: failure()
+        run: |
+          curl -X POST -H 'Content-Type: application/json' \
+            -d "{\"text\":\"배포 실패: ${GITHUB_SHA::7} by ${GITHUB_ACTOR} (${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\"}" \
+            "${{ secrets.SLACK_WEBHOOK_URL }}"
