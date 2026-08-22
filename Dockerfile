@@ -4,8 +4,9 @@ FROM gradle:8.8-jdk17 AS build
 WORKDIR /src
 
 COPY build.gradle settings.gradle ./
-COPY src ./src
+RUN gradle dependencies --no-daemon || true
 
+COPY src ./src
 RUN gradle war --no-daemon
 
 
