@@ -45,11 +45,11 @@ class GifticonExchangeJdbcTest {
                 List<Attempt> attempts = race(List.of(
                         () -> service.exchange(
                                 fixture.userIds.get(0), "same-request",
-                                new GifticonExchangeRequest(fixture.productId)
+                                new GifticonExchangeRequest(fixture.productId, 5000)
                         ),
                         () -> service.exchange(
                                 fixture.userIds.get(0), "same-request",
-                                new GifticonExchangeRequest(fixture.productId)
+                                new GifticonExchangeRequest(fixture.productId, 5000)
                         )
                 ));
 
@@ -80,11 +80,11 @@ class GifticonExchangeJdbcTest {
                 List<Attempt> attempts = race(List.of(
                         () -> service.exchange(
                                 fixture.userIds.get(0), "user-one",
-                                new GifticonExchangeRequest(fixture.productId)
+                                new GifticonExchangeRequest(fixture.productId, 5000)
                         ),
                         () -> service.exchange(
                                 fixture.userIds.get(1), "user-two",
-                                new GifticonExchangeRequest(fixture.productId)
+                                new GifticonExchangeRequest(fixture.productId, 5000)
                         )
                 ));
 

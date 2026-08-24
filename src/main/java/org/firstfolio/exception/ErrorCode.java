@@ -118,6 +118,7 @@ public enum ErrorCode {
     GIFTICON_CRYPTO_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "기프티콘 코드 보호 설정을 사용할 수 없습니다."),
     INSUFFICIENT_POINTS(HttpStatus.UNPROCESSABLE_ENTITY, "기프티콘 교환에 필요한 포인트가 부족합니다."),
     GIFTICON_SOLD_OUT(HttpStatus.CONFLICT, "교환 가능한 기프티콘 재고가 없습니다."),
+    GIFTICON_PRICE_CHANGED(HttpStatus.CONFLICT, "기프티콘 교환 포인트가 변경되었습니다."),
     GIFTICON_ORDER_NOT_FOUND(HttpStatus.NOT_FOUND, "내 기프티콘을 찾을 수 없습니다."),
     GIFTICON_NOT_ON_SALE(HttpStatus.CONFLICT, "현재 판매 중인 기프티콘 상품이 아닙니다."),
     INVALID_GIFTICON_ORDER_CURSOR(HttpStatus.BAD_REQUEST, "내 기프티콘 페이지 조건이 올바르지 않습니다."),

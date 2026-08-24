@@ -8,6 +8,7 @@ public record GifticonProductPatchRequest(
         String brandName,
         String category,
         Integer faceValueKrw,
+        Integer requiredPoints,
         String imageUrl,
         String status
 ) { }

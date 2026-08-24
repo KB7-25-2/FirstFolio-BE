@@ -117,9 +117,30 @@ class DatabaseSchemaDefinitionTest {
                         + "UNIQUE (user_id, idempotency_key)"
         ));
         assertTrue(schema.contains("CREATE TABLE gifticon_code_access_logs"));
+        assertTrue(schema.contains(
+                "CONSTRAINT chk_gifticon_products_points CHECK (required_points > 0)"
+        ));
+        assertTrue(!schema.contains(
+                "required_points > 0 AND required_points = face_value_krw"
+        ));
         assertTrue(!schema.contains("stock_quantity INT NOT NULL DEFAULT 0"));
         assertTrue(!schema.contains("delivery_info VARCHAR(255)"));
         assertTrue(!schema.contains("provider_reference VARCHAR(255)"));
+    }
+
+    @Test
+    void independentGifticonPointPriceIsTrackedByFlywayV9() throws IOException {
+        String migration = normalize(Files.readString(Path.of(
+                "src/main/resources/db/migration/V9__separate_gifticon_point_price.sql"
+        )));
+
+        assertTrue(migration.contains("DROP CHECK chk_gifticon_products_points"));
+        assertTrue(migration.contains(
+                "ADD CONSTRAINT chk_gifticon_products_points CHECK (required_points > 0)"
+        ));
+        assertTrue(migration.contains(
+                "COMMENT '교환에 필요한 포인트. 원화 액면가와 독립적으로 관리'"
+        ));
     }
 
     @Test

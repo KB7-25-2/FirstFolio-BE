@@ -99,7 +99,7 @@ public class GifticonController {
     @PostMapping("/gifticon-orders")
     @Operation(
             summary = "포인트로 기프티콘 교환",
-            description = "포인트 차감, 코드 선점, 원장과 주문 생성을 한 트랜잭션으로 처리합니다.",
+            description = "조회한 필요 포인트가 현재 가격과 같은지 확인한 뒤 포인트 차감, 코드 선점, 원장과 주문 생성을 한 트랜잭션으로 처리합니다.",
             responses = @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "201",
                     content = @io.swagger.v3.oas.annotations.media.Content(
