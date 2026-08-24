@@ -246,6 +246,11 @@ class AuthServiceTest {
         public String findOnboardingStep(long userId) {
             return onboardingStep;
         }
+
+        @Override
+        public java.util.List<String> findEmailsForNewsletterDispatch() {
+            return java.util.List.of();
+        }
     }
 
     private static final class FakeUserConsentMapper
