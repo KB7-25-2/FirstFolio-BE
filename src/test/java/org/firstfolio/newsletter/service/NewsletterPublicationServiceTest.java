@@ -7,14 +7,19 @@ import org.firstfolio.newsletter.domain.Newsletter;
 import org.firstfolio.newsletter.domain.NewsletterGenerationType;
 import org.firstfolio.newsletter.domain.NewsletterStatus;
 import org.firstfolio.newsletter.mapper.NewsletterMapper;
+import org.firstfolio.newsletter.messaging.NewsletterDispatchMessage;
+import org.firstfolio.newsletter.messaging.NewsletterDispatchPublisher;
+import org.firstfolio.user.mapper.UserMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -35,15 +40,21 @@ class NewsletterPublicationServiceTest {
 
     private NewsletterMapper newsletterMapper;
     private AdminAuditLogMapper auditLogMapper;
+    private UserMapper userMapper;
+    private NewsletterDispatchPublisher dispatchPublisher;
     private NewsletterPublicationService service;
 
     @BeforeEach
     void setUp() {
         newsletterMapper = mock(NewsletterMapper.class);
         auditLogMapper = mock(AdminAuditLogMapper.class);
+        userMapper = mock(UserMapper.class);
+        dispatchPublisher = mock(NewsletterDispatchPublisher.class);
         service = new NewsletterPublicationService(
                 newsletterMapper,
                 auditLogMapper,
+                userMapper,
+                dispatchPublisher,
                 Clock.fixed(Instant.parse("2026-08-20T06:00:00Z"), ZoneOffset.UTC)
         );
 
@@ -58,6 +69,7 @@ class NewsletterPublicationServiceTest {
         Newsletter target = reviewNewsletter(1L);
         when(newsletterMapper.findByIdForUpdate(1L)).thenReturn(target);
         when(newsletterMapper.publishReview(1L, NOW)).thenReturn(1);
+        when(userMapper.findEmailsForNewsletterDispatch()).thenReturn(List.of("a@x.com", "b@y.com"));
 
         Newsletter published = service.publish(1L, ACTOR_ID, REQUEST_ID);
 
@@ -67,6 +79,25 @@ class NewsletterPublicationServiceTest {
                 eq(ACTOR_ID), eq("PUBLISH"), eq("NEWSLETTER"), eq(1L),
                 anyString(), anyString(), eq(REQUEST_ID), eq(NOW)
         );
+    }
+
+    @Test
+    void dispatchesToCurrentSubscribersOnPublish() {
+        Newsletter target = reviewNewsletter(1L);
+        when(newsletterMapper.findByIdForUpdate(1L)).thenReturn(target);
+        when(newsletterMapper.publishReview(1L, NOW)).thenReturn(1);
+        when(userMapper.findEmailsForNewsletterDispatch()).thenReturn(List.of("a@x.com", "b@y.com"));
+
+        service.publish(1L, ACTOR_ID, REQUEST_ID);
+
+        ArgumentCaptor<NewsletterDispatchMessage> captor =
+                ArgumentCaptor.forClass(NewsletterDispatchMessage.class);
+        verify(dispatchPublisher).publish(captor.capture());
+
+        NewsletterDispatchMessage message = captor.getValue();
+        assertEquals(1L, message.newsletterId());
+        assertEquals("대제목", message.headline());
+        assertEquals(List.of("a@x.com", "b@y.com"), message.recipients());
     }
 
     @Test
