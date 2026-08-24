@@ -40,6 +40,7 @@ import static org.mockito.Mockito.when;
 class GifticonExchangeServiceTest {
 
     private static final LocalDateTime NOW = LocalDateTime.of(2026, 8, 18, 7, 30);
+    private static final int REQUIRED_POINTS = 6000;
 
     private GifticonExchangeMapper exchangeMapper;
     private GifticonProductMapper productMapper;
@@ -62,27 +63,27 @@ class GifticonExchangeServiceTest {
         prepareSuccessfulExchange();
 
         GifticonExchangeResponse response = service.exchange(
-                101L, "exchange-101-1", new GifticonExchangeRequest(11L)
+                101L, "exchange-101-1", new GifticonExchangeRequest(11L, REQUIRED_POINTS)
         );
 
         assertEquals(501L, response.gifticonOrderId());
-        assertEquals(5000, response.spentPoints());
-        assertEquals(2200, response.pointBalance());
+        assertEquals(REQUIRED_POINTS, response.spentPoints());
+        assertEquals(1200, response.pointBalance());
         assertFalse(response.idempotentReplay());
         verify(exchangeMapper).findPointBalanceForUpdate(101L);
         verify(productMapper).findById(11L);
         verify(exchangeMapper).lockNextAvailableCode(11L, NOW);
         verify(exchangeMapper).assignCode(301L);
-        verify(exchangeMapper).decreasePointBalance(101L, 5000, NOW);
+        verify(exchangeMapper).decreasePointBalance(101L, REQUIRED_POINTS, NOW);
 
         ArgumentCaptor<PointTransaction> transactionCaptor =
                 ArgumentCaptor.forClass(PointTransaction.class);
         verify(exchangeMapper).insertPointTransaction(transactionCaptor.capture());
         PointTransaction transaction = transactionCaptor.getValue();
         assertEquals("USE", transaction.getTransactionType());
-        assertEquals(-5000, transaction.getAmount());
+        assertEquals(-REQUIRED_POINTS, transaction.getAmount());
         assertEquals("GIFTICON", transaction.getReasonType());
-        assertEquals(2200, transaction.getBalanceAfter());
+        assertEquals(1200, transaction.getBalanceAfter());
         assertTrue(transaction.getIdempotencyKey().startsWith("gifticon:"));
         assertTrue(transaction.getIdempotencyKey().length() <= 120);
 
@@ -99,32 +100,32 @@ class GifticonExchangeServiceTest {
 
     @Test
     void returnsExistingOrderWithoutSecondPointOrCodeMutation() throws Exception {
-        GifticonOrderView existing = existingOrder(fingerprint(11L));
-        when(exchangeMapper.findPointBalanceForUpdate(101L)).thenReturn(2200);
+        GifticonOrderView existing = existingOrder(fingerprint(11L, REQUIRED_POINTS));
+        when(exchangeMapper.findPointBalanceForUpdate(101L)).thenReturn(1200);
         when(exchangeMapper.findByUserAndIdempotency(101L, "exchange-101-1"))
                 .thenReturn(existing);
 
         GifticonExchangeResponse response = service.exchange(
-                101L, "exchange-101-1", new GifticonExchangeRequest(11L)
+                101L, "exchange-101-1", new GifticonExchangeRequest(11L, REQUIRED_POINTS)
         );
 
         assertTrue(response.idempotentReplay());
         assertEquals(501L, response.gifticonOrderId());
-        assertEquals(2200, response.pointBalance());
+        assertEquals(1200, response.pointBalance());
         verify(productMapper, never()).findById(11L);
         verify(exchangeMapper, never()).lockNextAvailableCode(anyLong(), any());
-        verify(exchangeMapper, never()).decreasePointBalance(eq(101L), eq(5000), any());
+        verify(exchangeMapper, never()).decreasePointBalance(eq(101L), eq(REQUIRED_POINTS), any());
     }
 
     @Test
     void rejectsSameIdempotencyKeyForDifferentProduct() {
         GifticonOrderView existing = existingOrder(new byte[32]);
-        when(exchangeMapper.findPointBalanceForUpdate(101L)).thenReturn(2200);
+        when(exchangeMapper.findPointBalanceForUpdate(101L)).thenReturn(1200);
         when(exchangeMapper.findByUserAndIdempotency(101L, "same-key"))
                 .thenReturn(existing);
 
         ApiException exception = assertThrows(ApiException.class, () -> service.exchange(
-                101L, "same-key", new GifticonExchangeRequest(12L)
+                101L, "same-key", new GifticonExchangeRequest(12L, REQUIRED_POINTS)
         ));
 
         assertEquals(ErrorCode.IDEMPOTENCY_CONFLICT, exception.getErrorCode());
@@ -133,11 +134,11 @@ class GifticonExchangeServiceTest {
 
     @Test
     void rejectsInsufficientPointsBeforeLockingCode() {
-        when(exchangeMapper.findPointBalanceForUpdate(101L)).thenReturn(4999);
+        when(exchangeMapper.findPointBalanceForUpdate(101L)).thenReturn(REQUIRED_POINTS - 1);
         when(productMapper.findById(11L)).thenReturn(product());
 
         ApiException exception = assertThrows(ApiException.class, () -> service.exchange(
-                101L, "poor-user", new GifticonExchangeRequest(11L)
+                101L, "poor-user", new GifticonExchangeRequest(11L, REQUIRED_POINTS)
         ));
 
         assertEquals(ErrorCode.INSUFFICIENT_POINTS, exception.getErrorCode());
@@ -152,7 +153,7 @@ class GifticonExchangeServiceTest {
         when(productMapper.findById(11L)).thenReturn(stopped);
 
         ApiException exception = assertThrows(ApiException.class, () -> service.exchange(
-                101L, "stopped", new GifticonExchangeRequest(11L)
+                101L, "stopped", new GifticonExchangeRequest(11L, REQUIRED_POINTS)
         ));
 
         assertEquals(ErrorCode.GIFTICON_NOT_ON_SALE, exception.getErrorCode());
@@ -164,12 +165,26 @@ class GifticonExchangeServiceTest {
         when(productMapper.findById(11L)).thenReturn(product());
 
         ApiException exception = assertThrows(ApiException.class, () -> service.exchange(
-                101L, "sold-out", new GifticonExchangeRequest(11L)
+                101L, "sold-out", new GifticonExchangeRequest(11L, REQUIRED_POINTS)
         ));
 
         assertEquals(ErrorCode.GIFTICON_SOLD_OUT, exception.getErrorCode());
         verify(exchangeMapper).lockNextAvailableCode(11L, NOW);
         verify(exchangeMapper).lockNextAvailableCodeWaiting(11L, NOW);
+        verify(exchangeMapper, never()).decreasePointBalance(eq(101L), anyInt(), any());
+    }
+
+    @Test
+    void rejectsChangedPriceBeforeLockingCodeOrDeductingPoints() {
+        when(exchangeMapper.findPointBalanceForUpdate(101L)).thenReturn(7200);
+        when(productMapper.findById(11L)).thenReturn(product());
+
+        ApiException exception = assertThrows(ApiException.class, () -> service.exchange(
+                101L, "changed-price", new GifticonExchangeRequest(11L, 5000)
+        ));
+
+        assertEquals(ErrorCode.GIFTICON_PRICE_CHANGED, exception.getErrorCode());
+        verify(exchangeMapper, never()).lockNextAvailableCode(anyLong(), any());
         verify(exchangeMapper, never()).decreasePointBalance(eq(101L), anyInt(), any());
     }
 
@@ -184,7 +199,7 @@ class GifticonExchangeServiceTest {
         code.setStatus("AVAILABLE");
         when(exchangeMapper.lockNextAvailableCode(11L, NOW)).thenReturn(code);
         when(exchangeMapper.assignCode(301L)).thenReturn(1);
-        when(exchangeMapper.decreasePointBalance(101L, 5000, NOW)).thenReturn(1);
+        when(exchangeMapper.decreasePointBalance(101L, REQUIRED_POINTS, NOW)).thenReturn(1);
         when(snapshotCodec.encode(any())).thenReturn("{\"gifticon_product_id\":11}");
         doAnswer(invocation -> {
             invocation.<PointTransaction>getArgument(0).setPointTransactionId(401L);
@@ -204,7 +219,7 @@ class GifticonExchangeServiceTest {
         product.setBrandName("스타카페");
         product.setCategory("CAFE");
         product.setFaceValueKrw(5000);
-        product.setRequiredPoints(5000);
+        product.setRequiredPoints(REQUIRED_POINTS);
         product.setStatus("ON_SALE");
         return product;
     }
@@ -213,16 +228,18 @@ class GifticonExchangeServiceTest {
         GifticonOrderView order = new GifticonOrderView();
         order.setGifticonOrderId(501L);
         order.setGifticonProductId(11L);
-        order.setSpentPoints(5000);
-        order.setBalanceAfter(2200);
+        order.setSpentPoints(REQUIRED_POINTS);
+        order.setBalanceAfter(1200);
         order.setCompletedAt(NOW);
         order.setRequestFingerprint(requestFingerprint);
         return order;
     }
 
-    private byte[] fingerprint(long productId) throws Exception {
+    private byte[] fingerprint(long productId, int expectedRequiredPoints) throws Exception {
         return MessageDigest.getInstance("SHA-256").digest(
-                ("gifticon_product_id:" + productId).getBytes(StandardCharsets.UTF_8)
+                ("gifticon_product_id:" + productId
+                        + ";expected_required_points:" + expectedRequiredPoints)
+                        .getBytes(StandardCharsets.UTF_8)
         );
     }
 }

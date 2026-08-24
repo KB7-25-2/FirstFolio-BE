@@ -754,21 +754,19 @@ CREATE TABLE gifticon_products (
     brand_name VARCHAR(100) NOT NULL COMMENT '사용자에게 표시할 브랜드명',
     category VARCHAR(50) NOT NULL COMMENT '카페, 편의점 등',
     face_value_krw INT NOT NULL COMMENT '기프티콘 원화 액면가',
-    required_points INT NOT NULL COMMENT '정가 교환에 필요한 포인트. face_value_krw와 동일',
+    required_points INT NOT NULL COMMENT '교환에 필요한 포인트. 원화 액면가와 독립적으로 관리',
     status VARCHAR(20) NOT NULL COMMENT 'ON_SALE, STOPPED. 품절은 가용 코드 존재 여부로 계산',
     image_url VARCHAR(1000) NULL COMMENT '상품 이미지',
     created_at DATETIME NOT NULL COMMENT '등록 일시',
     updated_at DATETIME NOT NULL COMMENT '수정 일시',
     CONSTRAINT pk_gifticon_products PRIMARY KEY (gifticon_product_id),
     CONSTRAINT chk_gifticon_products_face_value CHECK (face_value_krw > 0),
-    CONSTRAINT chk_gifticon_products_points CHECK (
-        required_points > 0 AND required_points = face_value_krw
-        ),
+    CONSTRAINT chk_gifticon_products_points CHECK (required_points > 0),
     CONSTRAINT chk_gifticon_products_status CHECK (
         status IN ('ON_SALE', 'STOPPED')
         ),
     INDEX idx_gifticon_products_market (status, category, required_points)
-) ENGINE = InnoDB COMMENT = '포인트로 정가 교환하는 기프티콘 상품';
+) ENGINE = InnoDB COMMENT = '상품별 독립 포인트 가격으로 교환하는 기프티콘 상품';
 
 CREATE TABLE gifticon_codes (
     gifticon_code_id BIGINT NOT NULL AUTO_INCREMENT COMMENT '선구매한 개별 기프티콘 코드 식별자',

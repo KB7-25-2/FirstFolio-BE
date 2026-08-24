@@ -73,7 +73,7 @@ class GifticonControllerTest {
                 new GifticonProductPageResponse(7200, List.of(
                         new GifticonProductListItemResponse(
                                 11L, "아메리카노 교환권", "스타카페", "CAFE",
-                                5000, 5000, "AVAILABLE", true, "https://image"
+                                5000, 6000, "AVAILABLE", true, "https://image"
                         )
                 ), null)
         );
@@ -83,6 +83,8 @@ class GifticonControllerTest {
                         .param("category", "CAFE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.point_balance").value(7200))
+                .andExpect(jsonPath("$.data.items[0].face_value_krw").value(5000))
+                .andExpect(jsonPath("$.data.items[0].required_points").value(6000))
                 .andExpect(jsonPath("$.data.items[0].stock_status").value("AVAILABLE"))
                 .andExpect(jsonPath("$.data.items[0].can_exchange").value(true))
                 .andExpect(jsonPath("$.data.items[0].available_quantity").doesNotExist())
@@ -92,10 +94,10 @@ class GifticonControllerTest {
     @Test
     void firstExchangeIsCreatedAndReplayIsOk() throws Exception {
         GifticonExchangeResponse created = new GifticonExchangeResponse(
-                501L, 11L, 5000, 2200, COMPLETED_AT, false
+                501L, 11L, 6000, 1200, COMPLETED_AT, false
         );
         GifticonExchangeResponse replay = new GifticonExchangeResponse(
-                501L, 11L, 5000, 2200, COMPLETED_AT, true
+                501L, 11L, 6000, 1200, COMPLETED_AT, true
         );
         when(exchangeService.exchange(eq(101L), eq("exchange-1"), any()))
                 .thenReturn(created, replay);
@@ -104,12 +106,13 @@ class GifticonControllerTest {
                 .requestAttr(AuthenticationRequestAttributes.CURRENT_USER, USER)
                 .header("Idempotency-Key", "exchange-1")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"gifticon_product_id\":11}");
+                .content("{\"gifticon_product_id\":11,\"expected_required_points\":6000}");
 
         mockMvc.perform(request)
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.gifticon_order_id").value(501))
-                .andExpect(jsonPath("$.data.point_balance").value(2200))
+                .andExpect(jsonPath("$.data.spent_points").value(6000))
+                .andExpect(jsonPath("$.data.point_balance").value(1200))
                 .andExpect(jsonPath("$.data.idempotent_replay").value(false))
                 .andExpect(jsonPath("$.data.code").doesNotExist());
 

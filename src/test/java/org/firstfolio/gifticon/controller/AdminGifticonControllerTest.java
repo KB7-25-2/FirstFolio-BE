@@ -65,7 +65,7 @@ class AdminGifticonControllerTest {
     void createsProductFromSnakeCaseBody() throws Exception {
         when(productService.create(any(), eq(900L), anyString())).thenReturn(
                 new AdminGifticonProductResponse(
-                        11L, "아메리카노", "카페", "CAFE", 4500, 4500,
+                        11L, "아메리카노", "카페", "CAFE", 4500, 7000,
                         "STOPPED", "SOLD_OUT", 0, 0, 0, null,
                         LocalDateTime.of(2026, 8, 18, 1, 0),
                         LocalDateTime.of(2026, 8, 18, 1, 0)
@@ -80,12 +80,13 @@ class AdminGifticonControllerTest {
                                   "name": "아메리카노",
                                   "brand_name": "카페",
                                   "category": "CAFE",
-                                  "face_value_krw": 4500
+                                  "face_value_krw": 4500,
+                                  "required_points": 7000
                                 }
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.gifticon_product_id").value(11))
-                .andExpect(jsonPath("$.data.required_points").value(4500))
+                .andExpect(jsonPath("$.data.required_points").value(7000))
                 .andExpect(jsonPath("$.data.stock_status").value("SOLD_OUT"));
     }
 
