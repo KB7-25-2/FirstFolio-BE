@@ -73,7 +73,7 @@ public class AdminGifticonController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(
             summary = "기프티콘 상품 생성",
-            description = "필요 포인트는 액면가와 같은 값으로 서버가 저장합니다.",
+            description = "원화 액면가와 교환에 필요한 포인트를 각각 입력해 저장합니다.",
             responses = @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "201",
                     content = @io.swagger.v3.oas.annotations.media.Content(
@@ -96,6 +96,7 @@ public class AdminGifticonController {
     @PatchMapping("/gifticons/{gifticon_product_id}")
     @Operation(
             summary = "기프티콘 상품 수정",
+            description = "원화 액면가와 교환에 필요한 포인트를 서로 독립적으로 수정합니다.",
             responses = @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "200",
                     content = @io.swagger.v3.oas.annotations.media.Content(

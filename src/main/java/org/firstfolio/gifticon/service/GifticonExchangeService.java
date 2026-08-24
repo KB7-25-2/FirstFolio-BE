@@ -50,8 +50,9 @@ public class GifticonExchangeService {
             GifticonExchangeRequest request
     ) {
         long productId = requireProductId(request);
+        int expectedRequiredPoints = requireExpectedRequiredPoints(request);
         String key = requireIdempotencyKey(idempotencyKey);
-        byte[] requestFingerprint = requestFingerprint(productId);
+        byte[] requestFingerprint = requestFingerprint(productId, expectedRequiredPoints);
         LocalDateTime now = LocalDateTime.now(clock);
 
         Integer balance = exchangeMapper.findPointBalanceForUpdate(userId);
@@ -70,9 +71,11 @@ public class GifticonExchangeService {
         if (!GifticonProductAdminService.ON_SALE.equals(product.getStatus())) {
             throw new ApiException(ErrorCode.GIFTICON_NOT_ON_SALE);
         }
-        if (product.getRequiredPoints() <= 0
-                || product.getRequiredPoints() != product.getFaceValueKrw()) {
+        if (product.getRequiredPoints() <= 0 || product.getFaceValueKrw() <= 0) {
             throw internal(null);
+        }
+        if (product.getRequiredPoints() != expectedRequiredPoints) {
+            throw new ApiException(ErrorCode.GIFTICON_PRICE_CHANGED);
         }
         if (balance < product.getRequiredPoints()) {
             throw new ApiException(ErrorCode.INSUFFICIENT_POINTS);
@@ -189,8 +192,20 @@ public class GifticonExchangeService {
         return value;
     }
 
-    private static byte[] requestFingerprint(long productId) {
-        return sha256("gifticon_product_id:" + productId);
+    private static int requireExpectedRequiredPoints(GifticonExchangeRequest request) {
+        if (request == null
+                || request.expectedRequiredPoints() == null
+                || request.expectedRequiredPoints() <= 0) {
+            throw new ApiException(ErrorCode.INVALID_REQUEST, "expected_required_points는 1 이상이어야 합니다.");
+        }
+        return request.expectedRequiredPoints();
+    }
+
+    private static byte[] requestFingerprint(long productId, int expectedRequiredPoints) {
+        return sha256(
+                "gifticon_product_id:" + productId
+                        + ";expected_required_points:" + expectedRequiredPoints
+        );
     }
 
     private static String pointIdempotencyKey(long userId, String orderIdempotencyKey) {

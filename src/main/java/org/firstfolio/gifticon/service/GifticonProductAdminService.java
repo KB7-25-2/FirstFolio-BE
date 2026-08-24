@@ -77,7 +77,7 @@ public class GifticonProductAdminService {
         product.setCategory(requiredText(request.category(), "category", 50));
         int faceValue = positiveFaceValue(request.faceValueKrw());
         product.setFaceValueKrw(faceValue);
-        product.setRequiredPoints(faceValue);
+        product.setRequiredPoints(positiveRequiredPoints(request.requiredPoints()));
         product.setStatus(request.status() == null ? STOPPED : requireStatus(request.status()));
         product.setImageUrl(optionalText(request.imageUrl(), "image_url", 1000));
         product.setCreatedAt(now);
@@ -106,9 +106,10 @@ public class GifticonProductAdminService {
         if (request.brandName() != null) product.setBrandName(requiredText(request.brandName(), "brand_name", 100));
         if (request.category() != null) product.setCategory(requiredText(request.category(), "category", 50));
         if (request.faceValueKrw() != null) {
-            int faceValue = positiveFaceValue(request.faceValueKrw());
-            product.setFaceValueKrw(faceValue);
-            product.setRequiredPoints(faceValue);
+            product.setFaceValueKrw(positiveFaceValue(request.faceValueKrw()));
+        }
+        if (request.requiredPoints() != null) {
+            product.setRequiredPoints(positiveRequiredPoints(request.requiredPoints()));
         }
         if (request.status() != null) product.setStatus(requireStatus(request.status()));
         if (request.imageUrl() != null) product.setImageUrl(optionalText(request.imageUrl(), "image_url", 1000));
@@ -147,11 +148,17 @@ public class GifticonProductAdminService {
 
     private static boolean allFieldsMissing(GifticonProductPatchRequest request) {
         return request.name() == null && request.brandName() == null && request.category() == null
-                && request.faceValueKrw() == null && request.imageUrl() == null && request.status() == null;
+                && request.faceValueKrw() == null && request.requiredPoints() == null
+                && request.imageUrl() == null && request.status() == null;
     }
 
     private static int positiveFaceValue(Integer value) {
         if (value == null || value <= 0) throw invalid("face_value_krw는 1 이상이어야 합니다.");
+        return value;
+    }
+
+    private static int positiveRequiredPoints(Integer value) {
+        if (value == null || value <= 0) throw invalid("required_points는 1 이상이어야 합니다.");
         return value;
     }
 
