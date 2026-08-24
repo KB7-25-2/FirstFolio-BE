@@ -109,6 +109,14 @@
         WHERE user_id = #{userId}
     </update>
 
+    <select id="findEmailsForNewsletterDispatch" resultType="string">
+        SELECT email
+        FROM users
+        WHERE newsletter_opt_in = TRUE
+          AND status = 'ACTIVE'
+          AND email IS NOT NULL
+    </select>
+
     <select id="findOnboardingStep" resultType="string">
         SELECT CASE
             WHEN EXISTS (

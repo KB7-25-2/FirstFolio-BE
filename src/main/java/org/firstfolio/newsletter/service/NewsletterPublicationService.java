@@ -8,7 +8,11 @@ import org.firstfolio.exception.ApiException;
 import org.firstfolio.exception.ErrorCode;
 import org.firstfolio.newsletter.domain.Newsletter;
 import org.firstfolio.newsletter.domain.NewsletterStatus;
+import org.firstfolio.newsletter.dto.response.NewsletterDetailResponse;
 import org.firstfolio.newsletter.mapper.NewsletterMapper;
+import org.firstfolio.newsletter.messaging.NewsletterDispatchMessage;
+import org.firstfolio.newsletter.messaging.NewsletterDispatchPublisher;
+import org.firstfolio.user.mapper.UserMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,16 +28,22 @@ public class NewsletterPublicationService {
 
     private final NewsletterMapper newsletterMapper;
     private final AdminAuditLogMapper auditLogMapper;
+    private final UserMapper userMapper;
+    private final NewsletterDispatchPublisher dispatchPublisher;
     private final Clock clock;
     private final ObjectMapper objectMapper = ApiObjectMapperFactory.create();
 
     public NewsletterPublicationService(
             NewsletterMapper newsletterMapper,
             AdminAuditLogMapper auditLogMapper,
+            UserMapper userMapper,
+            NewsletterDispatchPublisher dispatchPublisher,
             Clock clock
     ) {
         this.newsletterMapper = newsletterMapper;
         this.auditLogMapper = auditLogMapper;
+        this.userMapper = userMapper;
+        this.dispatchPublisher = dispatchPublisher;
         this.clock = clock;
     }
 
@@ -54,7 +64,20 @@ public class NewsletterPublicationService {
         }
         target.publish(now);
         insertAuditLog(actorUserId, "PUBLISH", target, before, requestId, now);
+        dispatchToSubscribers(target);
         return target;
+    }
+
+    private void dispatchToSubscribers(Newsletter newsletter) {
+        NewsletterDetailResponse detail = NewsletterDetailResponse.from(newsletter, objectMapper);
+        dispatchPublisher.publish(new NewsletterDispatchMessage(
+                newsletter.getNewsletterId(),
+                newsletter.getHeadline(),
+                detail.financialWordsJson(),
+                detail.issuesJson(),
+                detail.statsJson(),
+                userMapper.findEmailsForNewsletterDispatch()
+        ));
     }
 
     @Transactional

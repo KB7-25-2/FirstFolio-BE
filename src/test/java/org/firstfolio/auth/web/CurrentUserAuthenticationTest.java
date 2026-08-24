@@ -176,5 +176,10 @@ class CurrentUserAuthenticationTest {
         public String findOnboardingStep(long userId) {
             return "HOME";
         }
+
+        @Override
+        public java.util.List<String> findEmailsForNewsletterDispatch() {
+            return java.util.List.of();
+        }
     }
 }

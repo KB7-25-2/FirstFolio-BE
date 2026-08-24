@@ -24,6 +24,7 @@ ext {
     junitVersion = '5.10.2'
     log4jVersion = '2.26.1'
     micrometerVersion = '1.14.14'
+    springAmqpVersion = '2.4.17'
     springdocVersion = '1.8.0'
     springVersion = '5.3.37'
     mockitoVersion = '5.12.0'
@@ -56,6 +57,9 @@ dependencies {
     // Application metrics / Prometheus exposition (Spring Boot Actuator 미사용)
     implementation platform("io.micrometer:micrometer-bom:${micrometerVersion}")
     implementation 'io.micrometer:micrometer-registry-prometheus'
+
+    // 뉴스레터 발송 큐 (RabbitMQ). Spring AMQP 2.4.x가 Spring Framework 5.3과 호환되는 마지막 라인.
+    implementation "org.springframework.amqp:spring-rabbit:${springAmqpVersion}"
 
     // Jackson - JSON 처리
     implementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"

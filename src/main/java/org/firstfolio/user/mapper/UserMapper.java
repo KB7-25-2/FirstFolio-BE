@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.Param;
 import org.firstfolio.user.domain.User;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Mapper
 public interface UserMapper {
@@ -39,4 +40,6 @@ public interface UserMapper {
     );
 
     String findOnboardingStep(@Param("userId") long userId);
+
+    List<String> findEmailsForNewsletterDispatch();
 }
